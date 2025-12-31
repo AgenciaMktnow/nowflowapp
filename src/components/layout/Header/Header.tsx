@@ -21,9 +21,7 @@ export default function Header({
     return (
         <header className={`flex items-center justify-between border-b border-white/5 px-8 py-4 bg-background-dark/95 backdrop-blur z-20 h-[72px] sticky top-0 ${className}`}>
             <div className="flex items-center gap-4 text-white">
-                <button className="md:hidden p-2 text-white hover:bg-white/10 rounded-lg transition-colors">
-                    <span className="material-symbols-outlined">menu</span>
-                </button>
+                {/* Header Title */}
                 <h2 className="text-xl font-bold tracking-tight">{title}</h2>
             </div>
 

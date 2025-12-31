@@ -286,8 +286,8 @@ export default function TeamManagement() {
                 {/* Users Table */}
                 <div className="flex-1 flex flex-col bg-surface-dark rounded-xl border border-[#23482f] overflow-hidden shadow-xl">
                     {/* Search and Filters */}
-                    <div className="flex flex-col md:flex-row gap-4 p-4 border-b border-[#23482f] bg-[#14261d]">
-                        <label className="flex-1 min-w-[240px]">
+                    <div className="flex flex-col md:flex-row gap-4 p-6 border-b border-[#23482f] bg-[#14261d]">
+                        <label className="flex-1 w-full">
                             <div className="relative group">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                     <span className="material-symbols-outlined text-[#92c9a4] group-focus-within:text-primary transition-colors">search</span>
@@ -301,31 +301,31 @@ export default function TeamManagement() {
                                 />
                             </div>
                         </label>
-                        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-                            <div className="relative">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                            <div className="relative flex-1 sm:flex-none">
                                 <select
                                     value={roleFilter}
                                     onChange={(e) => setRoleFilter(e.target.value)}
-                                    className="appearance-none flex items-center gap-2 px-3 py-2 pr-8 rounded-lg bg-[#23482f] hover:bg-[#2c5a3b] border border-transparent hover:border-primary/30 transition-all text-white text-xs font-medium cursor-pointer focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                                    className="w-full appearance-none flex items-center gap-2 px-3 py-2.5 pr-8 rounded-lg bg-[#23482f] hover:bg-[#2c5a3b] border border-transparent hover:border-primary/30 transition-all text-white text-sm font-medium cursor-pointer focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                                 >
                                     <option value="all">Função: Todos</option>
                                     <option value="admin">Função: Administrador</option>
                                     <option value="manager">Função: Gestor</option>
                                     <option value="operational">Função: Operacional</option>
                                 </select>
-                                <span className="material-symbols-outlined text-sm text-[#92c9a4] absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">expand_more</span>
+                                <span className="material-symbols-outlined text-sm text-[#92c9a4] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">expand_more</span>
                             </div>
-                            <div className="relative">
+                            <div className="relative flex-1 sm:flex-none">
                                 <select
                                     value={statusFilter}
                                     onChange={(e) => setStatusFilter(e.target.value)}
-                                    className="appearance-none flex items-center gap-2 px-3 py-2 pr-8 rounded-lg bg-[#23482f] hover:bg-[#2c5a3b] border border-transparent hover:border-primary/30 transition-all text-white text-xs font-medium cursor-pointer focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                                    className="w-full appearance-none flex items-center gap-2 px-3 py-2.5 pr-8 rounded-lg bg-[#23482f] hover:bg-[#2c5a3b] border border-transparent hover:border-primary/30 transition-all text-white text-sm font-medium cursor-pointer focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                                 >
                                     <option value="all">Status: Todos</option>
                                     <option value="active">Status: Ativo</option>
                                     <option value="inactive">Status: Inativo</option>
                                 </select>
-                                <span className="material-symbols-outlined text-sm text-[#92c9a4] absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">expand_more</span>
+                                <span className="material-symbols-outlined text-sm text-[#92c9a4] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">expand_more</span>
                             </div>
                         </div>
                     </div>
