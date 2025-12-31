@@ -513,11 +513,11 @@ export default function Projects() {
 
             {/* Kanban Board */}
             <DragDropContext onDragEnd={onDragEnd}>
-                <div className="flex-1 overflow-x-auto overflow-y-hidden p-6">
+                <div className="flex-1 overflow-x-auto overflow-y-hidden p-2 md:p-6">
                     <Droppable droppableId="all-columns" direction="horizontal" type="COLUMN">
                         {(provided) => (
                             <div
-                                className="inline-flex h-full items-start gap-5 pb-2"
+                                className="inline-flex h-full items-start gap-5 pb-2 snap-x snap-mandatory px-4 md:px-0"
                                 ref={provided.innerRef}
                                 {...provided.droppableProps}
                             >
@@ -549,7 +549,7 @@ export default function Projects() {
                                                 <div
                                                     ref={provided.innerRef}
                                                     {...provided.draggableProps}
-                                                    className="w-[300px] flex-shrink-0 flex flex-col max-h-full bg-surface-dark rounded-xl border border-border-dark"
+                                                    className="w-[85vw] md:w-[300px] flex-shrink-0 flex flex-col max-h-full bg-surface-dark rounded-xl border border-border-dark snap-center"
                                                 >
                                                     {/* Column Header */}
                                                     <div

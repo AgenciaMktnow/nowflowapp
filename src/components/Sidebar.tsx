@@ -1,7 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSettings } from '../contexts/SettingsContext';
 
-export default function Sidebar() {
+export default function Sidebar({ onMobileClose }: { onMobileClose?: () => void }) {
     const navigate = useNavigate();
     const location = useLocation();
     const { settings } = useSettings();
@@ -35,7 +35,10 @@ export default function Sidebar() {
                     {menuItems.map((item) => (
                         <button
                             key={item.path}
-                            onClick={() => navigate(item.path)}
+                            onClick={() => {
+                                navigate(item.path);
+                                if (onMobileClose) onMobileClose();
+                            }}
                             className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all group ${isActive(item.path)
                                 ? 'bg-surface-dark shadow-sm'
                                 : 'hover:bg-surface-dark hover:shadow-sm'
