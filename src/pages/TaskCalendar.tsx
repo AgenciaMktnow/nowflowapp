@@ -533,7 +533,7 @@ export default function TaskCalendar() {
                     </div>
                 ) : (
                     <>
-                        <div className="bg-surface-dark rounded-xl border border-gray-800 shadow-xl h-[800px] p-4 text-gray-300 overflow-x-auto">
+                        <div className="bg-surface-dark rounded-xl border border-gray-800 shadow-xl min-h-[800px] h-auto p-4 text-gray-300 overflow-x-auto">
                             <div className="min-w-[700px] h-full">
                                 <Calendar
                                     localizer={localizer}

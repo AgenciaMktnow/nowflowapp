@@ -109,7 +109,7 @@ export default function TeamDashboard({ teamId }: TeamDashboardProps) {
                 <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-6">Carga de Trabalho (Tarefas Ativas)</h3>
 
                 {/* Chart Container */}
-                <div className="flex items-end gap-4 h-48 w-full overflow-x-auto pb-2 custom-scrollbar">
+                <div className="flex items-end gap-4 h-48 w-full overflow-x-auto pb-4 custom-scrollbar min-h-[200px]">
                     {performanceData.map(member => (
                         <div key={member.userId} className="flex flex-col items-center gap-2 group min-w-[60px] flex-1">
                             {/* Bar */}
@@ -126,7 +126,7 @@ export default function TeamDashboard({ teamId }: TeamDashboardProps) {
                             </div>
 
                             {/* Label */}
-                            <div className="text-center">
+                            <div className="text-center pb-2">
                                 <div className="text-xs font-medium text-text-muted-dark truncate max-w-[80px]" title={member.userName}>
                                     {member.userName.split(' ')[0]}
                                 </div>

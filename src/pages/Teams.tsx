@@ -30,10 +30,10 @@ export default function Teams() {
                 rightElement={
                     <button
                         onClick={() => navigate('/settings?tab=teams')}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-surface-dark border border-border-dark rounded-lg text-text-subtle hover:text-white transition-colors text-xs font-medium"
+                        className="flex items-center gap-2 px-2 md:px-3 py-1.5 bg-surface-dark border border-border-dark rounded-lg text-text-subtle hover:text-white transition-colors text-[10px] md:text-xs font-medium"
                         title="Configurar Membros e Equipes"
                     >
-                        <span className="material-symbols-outlined text-[16px]">settings</span>
+                        <span className="material-symbols-outlined text-[14px] md:text-[16px]">settings</span>
                         Gerenciar
                     </button>
                 }
