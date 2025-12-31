@@ -40,7 +40,7 @@ export default function Layout() {
                 </div>
             )}
 
-            <main className="flex-1 flex flex-col h-full overflow-hidden relative print:overflow-visible print:h-auto md:pt-0 pt-16">
+            <main className="flex-1 flex flex-col h-full overflow-y-auto relative print:overflow-visible print:h-auto md:pt-0 pt-16 pb-24 md:pb-0">
                 <Outlet />
             </main>
         </div>

@@ -39,9 +39,9 @@ export default function Teams() {
                 }
             />
 
-            <div className="flex flex-1 overflow-hidden">
+            <div className="flex flex-col md:flex-row flex-1 overflow-hidden h-full">
                 {/* Sidebar List */}
-                <div className="w-80 border-r border-border-dark flex flex-col bg-surface-dark/30">
+                <div className="w-full md:w-80 border-b md:border-b-0 md:border-r border-border-dark flex flex-col bg-surface-dark/30 h-1/3 md:h-full flex-shrink-0">
                     <div className="p-4 border-b border-border-dark flex justify-between items-center bg-surface-dark/50 backdrop-blur-sm">
                         <h3 className="text-white font-bold text-sm uppercase tracking-wide">Equipes</h3>
                     </div>
@@ -73,7 +73,7 @@ export default function Teams() {
                 </div>
 
                 {/* Main Content */}
-                <div className="flex-1 overflow-y-auto p-6 bg-black/20">
+                <div className="flex-1 overflow-y-auto p-6 bg-black/20 w-full h-2/3 md:h-full">
                     {selectedTeamId ? (
                         <TeamDashboard key={selectedTeamId} teamId={selectedTeamId} />
                     ) : (

@@ -533,40 +533,42 @@ export default function TaskCalendar() {
                     </div>
                 ) : (
                     <>
-                        <div className="bg-surface-dark rounded-xl border border-gray-800 shadow-xl h-[800px] p-4 text-gray-300">
-                            <Calendar
-                                localizer={localizer}
-                                events={events} // Pass events
-                                startAccessor="start"
-                                endAccessor="end"
-                                style={{ height: '100%' }}
-                                culture="pt-BR"
-                                messages={{
-                                    next: "Próximo",
-                                    previous: "Anterior",
-                                    today: "Hoje",
-                                    month: "Mês",
-                                    week: "Semana",
-                                    day: "Dia",
-                                    agenda: "Agenda",
-                                    date: "Data",
-                                    time: "Hora",
-                                    event: "Evento",
-                                    noEventsInRange: "Sem tarefas neste período."
-                                }}
-                                eventPropGetter={eventPropGetter}
-                                components={{
-                                    toolbar: CustomToolbar,
-                                    event: CustomEvent // Use custom event renderer
-                                }}
-                                onSelectEvent={handleSelectEvent}
+                        <div className="bg-surface-dark rounded-xl border border-gray-800 shadow-xl h-[800px] p-4 text-gray-300 overflow-x-auto">
+                            <div className="min-w-[700px] h-full">
+                                <Calendar
+                                    localizer={localizer}
+                                    events={events} // Pass events
+                                    startAccessor="start"
+                                    endAccessor="end"
+                                    style={{ height: '100%' }}
+                                    culture="pt-BR"
+                                    messages={{
+                                        next: "Próximo",
+                                        previous: "Anterior",
+                                        today: "Hoje",
+                                        month: "Mês",
+                                        week: "Semana",
+                                        day: "Dia",
+                                        agenda: "Agenda",
+                                        date: "Data",
+                                        time: "Hora",
+                                        event: "Evento",
+                                        noEventsInRange: "Sem tarefas neste período."
+                                    }}
+                                    eventPropGetter={eventPropGetter}
+                                    components={{
+                                        toolbar: CustomToolbar,
+                                        event: CustomEvent // Use custom event renderer
+                                    }}
+                                    onSelectEvent={handleSelectEvent}
 
-                                // Controlled Props - View Switched
-                                date={currentDate}
-                                view={currentView}
-                                onView={handleViewChange} // Allow view change
-                                onNavigate={handleNavigate}
-                            />
+                                    // Controlled Props - View Switched
+                                    date={currentDate}
+                                    view={currentView}
+                                    onView={handleViewChange} // Allow view change
+                                    onNavigate={handleNavigate}
+                                />
+                            </div>
                         </div>
                         {/* Render Global Popover Portal */}
                         {renderHoverModal()}
