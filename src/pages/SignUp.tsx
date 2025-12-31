@@ -82,7 +82,7 @@ export default function SignUp() {
                 {/* Background Pattern/Effect */}
                 <div className="absolute inset-0 w-full h-full bg-[url('https://images.unsplash.com/photo-1635776062127-d379bfcba9f8?q=80&w=2832&auto=format&fit=crop')] bg-cover bg-center opacity-10 dark:opacity-5 pointer-events-none" data-alt="Abstract dark green geometric pattern background"></div>
 
-                <div className="relative w-full max-w-[520px] mx-auto px-4 sm:px-6">
+                <div className="relative w-[90vw] sm:w-full sm:max-w-[520px] mx-auto px-4 sm:px-6">
 
                     {/* Logo Area */}
                     <div className="flex flex-col items-center justify-center text-center mb-8">
@@ -90,7 +90,7 @@ export default function SignUp() {
                             <img
                                 src={settings.logo_dark_url}
                                 alt={settings.company_name || 'NowFlow'}
-                                className="h-16 mb-6 object-contain"
+                                className="h-auto mb-6 object-contain max-w-[280px]"
                             />
                         ) : (
                             <>
@@ -125,10 +125,12 @@ export default function SignUp() {
                                 <span className="text-slate-700 dark:text-slate-200 text-sm font-medium">Nome Completo</span>
                                 <div className="relative">
                                     <input
-                                        className="form-input w-full rounded-lg bg-slate-50 dark:bg-[#193322] border-slate-200 dark:border-border-dark text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-text-secondary/60 focus:ring-2 focus:ring-primary/50 focus:border-primary h-12 px-4 transition-all duration-200"
+                                        className="form-input w-full rounded-lg bg-slate-50 dark:bg-[#193322] border-slate-200 dark:border-border-dark text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-text-secondary/60 focus:ring-2 focus:ring-primary/50 focus:border-primary h-12 px-4 transition-all duration-200 text-base sm:text-sm"
                                         placeholder="Digite seu nome"
                                         type="text"
                                         required
+                                        autoComplete="name"
+                                        spellCheck="false"
                                         value={fullName}
                                         onChange={(e) => setFullName(e.target.value)}
                                     />
@@ -140,7 +142,7 @@ export default function SignUp() {
                                 <span className="text-slate-700 dark:text-slate-200 text-sm font-medium">E-mail</span>
                                 <div className="relative">
                                     <input
-                                        className="form-input w-full rounded-lg bg-slate-50 dark:bg-[#193322] border-slate-200 dark:border-border-dark text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-text-secondary/60 focus:ring-2 focus:ring-primary/50 focus:border-primary h-12 px-4 transition-all duration-200"
+                                        className="form-input w-full rounded-lg bg-slate-50 dark:bg-[#193322] border-slate-200 dark:border-border-dark text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-text-secondary/60 focus:ring-2 focus:ring-primary/50 focus:border-primary h-12 px-4 transition-all duration-200 text-base sm:text-sm"
                                         placeholder="exemplo@nowflow.com"
                                         type="email"
                                         required
@@ -156,10 +158,11 @@ export default function SignUp() {
                                     <span className="text-slate-700 dark:text-slate-200 text-sm font-medium">Senha</span>
                                     <div className="relative flex items-center">
                                         <input
-                                            className="form-input w-full rounded-lg bg-slate-50 dark:bg-[#193322] border-slate-200 dark:border-border-dark text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-text-secondary/60 focus:ring-2 focus:ring-primary/50 focus:border-primary h-12 pl-4 pr-10 transition-all duration-200"
+                                            className="form-input w-full rounded-lg bg-slate-50 dark:bg-[#193322] border-slate-200 dark:border-border-dark text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-text-secondary/60 focus:ring-2 focus:ring-primary/50 focus:border-primary h-12 pl-4 pr-10 transition-all duration-200 text-base sm:text-sm"
                                             placeholder="••••••••"
                                             type={showPassword ? "text" : "password"}
                                             required
+                                            autoComplete="new-password"
                                             value={password}
                                             onChange={(e) => setPassword(e.target.value)}
                                         />
@@ -179,7 +182,7 @@ export default function SignUp() {
                                     <span className="text-slate-700 dark:text-slate-200 text-sm font-medium">Confirmar Senha</span>
                                     <div className="relative flex items-center">
                                         <input
-                                            className="form-input w-full rounded-lg bg-slate-50 dark:bg-[#193322] border-slate-200 dark:border-border-dark text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-text-secondary/60 focus:ring-2 focus:ring-primary/50 focus:border-primary h-12 pl-4 pr-10 transition-all duration-200"
+                                            className="form-input w-full rounded-lg bg-slate-50 dark:bg-[#193322] border-slate-200 dark:border-border-dark text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-text-secondary/60 focus:ring-2 focus:ring-primary/50 focus:border-primary h-12 pl-4 pr-10 transition-all duration-200 text-base sm:text-sm"
                                             placeholder="••••••••"
                                             type={showConfirmPassword ? "text" : "password"}
                                             required

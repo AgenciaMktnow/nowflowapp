@@ -70,15 +70,15 @@ export default function Login() {
                 <div className="absolute inset-0 bg-gradient-to-t from-background-dark via-background-dark/90 to-background-dark/80"></div>
             </div>
 
-            <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-12 sm:px-6 lg:px-8">
-                <div className="w-full max-w-md space-y-8">
+            <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-12 pb-16 sm:px-6 lg:px-8">
+                <div className="w-[90vw] sm:w-full sm:max-w-md space-y-8">
                     {/* Branding Header */}
                     <div className="flex flex-col items-center text-center">
                         {settings.logo_dark_url ? (
                             <img
                                 src={settings.logo_dark_url}
                                 alt={settings.company_name || 'NowFlow'}
-                                className="h-16 mb-6 object-contain"
+                                className="h-auto mb-6 object-contain max-w-[280px]"
                             />
                         ) : (
                             <>
@@ -118,7 +118,7 @@ export default function Login() {
                                         placeholder="exemplo@nowflow.com"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
-                                        className="block w-full rounded-lg border-0 py-3 px-4 text-slate-900 dark:text-white shadow-sm ring-1 ring-inset ring-slate-300 dark:ring-[#326744] placeholder:text-slate-400 dark:placeholder:text-[#5c856b] focus:ring-2 focus:ring-inset focus:ring-primary dark:bg-[#193322] sm:text-sm sm:leading-6"
+                                        className="block w-full rounded-lg border-0 py-3 px-4 text-slate-900 dark:text-white shadow-sm ring-1 ring-inset ring-slate-300 dark:ring-[#326744] placeholder:text-slate-400 dark:placeholder:text-[#5c856b] focus:ring-2 focus:ring-inset focus:ring-primary dark:bg-[#193322] text-base sm:text-sm sm:leading-6"
                                     />
                                 </div>
                             </div>
@@ -145,7 +145,7 @@ export default function Login() {
                                         placeholder="••••••••"
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
-                                        className="block w-full rounded-lg border-0 py-3 px-4 pr-10 text-slate-900 dark:text-white shadow-sm ring-1 ring-inset ring-slate-300 dark:ring-[#326744] placeholder:text-slate-400 dark:placeholder:text-[#5c856b] focus:ring-2 focus:ring-inset focus:ring-primary dark:bg-[#193322] sm:text-sm sm:leading-6"
+                                        className="block w-full rounded-lg border-0 py-3 px-4 pr-10 text-slate-900 dark:text-white shadow-sm ring-1 ring-inset ring-slate-300 dark:ring-[#326744] placeholder:text-slate-400 dark:placeholder:text-[#5c856b] focus:ring-2 focus:ring-inset focus:ring-primary dark:bg-[#193322] text-base sm:text-sm sm:leading-6"
                                     />
                                     <div
                                         className="absolute inset-y-0 right-0 flex items-center pr-3 cursor-pointer group"
