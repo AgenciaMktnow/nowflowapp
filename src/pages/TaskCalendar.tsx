@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Calendar, dateFnsLocalizer, Views } from 'react-big-calendar';
-import { format, parse, startOfWeek, endOfWeek, getDay } from 'date-fns';
+import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { supabase } from '../lib/supabase';
@@ -352,7 +352,7 @@ export default function TaskCalendar() {
             }
             if (currentView === Views.WEEK) {
                 const start = startOfWeek(date, { locale: ptBR });
-                const end = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales }).endOf(date, 'week');
+                const end = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales }).endOf(date, 'week' as any);
 
                 // Format: 25 Dez - 31 Dez 2025 (or intelligent regarding years)
                 if (start.getFullYear() === end.getFullYear()) {

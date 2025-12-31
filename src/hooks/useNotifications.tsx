@@ -59,7 +59,7 @@ export function useNotifications() {
     const handleRealtimeEvent = (payload: any) => {
         // Logic to update state without full reload if possible, but simpler to reload or prepend
         const newEvent = payload.new as Notification;
-        const oldEvent = payload.old as Notification;
+        // const oldEvent = payload.old as Notification;
 
         // Play sound if it's a new unread notification or an update to an unread one (grouping)
         if (newEvent && !newEvent.is_read) {

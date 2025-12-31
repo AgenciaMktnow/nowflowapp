@@ -37,7 +37,7 @@ export default function WorkflowsSettings() {
         if (data) setBoards(data);
     };
 
-    const handleSaveWorkflow = async (name: string, description: string, steps: WorkflowStep[], boardId: string) => {
+    const handleSaveWorkflow = async (name: string, _description: string, steps: WorkflowStep[], boardId: string) => {
         try {
             if (editingWorkflow) {
                 const { error } = await supabase
@@ -131,7 +131,7 @@ export default function WorkflowsSettings() {
                             {workflow.steps.map((step, index) => (
                                 <div key={index} className="flex items-center min-w-max">
                                     <div className="flex items-center gap-2 bg-background-dark px-3 py-1.5 rounded-lg border border-white/5">
-                                        <div className="size-2 rounded-full" style={{ backgroundColor: step.color }}></div>
+                                        <div className="size-2 rounded-full" style={{ backgroundColor: (step as any).color }}></div>
                                         <span className="text-xs text-text-secondary font-medium">{step.name}</span>
                                     </div>
                                     {index < workflow.steps.length - 1 && (
@@ -158,6 +158,9 @@ export default function WorkflowsSettings() {
                 }}
                 onSave={handleSaveWorkflow}
                 initialData={editingWorkflow || undefined}
+                availableTeams={[]}
+                availableUsers={[]}
+                availableBoards={boards}
             />
         </div>
     );

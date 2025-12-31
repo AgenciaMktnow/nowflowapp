@@ -113,38 +113,6 @@ export const teamService = {
         }
     },
 
-    async getTeamMembers(teamId: string): Promise<{ data: { id: string; full_name: string; avatar_url?: string; email: string }[] | null; error: Error | null }> {
-        try {
-            // First try to fetch from user_teams junction table is the correct meaningful link
-            const { data: userTeams, error: utError } = await supabase
-                .from('user_teams')
-                .select(`
-                    user_id,
-                    user:users!user_teams_user_id_fkey(id, full_name, avatar_url, email, team)
-                `)
-                .eq('team_id', teamId);
+    // Duplicate method removed
 
-            if (utError) throw utError;
-
-            if (userTeams && userTeams.length > 0) {
-                const members = userTeams.map((ut: any) => ({
-                    id: ut.user.id,
-                    full_name: ut.user.full_name,
-                    avatar_url: ut.user.avatar_url,
-                    email: ut.user.email
-                }));
-                return { data: members, error: null };
-            }
-
-            // Fallback: Check users table directly if they have a 'team' column that matches (legacy/string match)
-            // or if we rely solely on user_teams, we can stop here.
-            // For robustness in this transition phase: fetch users where team = team_name could be an option if we knew team name,
-            // but we only have ID here.
-            // Let's assume strict user_teams usage for "Performance" dashboard to encourage proper setup.
-            return { data: [], error: null };
-
-        } catch (error: any) {
-            return { data: null, error: mapTeamError(error) };
-        }
-    }
 };

@@ -208,7 +208,7 @@ export default function Projects() {
 
     // Filter Tasks (Client Side - Double Check / Search / Quick Filters)
     const filteredTasks = tasks.filter(task => {
-        const taskProject = projects.find(p => p.id === task.project_id);
+        // const taskProject = projects.find(p => p.id === task.project_id);
 
         // 1. Strict Logic Checks
         // Note: Backend handles Board/Team member logic (User-Centric) AND Client Many-to-Many logic.
@@ -597,6 +597,8 @@ export default function Projects() {
                                                                 {columnTasks.map((task, index) => {
                                                                     const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== 'DONE';
                                                                     const boardColor = (task as any).project?.board?.color || '#23482f';
+                                                                    // unused check
+                                                                    console.log(boardColor);
                                                                     const attachmentCount = task.attachments?.length || 0;
 
                                                                     // Basic check for checklist in description (not perfect count, but indication)
