@@ -1,0 +1,23 @@
+
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+
+// Load env vars
+// Note: In this environment, we might need to harcode or process.env depending on how I run it.
+// I'll try to use the project's setup or just simple direct connection if I can find the keys.
+// Actually, I'll use the existing `lib/supabase.ts`? No, that requires DOM.
+// I will assume I can just fetch from the DB using the known structure if I had keys.
+// Since I don't have keys in env here, I will rely on reading the 'projects' table via a migration/SQL query? 
+// No, I can't read SQL output directly easily.
+
+// Better approach: Modify Dashboard.tsx to LOG the data to the browser console,
+// and since I can't see the console, this is useless.
+
+// Alternative: Create a migration that raises a notice?
+// Or just blindly update the project "Manutenção Preventiva" to link it to specific client?
+// I don't know the client ID for "Cliente 1".
+
+// Let's TRY to find the keys. they are usually in .env or .env.local
+// I'll read .env.local first.
+
+console.log('Use view_file to read .env.local to get keys for the script.');
