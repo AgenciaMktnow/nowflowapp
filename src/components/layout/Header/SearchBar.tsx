@@ -4,25 +4,19 @@ import { useNavigate } from 'react-router-dom';
 import { useClickOutside } from '../../../hooks/useClickOutside';
 import { useKeyboardShortcut } from '../../../hooks/useKeyboardShortcut';
 
-interface SearchBarProps {
-    onSearch: (value: string) => void;
-    placeholder?: string;
-    initialValue?: string;
-}
-
 type SearchResult = {
-    type: 'task' | 'project' | 'action';
+    type: 'task' | 'action';
     id: string;
-    title: string;
-    subtitle?: string;
-    clientName?: string;
     taskNumber?: number;
+    title: string;
+    projectName?: string;
+    clientName?: string;
     icon: string;
     action: () => void;
 };
 
-export default function SearchBar({ onSearch, placeholder = 'Buscar...', initialValue = '' }: SearchBarProps) {
-    const [value, setValue] = useState(initialValue);
+export default function SearchBar() {
+    const [value, setValue] = useState('');
     const [isOpen, setIsOpen] = useState(false);
     const [results, setResults] = useState<SearchResult[]>([]);
     const [loading, setLoading] = useState(false);
@@ -40,16 +34,14 @@ export default function SearchBar({ onSearch, placeholder = 'Buscar...', initial
         metaKey: true,
         callback: () => {
             inputRef.current?.focus();
-            setIsOpen(true);
         }
     });
 
     // Debounced search
     useEffect(() => {
         const handler = setTimeout(() => {
-            onSearch(value);
             if (value.trim()) {
-                performSearch(value);
+                performGlobalSearch(value.trim());
             } else {
                 setResults([]);
                 setIsOpen(false);
@@ -57,18 +49,20 @@ export default function SearchBar({ onSearch, placeholder = 'Buscar...', initial
         }, 300);
 
         return () => clearTimeout(handler);
-    }, [value, onSearch]);
+    }, [value]);
 
-    const performSearch = async (searchTerm: string) => {
+    const performGlobalSearch = async (searchTerm: string) => {
         setLoading(true);
         const searchResults: SearchResult[] = [];
 
         try {
-            // Check if search is purely numeric (for task number priority)
-            const isNumeric = /^\d+$/.test(searchTerm.trim());
+            console.log('🔍 Searching for:', searchTerm);
 
-            // Search tasks with client and project info
-            const { data: tasks } = await supabase
+            // Check if search is numeric
+            const isNumeric = /^\d+$/.test(searchTerm);
+
+            // Build query for tasks with project and client info
+            let query = supabase
                 .from('tasks')
                 .select(`
                     id,
@@ -79,123 +73,191 @@ export default function SearchBar({ onSearch, placeholder = 'Buscar...', initial
                         client:clients(name)
                     ),
                     client:clients(name)
-                `)
-                .or(`title.ilike.%${searchTerm}%,task_number.eq.${isNumeric ? searchTerm : '-1'}`)
-                .limit(10);
+                `);
 
-            // Search projects with client info
+            // Search by task_number if numeric, otherwise by title
+            if (isNumeric) {
+                query = query.eq('task_number', parseInt(searchTerm));
+            } else {
+                query = query.ilike('title', `%${searchTerm}%`);
+            }
+
+            const { data: tasksByTitle, error: titleError } = await query.limit(20);
+
+            if (titleError) {
+                console.error('Search error:', titleError);
+            }
+
+            console.log('📊 Tasks found by title/number:', tasksByTitle?.length || 0);
+
+            // Also search by project name
             const { data: projects } = await supabase
                 .from('projects')
-                .select(`
-                    id,
-                    name,
-                    client:clients(name)
-                `)
+                .select('id, name')
                 .ilike('name', `%${searchTerm}%`)
-                .limit(5);
+                .limit(10);
 
-            // Search clients
+            let tasksByProject: any[] = [];
+            if (projects && projects.length > 0) {
+                const projectIds = projects.map(p => p.id);
+                const { data } = await supabase
+                    .from('tasks')
+                    .select(`
+                        id,
+                        title,
+                        task_number,
+                        project:projects(
+                            name,
+                            client:clients(name)
+                        ),
+                        client:clients(name)
+                    `)
+                    .in('project_id', projectIds)
+                    .limit(20);
+
+                tasksByProject = data || [];
+                console.log('📊 Tasks found by project:', tasksByProject.length);
+            }
+
+            // Search by client name
             const { data: clients } = await supabase
                 .from('clients')
                 .select('id, name')
                 .ilike('name', `%${searchTerm}%`)
-                .limit(5);
+                .limit(10);
 
-            // Process tasks
-            if (tasks) {
-                // Prioritize exact task number match
-                const exactMatch = tasks.find(t => t.task_number?.toString() === searchTerm);
-                const otherTasks = tasks.filter(t => t.task_number?.toString() !== searchTerm);
-                const orderedTasks = exactMatch ? [exactMatch, ...otherTasks] : tasks;
+            let tasksByClient: any[] = [];
+            if (clients && clients.length > 0) {
+                const clientIds = clients.map(c => c.id);
 
-                orderedTasks.forEach(task => {
-                    const clientName = (task.client as any)?.name || (task.project as any)?.client?.name;
-                    searchResults.push({
-                        type: 'task',
-                        id: task.id,
-                        title: `#${task.task_number} ${task.title}`,
-                        subtitle: (task.project as any)?.name,
-                        clientName,
-                        taskNumber: task.task_number,
-                        icon: 'task_alt',
-                        action: () => {
-                            navigate(`/tasks/${task.task_number}`);
-                            setIsOpen(false);
-                            setValue('');
-                        }
-                    });
-                });
+                // Get projects for these clients
+                const { data: clientProjects } = await supabase
+                    .from('projects')
+                    .select('id')
+                    .in('client_id', clientIds);
+
+                if (clientProjects && clientProjects.length > 0) {
+                    const projectIds = clientProjects.map(p => p.id);
+                    const { data } = await supabase
+                        .from('tasks')
+                        .select(`
+                            id,
+                            title,
+                            task_number,
+                            project:projects(
+                                name,
+                                client:clients(name)
+                            ),
+                            client:clients(name)
+                        `)
+                        .in('project_id', projectIds)
+                        .limit(20);
+
+                    tasksByClient = data || [];
+                    console.log('📊 Tasks found by client:', tasksByClient.length);
+                }
+
+                // Also check tasks with direct client_id
+                const { data: directClientTasks } = await supabase
+                    .from('tasks')
+                    .select(`
+                        id,
+                        title,
+                        task_number,
+                        project:projects(
+                            name,
+                            client:clients(name)
+                        ),
+                        client:clients(name)
+                    `)
+                    .in('client_id', clientIds)
+                    .limit(20);
+
+                if (directClientTasks) {
+                    tasksByClient = [...tasksByClient, ...directClientTasks];
+                }
             }
 
-            // Process projects
-            if (projects) {
-                projects.forEach(project => {
-                    searchResults.push({
-                        type: 'project',
-                        id: project.id,
-                        title: project.name,
-                        clientName: (project.client as any)?.name,
-                        icon: 'folder',
-                        action: () => {
-                            // Navigate to project view or filter dashboard by project
-                            navigate(`/dashboard?project=${project.id}`);
-                            setIsOpen(false);
-                            setValue('');
-                        }
-                    });
-                });
-            }
+            // Combine and deduplicate
+            const allTasks = [
+                ...(tasksByTitle || []),
+                ...tasksByProject,
+                ...tasksByClient
+            ];
 
-            // Process clients - show tasks for this client
-            if (clients) {
-                clients.forEach(client => {
-                    searchResults.push({
-                        type: 'project',
-                        id: client.id,
-                        title: `Ver tarefas de ${client.name}`,
-                        clientName: client.name,
-                        icon: 'business',
-                        action: () => {
-                            navigate(`/dashboard?client=${client.id}`);
-                            setIsOpen(false);
-                            setValue('');
-                        }
-                    });
-                });
-            }
+            const uniqueTasks = Array.from(
+                new Map(allTasks.map(t => [t.id, t])).values()
+            );
 
-            // Add quick actions if no specific search
-            if (searchTerm.length < 3) {
-                searchResults.push(
-                    {
-                        type: 'action',
-                        id: 'new-task',
-                        title: 'Nova Tarefa',
-                        icon: 'add_task',
-                        action: () => {
-                            navigate('/tasks/new');
-                            setIsOpen(false);
-                            setValue('');
-                        }
-                    },
-                    {
-                        type: 'action',
-                        id: 'my-queue',
-                        title: 'Minha Fila',
-                        icon: 'list',
-                        action: () => {
-                            navigate('/queue');
-                            setIsOpen(false);
-                            setValue('');
-                        }
+            console.log('✅ Total unique tasks found:', uniqueTasks.length);
+
+            // Sort: exact task_number match first
+            const exactMatch = uniqueTasks.find(t => t.task_number?.toString() === searchTerm);
+            const otherTasks = uniqueTasks.filter(t => t.task_number?.toString() !== searchTerm);
+            const orderedTasks = exactMatch ? [exactMatch, ...otherTasks] : uniqueTasks;
+
+            // Format results: #ID - [Projeto] - Título - CLIENTE
+            orderedTasks.forEach(task => {
+                const clientName = (task.client as any)?.name || (task.project as any)?.client?.name;
+                const projectName = (task.project as any)?.name;
+
+                searchResults.push({
+                    type: 'task',
+                    id: task.id,
+                    taskNumber: task.task_number,
+                    title: task.title,
+                    projectName,
+                    clientName,
+                    icon: 'task_alt',
+                    action: () => {
+                        navigate(`/tasks/${task.task_number}`);
+                        setIsOpen(false);
+                        setValue('');
                     }
-                );
-            }
+                });
+            });
 
-            setResults(searchResults);
-            setIsOpen(searchResults.length > 0);
+            // Add quick actions at the beginning
+            const quickActions: SearchResult[] = [
+                {
+                    type: 'action',
+                    id: 'new-task',
+                    title: 'Nova Tarefa',
+                    icon: 'add_task',
+                    action: () => {
+                        navigate('/tasks/new');
+                        setIsOpen(false);
+                        setValue('');
+                    }
+                },
+                {
+                    type: 'action',
+                    id: 'my-queue',
+                    title: 'Minha Fila',
+                    icon: 'list',
+                    action: () => {
+                        navigate('/queue');
+                        setIsOpen(false);
+                        setValue('');
+                    }
+                },
+                {
+                    type: 'action',
+                    id: 'dashboard',
+                    title: 'Dashboard',
+                    icon: 'dashboard',
+                    action: () => {
+                        navigate('/dashboard');
+                        setIsOpen(false);
+                        setValue('');
+                    }
+                }
+            ];
+
+            setResults([...quickActions, ...searchResults]);
+            setIsOpen(true);
         } catch (error) {
-            console.error('Search error:', error);
+            console.error('❌ Global search error:', error);
         } finally {
             setLoading(false);
         }
@@ -203,9 +265,8 @@ export default function SearchBar({ onSearch, placeholder = 'Buscar...', initial
 
     // Group results by type
     const groupedResults = {
-        tasks: results.filter(r => r.type === 'task'),
-        projects: results.filter(r => r.type === 'project'),
-        actions: results.filter(r => r.type === 'action')
+        actions: results.filter(r => r.type === 'action'),
+        tasks: results.filter(r => r.type === 'task')
     };
 
     // Detect platform for keyboard shortcut hint
@@ -221,9 +282,9 @@ export default function SearchBar({ onSearch, placeholder = 'Buscar...', initial
                     ref={inputRef}
                     value={value}
                     onChange={(e) => setValue(e.target.value)}
-                    onFocus={() => value.trim() && setIsOpen(true)}
+                    onFocus={() => value.trim() && performGlobalSearch(value.trim())}
                     className="w-full bg-transparent border-none text-white placeholder-text-secondary focus:ring-0 ml-2 text-sm h-full focus:outline-none"
-                    placeholder={`${placeholder} (${shortcutHint})`}
+                    placeholder={`Buscar... (${shortcutHint})`}
                     type="text"
                 />
                 {loading && (
@@ -231,72 +292,12 @@ export default function SearchBar({ onSearch, placeholder = 'Buscar...', initial
                 )}
             </div>
 
-            {/* Search Results Dropdown */}
+            {/* Global Search Results Dropdown */}
             {isOpen && results.length > 0 && (
                 <div className="absolute top-full left-0 mt-2 w-[600px] bg-surface-dark border border-white/10 rounded-xl shadow-2xl z-[100] overflow-hidden animate-scale-in max-h-[500px] overflow-y-auto custom-scrollbar">
-                    {/* Tasks Section */}
-                    {groupedResults.tasks.length > 0 && (
-                        <div className="p-2 border-b border-white/5">
-                            <div className="flex items-center gap-2 px-3 py-2">
-                                <span className="material-symbols-outlined text-primary text-[18px]">task_alt</span>
-                                <p className="text-xs font-bold text-text-secondary uppercase tracking-wider">Tarefas</p>
-                            </div>
-                            {groupedResults.tasks.map(result => (
-                                <button
-                                    key={result.id}
-                                    onClick={result.action}
-                                    className="w-full text-left px-3 py-2.5 text-sm text-white hover:bg-white/5 rounded-lg transition-colors flex items-center justify-between group"
-                                >
-                                    <div className="flex flex-col gap-1 flex-1 min-w-0">
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-medium truncate">{result.title}</span>
-                                            {result.clientName && (
-                                                <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded-md font-medium shrink-0">
-                                                    {result.clientName}
-                                                </span>
-                                            )}
-                                        </div>
-                                        {result.subtitle && (
-                                            <span className="text-xs text-text-secondary truncate">{result.subtitle}</span>
-                                        )}
-                                    </div>
-                                    <span className="material-symbols-outlined text-text-muted group-hover:text-primary text-[18px] ml-2">arrow_forward</span>
-                                </button>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Projects Section */}
-                    {groupedResults.projects.length > 0 && (
-                        <div className="p-2 border-b border-white/5">
-                            <div className="flex items-center gap-2 px-3 py-2">
-                                <span className="material-symbols-outlined text-purple-400 text-[18px]">folder</span>
-                                <p className="text-xs font-bold text-text-secondary uppercase tracking-wider">Projetos & Clientes</p>
-                            </div>
-                            {groupedResults.projects.map(result => (
-                                <button
-                                    key={result.id}
-                                    onClick={result.action}
-                                    className="w-full text-left px-3 py-2.5 text-sm text-white hover:bg-white/5 rounded-lg transition-colors flex items-center justify-between group"
-                                >
-                                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                                        <span className="material-symbols-outlined text-[18px]">{result.icon}</span>
-                                        <span className="font-medium truncate">{result.title}</span>
-                                        {result.clientName && (
-                                            <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded-md font-medium shrink-0">
-                                                {result.clientName}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <span className="material-symbols-outlined text-text-muted group-hover:text-primary text-[18px]">arrow_forward</span>
-                                </button>
-                            ))}
-                        </div>
-                    )}
-
                     {/* Quick Actions Section */}
                     {groupedResults.actions.length > 0 && (
-                        <div className="p-2">
+                        <div className="p-2 border-b border-white/5">
                             <div className="flex items-center gap-2 px-3 py-2">
                                 <span className="material-symbols-outlined text-primary text-[18px]">bolt</span>
                                 <p className="text-xs font-bold text-text-secondary uppercase tracking-wider">Ações Rápidas</p>
@@ -311,6 +312,62 @@ export default function SearchBar({ onSearch, placeholder = 'Buscar...', initial
                                     <span className="font-medium">{result.title}</span>
                                 </button>
                             ))}
+                        </div>
+                    )}
+
+                    {/* Tasks Section - Format: #ID - [Projeto] - Título - CLIENTE */}
+                    {groupedResults.tasks.length > 0 && (
+                        <div className="p-2">
+                            <div className="flex items-center gap-2 px-3 py-2">
+                                <span className="material-symbols-outlined text-primary text-[18px]">task_alt</span>
+                                <p className="text-xs font-bold text-text-secondary uppercase tracking-wider">
+                                    Tarefas Encontradas ({groupedResults.tasks.length})
+                                </p>
+                            </div>
+                            {groupedResults.tasks.map(result => (
+                                <button
+                                    key={result.id}
+                                    onClick={result.action}
+                                    className="w-full text-left px-3 py-2.5 text-sm text-white hover:bg-white/5 rounded-lg transition-colors group"
+                                >
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        {/* #ID */}
+                                        <span className="font-mono font-bold text-primary">#{result.taskNumber}</span>
+
+                                        <span className="text-text-muted">-</span>
+
+                                        {/* [Projeto] */}
+                                        {result.projectName ? (
+                                            <span className="text-purple-400 font-medium">[{result.projectName}]</span>
+                                        ) : (
+                                            <span className="text-text-muted italic">[Sem projeto]</span>
+                                        )}
+
+                                        <span className="text-text-muted">-</span>
+
+                                        {/* Título */}
+                                        <span className="font-medium flex-1 min-w-0 truncate">{result.title}</span>
+
+                                        {/* CLIENTE */}
+                                        {result.clientName && (
+                                            <>
+                                                <span className="text-text-muted">-</span>
+                                                <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded-md font-bold uppercase shrink-0">
+                                                    {result.clientName}
+                                                </span>
+                                            </>
+                                        )}
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* No results message */}
+                    {groupedResults.tasks.length === 0 && groupedResults.actions.length === 0 && (
+                        <div className="p-6 text-center text-text-secondary">
+                            <span className="material-symbols-outlined text-4xl mb-2 opacity-50">search_off</span>
+                            <p className="text-sm">Nenhum resultado encontrado</p>
                         </div>
                     )}
                 </div>

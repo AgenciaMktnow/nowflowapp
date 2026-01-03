@@ -3,18 +3,12 @@ import UserActions from './UserActions';
 
 interface HeaderProps {
     title: string;
-    onSearch?: (term: string) => void;
-    searchPlaceholder?: string;
-    searchInitialValue?: string;
     rightElement?: React.ReactNode;
     className?: string;
 }
 
 export default function Header({
     title,
-    onSearch,
-    searchPlaceholder,
-    searchInitialValue,
     rightElement,
     className = ''
 }: HeaderProps) {
@@ -31,13 +25,8 @@ export default function Header({
                         {rightElement}
                     </div>
                 )}
-                {onSearch && (
-                    <SearchBar
-                        onSearch={onSearch}
-                        placeholder={searchPlaceholder}
-                        initialValue={searchInitialValue}
-                    />
-                )}
+                {/* Global Search - Always visible */}
+                <SearchBar />
                 <UserActions />
             </div>
         </header>
