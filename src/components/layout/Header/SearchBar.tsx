@@ -258,30 +258,13 @@ export default function SearchBar() {
             console.log('🎯 Search Results (tasks):', searchResults.length);
             console.log('🎯 Total Results:', quickActions.length + searchResults.length);
 
-            // HARDCODED TEST TASK - Para verificar se renderização funciona
-            const testTask: SearchResult = {
-                type: 'task',
-                id: 'test-1000',
-                taskNumber: 1000,
-                title: 'Tarefa 1000 (TESTE HARDCODED)',
-                projectName: 'Manutenção',
-                clientName: 'CLIENTE 2',
-                icon: 'task_alt',
-                action: () => {
-                    console.log('Clicked test task!');
-                    navigate(`/tasks/1000`);
-                    setIsOpen(false);
-                    setValue('');
-                }
-            };
-
-            const finalResults = [...quickActions, testTask, ...searchResults];
-            console.log('🎯 Setting results (with test task):', finalResults);
+            const finalResults = [...quickActions, ...searchResults];
+            console.log('🎯 Final results array:', finalResults);
 
             setResults(finalResults);
             setIsOpen(true);
 
-            console.log('✅ Search complete. Dropdown should show', finalResults.length, 'results including test task');
+            console.log('✅ Search complete. Results set.');
         } catch (error) {
             console.error('❌ Global search error:', error);
         } finally {
