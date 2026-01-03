@@ -71,10 +71,14 @@ export default function MyQueue() {
         });
 
         if (searchTerm.trim()) {
-            filtered = filtered.filter(task =>
-                task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                task.project?.name?.toLowerCase().includes(searchTerm.toLowerCase())
-            );
+            filtered = filtered.filter(task => {
+                const clientName = (task.client as any)?.name || (task.project as any)?.client?.name || '';
+                return (
+                    task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    task.project?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    clientName.toLowerCase().includes(searchTerm.toLowerCase())
+                );
+            });
         }
 
         setDisplayTasks(filtered);
