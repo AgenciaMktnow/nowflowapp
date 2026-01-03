@@ -8,6 +8,7 @@ import { logActivity } from '../services/activityLogger';
 
 import { boardService, type Column } from '../services/board.service';
 import { toast } from 'sonner';
+import Header from '../components/layout/Header/Header';
 
 type Task = {
     id: string;
@@ -906,39 +907,11 @@ export default function TaskDetail() {
     return (
         <div className="bg-background-dark text-white font-display antialiased overflow-x-hidden min-h-screen flex flex-col">
             {/* Header */}
-            <header className="sticky top-0 z-50 flex items-center justify-between whitespace-nowrap border-b border-solid border-border-dark bg-[#112217]/90 backdrop-blur-md px-10 py-3">
-                <div className="flex items-center gap-8">
-                    <div className="flex items-center gap-4 text-white">
-                        <div className="size-8 flex items-center justify-center bg-primary rounded-lg text-background-dark">
-                            <span className="material-symbols-outlined">dataset</span>
-                        </div>
-                        <h2 className="text-white text-lg font-bold leading-tight tracking-[-0.015em]">Nowflow</h2>
-                    </div>
-                    <label className="hidden md:flex flex-col min-w-40 !h-10 max-w-64">
-                        <div className="flex w-full flex-1 items-stretch rounded-lg h-full group focus-within:ring-2 ring-primary/50 transition-all">
-                            <div className="text-text-muted flex border-none bg-surface-dark items-center justify-center pl-4 rounded-l-lg border-r-0">
-                                <span className="material-symbols-outlined text-[20px]">search</span>
-                            </div>
-                            <input className="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-white focus:outline-0 focus:ring-0 border-none bg-surface-dark focus:border-none h-full placeholder:text-text-muted px-4 rounded-l-none border-l-0 pl-2 text-sm font-normal leading-normal" placeholder="Buscar tarefas..." />
-                        </div>
-                    </label>
-                </div>
-                <div className="flex flex-1 justify-end gap-8">
-                    <nav className="hidden lg:flex items-center gap-9">
-                        <a className="text-text-muted hover:text-white transition-colors text-sm font-medium leading-normal cursor-pointer" onClick={() => navigate('/dashboard')}>Dashboard</a>
-                        <a className="text-text-muted hover:text-white transition-colors text-sm font-medium leading-normal cursor-pointer" onClick={() => navigate('/kanban')}>Meus Projetos</a>
-                        <a className="text-white text-sm font-medium leading-normal cursor-pointer">Tarefas</a>
-                        <a className="text-text-muted hover:text-white transition-colors text-sm font-medium leading-normal cursor-pointer">Relatórios</a>
-                    </nav>
-                    <div className="flex items-center gap-4">
-                        <button className="text-text-muted hover:text-white relative">
-                            <span className="material-symbols-outlined">notifications</span>
-                            <span className="absolute top-0 right-0 size-2 bg-primary rounded-full"></span>
-                        </button>
-                        <div className="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 ring-2 ring-surface-dark cursor-pointer" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuD0j0lEspGG79bejLev2TcmdFsrfIeiQ9Pv18Ow0OfMD3Rn47uH6P84XFEZ6VCDqOF__vKddpeFF-j2mVGMvwieIwbIY3N68MPSOfr_X5-jLcpynlKbrhJAIHUZ9CqPbwhMPixK1Y_iKyYiHniwZ-3wgg_WLQIZ9f5VnWa7oa590FgR3CFcVWFoXC5N_l9iV16Pl4HYmT3A2cccTgonqY8ccOXMRfNy5r9M5urxD1kXxu6BtWSeAxBYmQmzIkBByKVwV0YtPSzWeZQ")' }}></div>
-                    </div>
-                </div>
-            </header>
+            <Header
+                title="Detalhes da Tarefa"
+                onSearch={() => { }}
+                searchPlaceholder="Buscar na tarefa..."
+            />
 
             <main className="flex-1 w-full max-w-[1440px] mx-auto p-6 md:p-10">
                 <div className="flex flex-wrap items-center gap-2 mb-8">
