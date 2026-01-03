@@ -254,8 +254,17 @@ export default function SearchBar() {
                 }
             ];
 
-            setResults([...quickActions, ...searchResults]);
+            console.log('🎯 Quick Actions:', quickActions.length);
+            console.log('🎯 Search Results (tasks):', searchResults.length);
+            console.log('🎯 Total Results:', quickActions.length + searchResults.length);
+
+            const finalResults = [...quickActions, ...searchResults];
+            console.log('🎯 Setting results:', finalResults);
+
+            setResults(finalResults);
             setIsOpen(true);
+
+            console.log('✅ Search complete. Dropdown should be open.');
         } catch (error) {
             console.error('❌ Global search error:', error);
         } finally {
@@ -268,6 +277,8 @@ export default function SearchBar() {
         actions: results.filter(r => r.type === 'action'),
         tasks: results.filter(r => r.type === 'task')
     };
+
+    console.log('📋 Grouped Results - Actions:', groupedResults.actions.length, 'Tasks:', groupedResults.tasks.length);
 
     // Detect platform for keyboard shortcut hint
     const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
