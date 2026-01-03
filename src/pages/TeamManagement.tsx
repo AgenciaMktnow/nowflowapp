@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import MultiSelectDropdown from '../components/MultiSelectDropdown';
+import { toast } from 'sonner';
 
 type User = {
     id: string;
@@ -221,6 +222,21 @@ export default function TeamManagement() {
 
                 // Update local state
                 setUsers(users.map(u => u.id === selectedUser.id ? selectedUser : u));
+
+                // IF editing current user, sync auth metadata
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user && user.id === selectedUser.user_id) { // user_id in table matches auth.uid
+                    const { error: updateError } = await supabase.auth.updateUser({
+                        data: {
+                            avatar_url: selectedUser.avatar_url,
+                            full_name: selectedUser.full_name
+                        }
+                    });
+                    if (!updateError) {
+                        // Force reload to update Header
+                        window.location.reload();
+                    }
+                }
             }
 
             setSelectedUser(null);
@@ -426,19 +442,40 @@ export default function TeamManagement() {
                                     type="file"
                                     accept="image/*"
                                     className="hidden"
-                                    onChange={(e) => {
+                                    onChange={async (e) => {
                                         const file = e.target.files?.[0];
-                                        if (file) {
-                                            const reader = new FileReader();
-                                            reader.onloadend = () => {
-                                                setSelectedUser({ ...selectedUser, avatar_url: reader.result as string });
-                                            };
-                                            reader.readAsDataURL(file);
+                                        if (!file) return;
+
+                                        try {
+                                            const toastId = toast.loading('Enviando foto...');
+
+                                            // 1. Prepare path
+                                            const fileExt = file.name.split('.').pop();
+                                            // Use a temp ID if new user, or actual ID
+                                            const userIdPath = selectedUser.id === 'new' ? 'temp' : selectedUser.id;
+                                            const fileName = `${userIdPath}/${Math.random().toString(36).slice(2)}.${fileExt}`;
+
+                                            // 2. Upload
+                                            const { error: uploadError } = await supabase.storage
+                                                .from('avatars')
+                                                .upload(fileName, file, { upsert: true });
+
+                                            if (uploadError) throw uploadError;
+
+                                            // 3. Get URL
+                                            const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
+
+                                            setSelectedUser({ ...selectedUser, avatar_url: data.publicUrl });
+                                            toast.success('Foto enviada com sucesso!', { id: toastId });
+
+                                        } catch (error: any) {
+                                            console.error('Upload error:', error);
+                                            toast.error('Erro ao enviar foto. Tente novamente.');
                                         }
                                     }}
                                 />
                                 <span
-                                    className="text-primary text-xs font-bold cursor-pointer hover:underline"
+                                    className="text-primary text-xs font-bold cursor-pointer hover:underline p-2"
                                     onClick={() => document.getElementById('avatar-upload')?.click()}
                                 >
                                     Alterar foto

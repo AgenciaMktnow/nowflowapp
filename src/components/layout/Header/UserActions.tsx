@@ -90,9 +90,17 @@ export default function UserActions() {
                     onClick={() => setIsProfileOpen(!isProfileOpen)}
                     className={`flex items-center gap-2 hover:bg-white/10 p-1.5 rounded-full pr-3 transition-colors border border-transparent ${isProfileOpen ? 'bg-white/10' : ''}`}
                 >
-                    <div className="size-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs font-bold ring-2 ring-primary/20">
-                        {user?.user_metadata?.full_name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
-                    </div>
+                    {user?.user_metadata?.avatar_url ? (
+                        <img
+                            src={user.user_metadata.avatar_url}
+                            alt="Profile"
+                            className="size-8 rounded-full object-cover ring-2 ring-primary/20"
+                        />
+                    ) : (
+                        <div className="size-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs font-bold ring-2 ring-primary/20">
+                            {user?.user_metadata?.full_name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
+                        </div>
+                    )}
                     <span className="text-sm font-medium text-white hidden lg:block max-w-[100px] truncate">
                         {user?.user_metadata?.full_name?.split(' ')[0] || 'Usuário'}
                     </span>

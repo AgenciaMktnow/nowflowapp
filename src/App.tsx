@@ -12,6 +12,7 @@ import NewTask from './pages/NewTask';
 import TaskDetail from './pages/TaskDetail';
 import Settings from './pages/Settings';
 import Teams from './pages/Teams';
+import Profile from './pages/Profile';
 
 import Portfolio from './pages/Portfolio';
 import TaskCalendar from './pages/TaskCalendar';
@@ -56,6 +57,7 @@ function App() {
               <Route path="tasks/:id/edit" element={<NewTask />} />
               <Route path="teams" element={<Teams />} />
               <Route path="time-tracking" element={<TimeTracking />} />
+              <Route path="profile" element={<Profile />} />
               <Route path="settings/*" element={<Settings />} />
             </Route>
           </Routes>
