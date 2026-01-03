@@ -326,6 +326,18 @@ export default function TaskDetail() {
 
             if (error) throw error;
 
+            // Update status to WAITING_CLIENT (Paused)
+            if (task) {
+                const { error: statusError } = await supabase
+                    .from('tasks')
+                    .update({ status: 'WAITING_CLIENT' })
+                    .eq('id', task.id);
+
+                if (!statusError) {
+                    setTask(prev => prev ? { ...prev, status: 'WAITING_CLIENT' } : null);
+                }
+            }
+
             setIsTracking(false);
             setCurrentEntryId(null);
 
@@ -556,6 +568,12 @@ export default function TaskDetail() {
 
         try {
             const updates: any = { status: 'DONE' };
+
+            // Find corresponding column for 'DONE'
+            const doneColumn = boardColumns.find(c => c.statuses.includes('DONE'));
+            if (doneColumn) {
+                updates.column_id = doneColumn.id;
+            }
 
             // "Handover Logic": If creator exists and is different from current assignee, return to creator
             if (task.creator && task.creator.id !== user?.id) {

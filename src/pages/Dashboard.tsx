@@ -13,6 +13,7 @@ type Task = {
     status: 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'WAITING_CLIENT' | 'REVIEW' | 'DONE';
     priority: 'LOW' | 'MEDIUM' | 'HIGH';
     due_date: string;
+    updated_at: string;
     created_at: string;
     assignee_id?: string;
     project_id?: string;
@@ -44,7 +45,7 @@ type Project = {
 };
 
 export default function Dashboard() {
-    const { user } = useAuth();
+    const { user, userProfile } = useAuth();
     const navigate = useNavigate();
     const [tasks, setTasks] = useState<Task[]>([]);
     const [clients, setClients] = useState<Client[]>([]);
@@ -101,7 +102,7 @@ export default function Dashboard() {
 
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+    }, [user, userProfile]);
 
 
 
@@ -197,8 +198,17 @@ export default function Dashboard() {
 
             if (error) throw error;
 
+            // Also update task status to WAITING_CLIENT (Paused Column)
+            if (activeTimerTask) {
+                await supabase
+                    .from('tasks')
+                    .update({ status: 'WAITING_CLIENT' })
+                    .eq('id', activeTimerTask.id);
+            }
+
             // Re-fetch to update state
             checkActiveTimer();
+            fetchTasks(); // Refresh board columns
         } catch (error) {
             console.error('Error pausing timer:', error);
         }
@@ -217,18 +227,31 @@ export default function Dashboard() {
     };
 
     const fetchTasks = async () => {
+        if (!user) return;
         try {
-            // Try Deep Join first for Client Name
-            const { data, error } = await supabase
+            // Secure Query Logic
+            // Default: Restricted to Assignee
+            let query = supabase
                 .from('tasks')
                 .select(`
                     *,
                     client:client_id(name),
                     project:projects(name, client_id, client:client_id(name)),
                     assignee:users!tasks_assignee_id_fkey(full_name, avatar_url),
-                    creator:users!tasks_created_by_fkey(id, full_name)
+                    creator:users!tasks_created_by_fkey(id, full_name),
+                    task_assignees(
+                        user_id
+                    )
                 `)
                 .order('created_at', { ascending: false });
+
+            // Rule: MEMEBER/CLIENT sees ONLY their assigned tasks (Strict DB Filter)
+            const isElevated = userProfile?.role === 'ADMIN' || userProfile?.role === 'MANAGER';
+            if (!isElevated) {
+                query = query.eq('assignee_id', user.id);
+            }
+
+            const { data, error } = await query;
 
             if (error) throw error;
             setTasks(data || []);
@@ -242,9 +265,12 @@ export default function Dashboard() {
         // 1. Filter by "Mine" vs "All"
         if (ownerFilter === 'MINE') {
             if (!user) return false;
-            // Manager Logic: Show tasks I am assigned TO OR tasks I CREATED
+            // MINE Filter Logic:
+            // 1. Tasks assigned to me
             const isAssignee = task.assignee_id === user.id;
-            const isCreator = task.creator?.id === user.id;
+
+            // 2. Creator View: If Admin/Manager, show tasks created by me but assigned to others
+            const isCreator = (userProfile?.role === 'ADMIN' || userProfile?.role === 'MANAGER') && task.creator?.id === user.id;
 
             if (!isAssignee && !isCreator) return false;
         }
@@ -269,7 +295,8 @@ export default function Dashboard() {
     });
 
     // Derived State from Filtered Tasks
-    const openTasks = filteredTasks.filter(t => ['TODO', 'BACKLOG', 'IN_PROGRESS'].includes(t.status));
+    // Derived State from Filtered Tasks
+    const openTasks = filteredTasks.filter(t => ['TODO', 'BACKLOG', 'IN_PROGRESS', 'REVIEW'].includes(t.status));
     const pausedTasks = filteredTasks.filter(t => ['WAITING_CLIENT'].includes(t.status));
     const doneTasks = filteredTasks.filter(t => t.status === 'DONE');
 
@@ -296,6 +323,52 @@ export default function Dashboard() {
             return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
         })[0];
     })();
+
+    // Summary Metrics
+    const dueTodayCount = filteredTasks.filter(t => {
+        if (!t.due_date || t.status === 'DONE') return false;
+        const today = new Date().toDateString();
+        return new Date(t.due_date).toDateString() === today;
+    }).length;
+
+    const waitingReviewCount = filteredTasks.filter(t => t.status === 'REVIEW').length;
+
+    const doneThisWeekCount = tasks.filter(t => { // Use 'tasks' to see global personal done? Or filteredTasks? User said "Total Done in Week". Filtered makes sense for "My Performance".
+        if (t.status !== 'DONE' || !t.updated_at) return false;
+        const taskDate = new Date(t.updated_at);
+        const today = new Date();
+        const firstDayOfWeek = new Date(today.setDate(today.getDate() - today.getDay())); // Sunday
+        return taskDate >= firstDayOfWeek;
+    }).length;
+
+
+    const handleStartTask = async (e: React.MouseEvent, task: Task) => {
+        e.stopPropagation();
+        if (activeTimerTask) return; // Already running logic could be better, but keep simple
+        try {
+            await supabase.from('time_logs').insert({
+                user_id: user?.id,
+                task_id: task.id,
+                start_time: new Date().toISOString()
+            });
+            await supabase.from('tasks').update({ status: 'IN_PROGRESS' }).eq('id', task.id);
+            setActiveTimerTask(task);
+            fetchTasks(); checkActiveTimer();
+        } catch (error) { console.error(error); }
+    };
+
+    const handleQuickComplete = async (e: React.MouseEvent, task: Task) => {
+        e.stopPropagation();
+        try {
+            // Find 'Done' column id purely for consistency if possible, fallback to just status
+            const { data: doneCol } = await supabase.from('kanban_columns').select('id').eq('title', 'Done').single();
+            const updates: any = { status: 'DONE' };
+            if (doneCol) updates.column_id = doneCol.id;
+
+            await supabase.from('tasks').update(updates).eq('id', task.id);
+            fetchTasks();
+        } catch (error) { console.error(error); }
+    };
 
 
 
@@ -324,23 +397,25 @@ export default function Dashboard() {
             <div className="flex-1 overflow-y-auto p-8 pb-20 scroll-smooth">
                 <div className="max-w-7xl mx-auto flex flex-col gap-8">
                     {/* Filter / Action Bar */}
-                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                        <div className="flex flex-wrap items-center gap-4">
-                            <div className="bg-surface-highlight p-1.5 rounded-xl flex items-center">
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                        <div className="flex items-center gap-4 w-full md:w-auto">
+                            <div className="bg-surface-highlight p-1.5 rounded-xl flex items-center shrink-0">
                                 <button
                                     onClick={() => setOwnerFilter('MINE')}
                                     className={`px-5 py-2 rounded-lg text-sm font-bold shadow-sm transition-all border ${ownerFilter === 'MINE' ? 'bg-background-dark text-white border-white/5' : 'text-text-secondary hover:text-white hover:bg-white/5 border-transparent'}`}>
                                     Minhas Tarefas
                                 </button>
-                                <button
-                                    onClick={() => setOwnerFilter('ALL')}
-                                    className={`px-5 py-2 rounded-lg text-sm font-bold shadow-sm transition-all border ${ownerFilter === 'ALL' ? 'bg-background-dark text-white border-white/5' : 'text-text-secondary hover:text-white hover:bg-white/5 border-transparent'}`}>
-                                    Todas
-                                </button>
+                                {userProfile?.role === 'ADMIN' && (
+                                    <button
+                                        onClick={() => setOwnerFilter('ALL')}
+                                        className={`px-5 py-2 rounded-lg text-sm font-bold shadow-sm transition-all border ${ownerFilter === 'ALL' ? 'bg-background-dark text-white border-white/5' : 'text-text-secondary hover:text-white hover:bg-white/5 border-transparent'}`}>
+                                        Todas
+                                    </button>
+                                )}
                             </div>
 
                             {/* Dropdown Filter */}
-                            <div className="relative" ref={filterDropdownRef}>
+                            <div className="relative shrink-0" ref={filterDropdownRef}>
                                 <button
                                     onClick={() => setShowFilterDropdown(!showFilterDropdown)}
                                     className={`flex items-center gap-2 px-4 py-3 rounded-xl border hover:border-primary/30 text-sm font-medium transition-all ${entityFilter.type ? 'bg-primary/20 border-primary text-primary' : 'bg-surface-highlight/50 border-surface-highlight text-text-secondary hover:text-white hover:bg-surface-highlight/80'}`}
@@ -401,86 +476,104 @@ export default function Dashboard() {
                                 )}
                             </div>
                         </div>
-                        <div className="flex flex-col gap-2 w-full md:w-auto">
-                            <button
-                                onClick={() => navigate('/tasks/new')}
-                                className="flex items-center justify-center gap-2 bg-primary hover:bg-[#0fd650] text-background-dark px-6 py-3 rounded-xl font-bold shadow-[0_4px_20px_rgba(19,236,91,0.2)] hover:shadow-[0_6px_25px_rgba(19,236,91,0.3)] hover:-translate-y-0.5 transition-all w-full md:w-auto active:scale-95">
-                                <span className="material-symbols-outlined">add</span>
-                                <span>Nova Tarefa</span>
-                            </button>
 
-                        </div>
+                        <button
+                            onClick={() => navigate('/tasks/new')}
+                            className="flex items-center justify-center gap-2 bg-primary hover:bg-[#0fd650] text-background-dark px-6 py-3 rounded-xl font-bold shadow-[0_4px_20px_rgba(19,236,91,0.2)] hover:shadow-[0_6px_25px_rgba(19,236,91,0.3)] hover:-translate-y-0.5 transition-all w-full md:w-auto shrink-0 active:scale-95">
+                            <span className="material-symbols-outlined">add</span>
+                            <span>Nova Tarefa</span>
+                        </button>
                     </div>
 
                     {/* Widgets Section */}
                     <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                        {/* Timer / Active Task Widget */}
-                        <div className="lg:col-span-8 bg-surface-highlight rounded-2xl p-6 relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                <span className="material-symbols-outlined text-9xl text-primary">timer</span>
-                            </div>
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
-                                <div>
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider ${activeTimerTask ? 'bg-primary/20 text-primary' : (suggestedTask ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-surface-highlight text-text-muted')}`}>
-                                            {activeTimerTask ? 'Em Andamento' : (suggestedTask ? 'Sugestão Inteligente' : 'Sem Atividade')}
-                                        </span>
-                                        <span className="text-text-secondary text-xs">• {(() => {
-                                            const t = activeTimerTask || suggestedTask;
-                                            if (!t) return 'Geral';
-                                            return (t as any).client?.name || (t.project as any)?.client?.name || t.project?.name || 'Geral';
-                                        })()}</span>
-                                    </div>
-                                    <h3
-                                        className="text-2xl font-bold text-white mb-1 cursor-pointer hover:text-primary transition-colors"
-                                        onClick={() => (activeTimerTask || suggestedTask) && navigate(`/tasks/${(activeTimerTask || suggestedTask).task_number}`)}
-                                    >
-                                        {activeTimerTask?.title || suggestedTask?.title || 'Nenhuma tarefa iniciada'}
-                                    </h3>
-                                    <p className="text-text-secondary text-sm">
-                                        {activeTimerTask
-                                            ? `Responsável: ${activeTimerTask.assignee?.full_name || 'Você'}`
-                                            : (suggestedTask ? 'Sua próxima missão. Clique para iniciar.' : 'Dê play em uma tarefa para começar a trackear.')}
-                                    </p>
+                        {/* Metrics & Timer Container (Col Span 8) */}
+                        <div className="lg:col-span-8 flex flex-col gap-6">
+                            {/* Summary Metrics Row */}
+                            <div className="grid grid-cols-3 gap-4">
+                                <div className="bg-surface-highlight/50 p-4 rounded-xl border border-white/5 flex flex-col items-center justify-center gap-1">
+                                    <span className="text-3xl font-bold text-white">{dueTodayCount}</span>
+                                    <span className="text-xs font-bold text-text-secondary uppercase tracking-wider text-center">Vencendo Hoje</span>
                                 </div>
-                                <div className="flex items-center gap-6 bg-background-dark/50 p-4 rounded-xl border border-white/5 backdrop-blur-sm">
-                                    <div className="flex gap-3 text-center">
-                                        <div className="flex flex-col gap-1 w-12">
-                                            <div className="text-2xl font-mono font-bold text-white">{currentTimerDisplay.h}</div>
-                                            <span className="text-[10px] uppercase text-text-secondary tracking-wider">Hr</span>
-                                        </div>
-                                        <div className="text-2xl font-mono font-bold text-primary">:</div>
-                                        <div className="flex flex-col gap-1 w-12">
-                                            <div className="text-2xl font-mono font-bold text-white">{currentTimerDisplay.m}</div>
-                                            <span className="text-[10px] uppercase text-text-secondary tracking-wider">Min</span>
-                                        </div>
-                                        <div className="text-2xl font-mono font-bold text-primary">:</div>
-                                        <div className="flex flex-col gap-1 w-12">
-                                            <div className="text-2xl font-mono font-bold text-white">{currentTimerDisplay.s}</div>
-                                            <span className="text-[10px] uppercase text-text-secondary tracking-wider">Seg</span>
-                                        </div>
-                                    </div>
-                                    <div className="h-10 w-[1px] bg-white/10 mx-2"></div>
-                                    {activeTimerTask ? (
-                                        <button
-                                            onClick={handlePauseTimer}
-                                            className="flex items-center justify-center size-12 rounded-full bg-primary hover:bg-[#0fd650] text-background-dark transition-all shadow-[0_0_15px_rgba(19,236,91,0.3)] hover:scale-105 active:scale-95"
-                                            title="Pausar Timer"
-                                        >
-                                            <span className="material-symbols-outlined text-[28px] fill">pause</span>
-                                        </button>
-                                    ) : (
-                                        <button
-                                            onClick={() => suggestedTask && navigate(`/tasks/${suggestedTask.task_number}`)}
-                                            className={`flex items-center justify-center size-12 rounded-full transition-all ${suggestedTask ? 'bg-transparent border-2 border-primary text-primary hover:bg-primary hover:text-background-dark shadow-[0_0_15px_rgba(19,236,91,0.1)] hover:scale-105 cursor-pointer' : 'bg-surface-highlight text-text-muted cursor-not-allowed'}`}
-                                            disabled={!suggestedTask}
-                                            title={suggestedTask ? "Iniciar Tarefa Sugerida" : "Nenhuma tarefa para iniciar"}
-                                        >
-                                            <span className="material-symbols-outlined text-[28px] fill">play_arrow</span>
-                                        </button>
-                                    )}
+                                <div className="bg-surface-highlight/50 p-4 rounded-xl border border-white/5 flex flex-col items-center justify-center gap-1">
+                                    <span className="text-3xl font-bold text-white">{waitingReviewCount}</span>
+                                    <span className="text-xs font-bold text-purple-400 uppercase tracking-wider text-center">Aguardando Revisão</span>
+                                </div>
+                                <div className="bg-surface-highlight/50 p-4 rounded-xl border border-white/5 flex flex-col items-center justify-center gap-1">
+                                    <span className="text-3xl font-bold text-primary">{doneThisWeekCount}</span>
+                                    <span className="text-xs font-bold text-primary uppercase tracking-wider text-center">Concluído na Semana</span>
                                 </div>
                             </div>
+
+                            {/* Timer / Active Task Widget */}
+                            <div className="bg-surface-highlight rounded-2xl p-6 relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                    <span className="material-symbols-outlined text-9xl text-primary">timer</span>
+                                </div>
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider ${activeTimerTask ? 'bg-primary/20 text-primary' : (suggestedTask ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-surface-highlight text-text-muted')}`}>
+                                                {activeTimerTask ? 'Em Andamento' : (suggestedTask ? 'Sugestão Inteligente' : 'Sem Atividade')}
+                                            </span>
+                                            <span className="text-text-secondary text-xs">• {(() => {
+                                                const t = activeTimerTask || suggestedTask;
+                                                if (!t) return 'Geral';
+                                                return (t as any).client?.name || (t.project as any)?.client?.name || t.project?.name || 'Geral';
+                                            })()}</span>
+                                        </div>
+                                        <h3
+                                            className="text-2xl font-bold text-white mb-1 cursor-pointer hover:text-primary transition-colors"
+                                            onClick={() => (activeTimerTask || suggestedTask) && navigate(`/tasks/${(activeTimerTask || suggestedTask).task_number}`)}
+                                        >
+                                            {activeTimerTask?.title || suggestedTask?.title || 'Nenhuma tarefa iniciada'}
+                                        </h3>
+                                        <p className="text-text-secondary text-sm">
+                                            {activeTimerTask
+                                                ? `Responsável: ${activeTimerTask.assignee?.full_name || 'Você'}`
+                                                : (suggestedTask ? 'Sua próxima missão. Clique para iniciar.' : 'Dê play em uma tarefa para começar a trackear.')}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-6 bg-background-dark/50 p-4 rounded-xl border border-white/5 backdrop-blur-sm">
+                                        <div className="flex gap-3 text-center">
+                                            <div className="flex flex-col gap-1 w-12">
+                                                <div className="text-2xl font-mono font-bold text-white">{currentTimerDisplay.h}</div>
+                                                <span className="text-[10px] uppercase text-text-secondary tracking-wider">Hr</span>
+                                            </div>
+                                            <div className="text-2xl font-mono font-bold text-primary">:</div>
+                                            <div className="flex flex-col gap-1 w-12">
+                                                <div className="text-2xl font-mono font-bold text-white">{currentTimerDisplay.m}</div>
+                                                <span className="text-[10px] uppercase text-text-secondary tracking-wider">Min</span>
+                                            </div>
+                                            <div className="text-2xl font-mono font-bold text-primary">:</div>
+                                            <div className="flex flex-col gap-1 w-12">
+                                                <div className="text-2xl font-mono font-bold text-white">{currentTimerDisplay.s}</div>
+                                                <span className="text-[10px] uppercase text-text-secondary tracking-wider">Seg</span>
+                                            </div>
+                                        </div>
+                                        <div className="h-10 w-[1px] bg-white/10 mx-2"></div>
+                                        {activeTimerTask ? (
+                                            <button
+                                                onClick={handlePauseTimer}
+                                                className="flex items-center justify-center size-12 rounded-full bg-primary hover:bg-[#0fd650] text-background-dark transition-all shadow-[0_0_15px_rgba(19,236,91,0.3)] hover:scale-105 active:scale-95"
+                                                title="Pausar Timer"
+                                            >
+                                                <span className="material-symbols-outlined text-[28px] fill">pause</span>
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => suggestedTask && navigate(`/tasks/${suggestedTask.task_number}`)}
+                                                className={`flex items-center justify-center size-12 rounded-full transition-all ${suggestedTask ? 'bg-transparent border-2 border-primary text-primary hover:bg-primary hover:text-background-dark shadow-[0_0_15px_rgba(19,236,91,0.1)] hover:scale-105 cursor-pointer' : 'bg-surface-highlight text-text-muted cursor-not-allowed'}`}
+                                                disabled={!suggestedTask}
+                                                title={suggestedTask ? "Iniciar Tarefa Sugerida" : "Nenhuma tarefa para iniciar"}
+                                            >
+                                                <span className="material-symbols-outlined text-[28px] fill">play_arrow</span>
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
                         </div>
 
                         {/* Productivity / Gamification Widget */}
@@ -499,24 +592,61 @@ export default function Dashboard() {
                                     <h3 className="text-white font-bold">Em Aberto</h3>
                                     <span className="text-xs text-text-secondary bg-surface-highlight px-2 py-0.5 rounded-full">{openTasks.length}</span>
                                 </div>
-                                <button className="text-text-secondary hover:text-white"><span className="material-symbols-outlined text-sm">add</span></button>
+                                <button
+                                    onClick={() => navigate('/tasks/new?status=TODO')}
+                                    className="text-text-secondary hover:text-white"
+                                >
+                                    <span className="material-symbols-outlined text-sm">add</span>
+                                </button>
                             </div>
 
                             {openTasks.map(task => (
-                                <div key={task.id} onClick={() => navigate(`/tasks/${task.task_number}`)} className="bg-surface-highlight hover:bg-[#2a5538] transition-colors p-4 rounded-xl cursor-pointer group border border-transparent hover:border-white/5">
-                                    <div className="flex justify-between items-start mb-3">
-                                        {(() => {
-                                            const taskClientName = (task as any).client?.name;
-                                            const projectClientName = (task.project as any)?.client?.name;
-                                            const lookupClientName = clients.find(c => c.id === task.project?.client_id)?.name;
-                                            const displayText = taskClientName || projectClientName || lookupClientName || task.project?.name;
+                                <div key={task.id} onClick={() => navigate(`/tasks/${task.task_number}`)} className={`bg-surface-highlight hover:bg-[#2a5538] transition-colors p-4 rounded-xl cursor-pointer group border border-transparent hover:border-white/5 relative ${task.priority === 'HIGH' ? 'border-l-[4px] !border-l-orange-500' : (task.priority === 'MEDIUM' ? 'border-l-[4px] !border-l-blue-500' : '')} ${task.status === 'REVIEW' ? 'border-purple-500/50 hover:border-purple-500' : ''}`}>
+                                    {/* Quick Actions Hover */}
+                                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                        <button
+                                            onClick={(e) => handleStartTask(e, task)}
+                                            className="size-8 rounded-full bg-primary/20 hover:bg-primary flex items-center justify-center text-primary hover:text-background-dark transition-all shadow-lg"
+                                            title="Iniciar Tarefa"
+                                        >
+                                            <span className="material-symbols-outlined text-lg fill">play_arrow</span>
+                                        </button>
+                                        <button
+                                            onClick={(e) => handleQuickComplete(e, task)}
+                                            className="size-8 rounded-full bg-surface-dark hover:bg-green-500 flex items-center justify-center text-white transition-all shadow-lg border border-white/10"
+                                            title="Concluir"
+                                        >
+                                            <span className="material-symbols-outlined text-lg">check</span>
+                                        </button>
+                                    </div>
 
-                                            return displayText ? (
-                                                <span className="px-2 py-1 rounded text-[10px] font-bold bg-[#38bdf8]/10 text-[#38bdf8] uppercase truncate max-w-[150px]">
-                                                    {displayText}
-                                                </span>
-                                            ) : null;
-                                        })()}
+                                    <div className="flex justify-between items-start mb-3 pr-16">
+                                        <div className="flex flex-wrap gap-2 items-center">
+                                            {(() => {
+                                                const taskClientName = (task as any).client?.name;
+                                                const projectClientName = (task.project as any)?.client?.name;
+                                                const lookupClientName = clients.find(c => c.id === task.project?.client_id)?.name;
+                                                const displayText = taskClientName || projectClientName || lookupClientName || task.project?.name;
+
+                                                return displayText ? (
+                                                    <span className="px-2 py-1 rounded text-[10px] font-bold bg-[#38bdf8]/10 text-[#38bdf8] uppercase truncate max-w-[150px]">
+                                                        {displayText}
+                                                    </span>
+                                                ) : null;
+                                            })()}
+                                            {task.status === 'REVIEW' && (
+                                                <span className="px-2 py-1 rounded text-[10px] font-bold bg-purple-500/10 text-purple-400 uppercase tracking-wider border border-purple-500/20">Review</span>
+                                            )}
+                                            {/* Creator View: Delegated Tag */}
+                                            {(userProfile?.role === 'ADMIN' || userProfile?.role === 'MANAGER') && task.creator?.id === user?.id && task.assignee_id !== user?.id && (
+                                                <div className="flex items-center gap-1 px-2 py-1 rounded bg-orange-500/10 border border-orange-500/20">
+                                                    <span className="text-[10px] font-bold text-orange-400 uppercase tracking-wider">Delegada</span>
+                                                    {task.assignee?.avatar_url && (
+                                                        <img src={task.assignee.avatar_url} className="size-3 rounded-full" alt="Assignee" />
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
                                         <span className="material-symbols-outlined text-text-secondary text-sm opacity-0 group-hover:opacity-100 transition-opacity">more_horiz</span>
                                     </div>
                                     <h4 className="text-white font-medium mb-3 group-hover:text-primary transition-colors">{task.title}</h4>
@@ -580,17 +710,24 @@ export default function Dashboard() {
                                     </div>
                                 </div>
                             ))}
-                            {openTasks.length === 0 && <p className="text-center text-text-secondary text-sm py-4">Nenhuma tarefa.</p>}
+
+                            {openTasks.length === 0 && <p className="text-center text-gray-600 font-medium text-sm py-8">Nenhuma tarefa por aqui</p>}
                         </div>
 
                         {/* Em Pausa Column */}
                         <div className="flex flex-col gap-4">
                             <div className="flex items-center justify-between px-2">
                                 <div className="flex items-center gap-2">
-                                    <div className="size-2 rounded-full bg-yellow-500"></div>
+                                    <div className="size-2 rounded-full bg-blue-500"></div>
                                     <h3 className="text-white font-bold">Em Pausa</h3>
                                     <span className="text-xs text-text-secondary bg-surface-highlight px-2 py-0.5 rounded-full">{pausedTasks.length}</span>
                                 </div>
+                                <button
+                                    onClick={() => navigate('/tasks/new?status=WAITING_CLIENT')}
+                                    className="text-text-secondary hover:text-white"
+                                >
+                                    <span className="material-symbols-outlined text-sm">add</span>
+                                </button>
                             </div>
 
                             {pausedTasks.map(task => (
@@ -603,7 +740,7 @@ export default function Dashboard() {
                                             const displayText = taskClientName || projectClientName || lookupClientName || task.project?.name;
 
                                             return displayText ? (
-                                                <span className="px-2 py-1 rounded text-[10px] font-bold bg-yellow-500/10 text-yellow-500 uppercase truncate max-w-[150px]">
+                                                <span className="px-2 py-1 rounded text-[10px] font-bold bg-blue-500/10 text-blue-500 uppercase truncate max-w-[150px]">
                                                     {displayText}
                                                 </span>
                                             ) : null;
@@ -637,7 +774,8 @@ export default function Dashboard() {
                                     </div>
                                 </div>
                             ))}
-                            {pausedTasks.length === 0 && <p className="text-center text-text-secondary text-sm py-4">Nenhuma tarefa.</p>}
+
+                            {pausedTasks.length === 0 && <p className="text-center text-gray-600 font-medium text-sm py-8">Nenhuma tarefa por aqui</p>}
                         </div>
 
                         {/* Concluído Column */}
@@ -648,10 +786,16 @@ export default function Dashboard() {
                                     <h3 className="text-white font-bold">Concluído</h3>
                                     <span className="text-xs text-text-secondary bg-surface-highlight px-2 py-0.5 rounded-full">{doneTasks.length}</span>
                                 </div>
+                                <button
+                                    onClick={() => navigate('/tasks/new?status=DONE')}
+                                    className="text-text-secondary hover:text-white"
+                                >
+                                    <span className="material-symbols-outlined text-sm">add</span>
+                                </button>
                             </div>
 
                             {doneTasks.map(task => (
-                                <div key={task.id} onClick={() => navigate(`/tasks/${task.task_number}`)} className="bg-surface-highlight p-4 rounded-xl border-l-4 border-primary opacity-60 hover:opacity-100 transition-opacity cursor-pointer">
+                                <div key={task.id} onClick={() => navigate(`/tasks/${task.task_number}`)} className="bg-surface-highlight p-4 rounded-xl border-l-[6px] border-primary/20 hover:border-primary opacity-60 hover:opacity-100 transition-all cursor-pointer">
                                     <div className="flex justify-between items-start mb-2">
                                         {(() => {
                                             const taskClientName = (task as any).client?.name;
@@ -674,11 +818,12 @@ export default function Dashboard() {
                                     </div>
                                 </div>
                             ))}
-                            {doneTasks.length === 0 && <p className="text-center text-text-secondary text-sm py-4">Nenhuma tarefa.</p>}
+
+                            {doneTasks.length === 0 && <p className="text-center text-gray-600 font-medium text-sm py-8">Nenhuma tarefa por aqui</p>}
                         </div>
                     </section>
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }

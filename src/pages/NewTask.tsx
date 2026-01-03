@@ -33,6 +33,8 @@ export default function NewTask() {
     const [dueDate, setDueDate] = useState('');
     const [isOngoing, setIsOngoing] = useState(false);
     const [priority, setPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH'>('MEDIUM');
+    // Initialize status from query param or default to 'TODO'
+    const [status, setStatus] = useState<string>(searchParams.get('status') || 'TODO');
 
     // Relationships
     const [clientId, setClientId] = useState('');
@@ -59,6 +61,13 @@ export default function NewTask() {
         fetchWorkflows();
         fetchUsers();
     }, []);
+
+    useEffect(() => {
+        const paramStatus = searchParams.get('status');
+        if (paramStatus) {
+            setStatus(paramStatus);
+        }
+    }, [searchParams]);
 
     useEffect(() => {
         if (id) {
@@ -117,8 +126,12 @@ export default function NewTask() {
             if (!isClone) {
                 setTaskId(data.id);
                 setTitle(data.title);
+                // On edit, update status from fetched data
+                if (data.status) setStatus(data.status);
             } else {
                 setTitle(`Cópia de ${data.title}`);
+                // Cloned tasks default to TODO or kept param status, ignore source status usually? 
+                // Let's keep the current behavior (likely TODO via default state unless param overrides)
             }
 
             setDescription(data.description || '');
@@ -162,7 +175,7 @@ export default function NewTask() {
             const payload: any = { // Using any to bypass strict checks for nulls, validated by UI logic
                 title,
                 description,
-                status: 'TODO',
+                status: status, // Use flexible status state
                 priority: priority,
                 due_date: isOngoing ? null : dueDate,
                 client_id: clientId,

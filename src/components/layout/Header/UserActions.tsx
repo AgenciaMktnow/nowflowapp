@@ -5,7 +5,7 @@ import { useNotifications } from '../../../hooks/useNotifications';
 import NotificationDropdown from './NotificationDropdown';
 
 export default function UserActions() {
-    const { user, signOut } = useAuth();
+    const { user, userProfile, signOut } = useAuth();
     const navigate = useNavigate();
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -102,7 +102,7 @@ export default function UserActions() {
                         </div>
                     )}
                     <span className="text-sm font-medium text-white hidden lg:block max-w-[100px] truncate">
-                        {user?.user_metadata?.full_name?.split(' ')[0] || 'Usuário'}
+                        {userProfile?.full_name?.split(' ')[0] || user?.user_metadata?.full_name?.split(' ')[0] || 'Usuário'}
                     </span>
                     <span className={`material-symbols-outlined text-gray-400 text-[18px] transition-transform duration-200 ${isProfileOpen ? 'rotate-180' : ''}`}>expand_more</span>
                 </button>
