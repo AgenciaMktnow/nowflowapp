@@ -13,6 +13,7 @@ import TaskDetail from './pages/TaskDetail';
 import Settings from './pages/Settings';
 import Teams from './pages/Teams';
 import Profile from './pages/Profile';
+import NotFound from './pages/NotFound';
 
 import Portfolio from './pages/Portfolio';
 import TaskCalendar from './pages/TaskCalendar';
@@ -60,6 +61,7 @@ function App() {
               <Route path="profile" element={<Profile />} />
               <Route path="settings/*" element={<Settings />} />
             </Route>
+            <Route path="*" element={<NotFound />} />
           </Routes>
           <ToastProvider />
         </SettingsProvider>
