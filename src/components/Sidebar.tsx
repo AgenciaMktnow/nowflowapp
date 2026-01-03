@@ -26,7 +26,7 @@ export default function Sidebar({ onMobileClose }: { onMobileClose?: () => void 
                     <div className="bg-center bg-no-repeat bg-cover rounded-full size-10 shadow-lg border border-white/5" style={{ backgroundImage: `url("${settings.logo_dark_url || 'https://lh3.googleusercontent.com/aida-public/AB6AXuB24_ZfT5X-sHKLttEZrmZar0qRv82CJJoVclokr6vYhy6KXda1MQvRK_M0kB-K1AEEG17vCBCtSpAJXsA0EYTmAc7f7m7WVDTna75o4axavHe6391KJuJtRMdSSRJq-4da07WvwAqgB0Vbw-D11RJtPUgGBHO4Kj5lJGYHmOvIbZoGGSDqdjccux4psjAaYN0fHpWj5EPA6JCFFV2OqxROgun0VeDZs51SsX1v9AQvu5ZV4iSd6mPil7PWjacPo8rZp6Zl1CDKHd8'}")` }}></div>
                     <div className="flex flex-col">
                         <h1 className="text-white text-base font-bold leading-normal tracking-wide truncate max-w-[160px]">{settings.company_name || 'NowFlow'}</h1>
-                        <p className="text-text-muted-dark text-xs font-normal">Gerenciamento Pro</p>
+                        <p className="text-text-muted-dark text-xs font-normal">Produtividade em sincronia</p>
                     </div>
                 </div>
 
