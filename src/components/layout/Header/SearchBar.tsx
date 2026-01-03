@@ -58,143 +58,70 @@ export default function SearchBar() {
         try {
             console.log('🔍 Searching for:', searchTerm);
 
-            // Check if search is numeric
-            const isNumeric = /^\d+$/.test(searchTerm);
-
-            // Build query for tasks with project and client info
-            let query = supabase
+            // SIMPLIFIED QUERY - Get ALL tasks with joins (client-side filtering is more reliable)
+            const { data: allTasks, error } = await supabase
                 .from('tasks')
                 .select(`
                     id,
                     title,
                     task_number,
+                    project_id,
+                    client_id,
                     project:projects(
                         name,
                         client:clients(name)
                     ),
                     client:clients(name)
-                `);
+                `)
+                .limit(200);
 
-            // Search by task_number if numeric, otherwise by title
-            if (isNumeric) {
-                query = query.eq('task_number', parseInt(searchTerm));
-            } else {
-                query = query.ilike('title', `%${searchTerm}%`);
+            if (error) {
+                console.error('❌ Query error:', error);
+                throw error;
             }
 
-            const { data: tasksByTitle, error: titleError } = await query.limit(20);
+            console.log('📊 Total tasks in database:', allTasks?.length || 0);
 
-            if (titleError) {
-                console.error('Search error:', titleError);
+            if (!allTasks || allTasks.length === 0) {
+                console.warn('⚠️ No tasks found in database!');
+                setResults([]);
+                setIsOpen(false);
+                setLoading(false);
+                return;
             }
 
-            console.log('📊 Tasks found by title/number:', tasksByTitle?.length || 0);
+            // CLIENT-SIDE FILTERING (more reliable)
+            const filteredTasks = allTasks.filter(task => {
+                const taskNumber = task.task_number?.toString() || '';
+                const title = task.title?.toLowerCase() || '';
+                const projectName = (task.project as any)?.name?.toLowerCase() || '';
+                const clientName = (task.client as any)?.name?.toLowerCase() || '';
+                const projectClientName = (task.project as any)?.client?.name?.toLowerCase() || '';
 
-            // Also search by project name
-            const { data: projects } = await supabase
-                .from('projects')
-                .select('id, name')
-                .ilike('name', `%${searchTerm}%`)
-                .limit(10);
+                const search = searchTerm.toLowerCase();
 
-            let tasksByProject: any[] = [];
-            if (projects && projects.length > 0) {
-                const projectIds = projects.map(p => p.id);
-                const { data } = await supabase
-                    .from('tasks')
-                    .select(`
-                        id,
-                        title,
-                        task_number,
-                        project:projects(
-                            name,
-                            client:clients(name)
-                        ),
-                        client:clients(name)
-                    `)
-                    .in('project_id', projectIds)
-                    .limit(20);
+                // Match by task number
+                if (taskNumber.includes(search)) return true;
 
-                tasksByProject = data || [];
-                console.log('📊 Tasks found by project:', tasksByProject.length);
-            }
+                // Match by title
+                if (title.includes(search)) return true;
 
-            // Search by client name
-            const { data: clients } = await supabase
-                .from('clients')
-                .select('id, name')
-                .ilike('name', `%${searchTerm}%`)
-                .limit(10);
+                // Match by project name
+                if (projectName.includes(search)) return true;
 
-            let tasksByClient: any[] = [];
-            if (clients && clients.length > 0) {
-                const clientIds = clients.map(c => c.id);
+                // Match by client name (direct or through project)
+                if (clientName.includes(search)) return true;
+                if (projectClientName.includes(search)) return true;
 
-                // Get projects for these clients
-                const { data: clientProjects } = await supabase
-                    .from('projects')
-                    .select('id')
-                    .in('client_id', clientIds);
+                return false;
+            });
 
-                if (clientProjects && clientProjects.length > 0) {
-                    const projectIds = clientProjects.map(p => p.id);
-                    const { data } = await supabase
-                        .from('tasks')
-                        .select(`
-                            id,
-                            title,
-                            task_number,
-                            project:projects(
-                                name,
-                                client:clients(name)
-                            ),
-                            client:clients(name)
-                        `)
-                        .in('project_id', projectIds)
-                        .limit(20);
-
-                    tasksByClient = data || [];
-                    console.log('📊 Tasks found by client:', tasksByClient.length);
-                }
-
-                // Also check tasks with direct client_id
-                const { data: directClientTasks } = await supabase
-                    .from('tasks')
-                    .select(`
-                        id,
-                        title,
-                        task_number,
-                        project:projects(
-                            name,
-                            client:clients(name)
-                        ),
-                        client:clients(name)
-                    `)
-                    .in('client_id', clientIds)
-                    .limit(20);
-
-                if (directClientTasks) {
-                    tasksByClient = [...tasksByClient, ...directClientTasks];
-                }
-            }
-
-            // Combine and deduplicate
-            const allTasks = [
-                ...(tasksByTitle || []),
-                ...tasksByProject,
-                ...tasksByClient
-            ];
-
-            const uniqueTasks = Array.from(
-                new Map(allTasks.map(t => [t.id, t])).values()
-            );
-
-            console.log('✅ Total unique tasks found:', uniqueTasks.length);
+            console.log('✅ Filtered tasks:', filteredTasks.length);
 
             // Sort: exact task_number match first
-            const exactMatch = uniqueTasks.find(t => t.task_number?.toString() === searchTerm);
-            const otherTasks = uniqueTasks.filter(t => t.task_number?.toString() !== searchTerm);
-            const orderedTasks = exactMatch ? [exactMatch, ...otherTasks] : uniqueTasks;
+            const exactMatch = filteredTasks.find(t => t.task_number?.toString() === searchTerm);
+            const otherTasks = filteredTasks.filter(t => t.task_number?.toString() !== searchTerm);
+            const orderedTasks = exactMatch ? [exactMatch, ...otherTasks] : filteredTasks;
 
             // Format results: #ID - [Projeto] - Título - CLIENTE
             orderedTasks.forEach(task => {
@@ -217,7 +144,7 @@ export default function SearchBar() {
                 });
             });
 
-            // Add quick actions at the beginning
+            // Add quick actions
             const quickActions: SearchResult[] = [
                 {
                     type: 'action',
@@ -256,15 +183,13 @@ export default function SearchBar() {
 
             console.log('🎯 Quick Actions:', quickActions.length);
             console.log('🎯 Search Results (tasks):', searchResults.length);
-            console.log('🎯 Total Results:', quickActions.length + searchResults.length);
 
             const finalResults = [...quickActions, ...searchResults];
-            console.log('🎯 Final results array:', finalResults);
 
             setResults(finalResults);
             setIsOpen(true);
 
-            console.log('✅ Search complete. Results set.');
+            console.log('✅ Search complete with', finalResults.length, 'total results');
         } catch (error) {
             console.error('❌ Global search error:', error);
         } finally {
@@ -277,8 +202,6 @@ export default function SearchBar() {
         actions: results.filter(r => r.type === 'action'),
         tasks: results.filter(r => r.type === 'task')
     };
-
-    console.log('📋 Grouped Results - Actions:', groupedResults.actions.length, 'Tasks:', groupedResults.tasks.length);
 
     // Detect platform for keyboard shortcut hint
     const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
@@ -305,7 +228,7 @@ export default function SearchBar() {
 
             {/* Global Search Results Dropdown */}
             {isOpen && results.length > 0 && (
-                <div className="absolute top-full left-0 mt-2 w-[600px] bg-surface-dark border border-white/10 rounded-xl shadow-2xl z-[100] overflow-hidden animate-scale-in max-h-[500px] overflow-y-auto custom-scrollbar">
+                <div className="absolute top-full left-0 mt-2 w-[600px] bg-surface-dark border border-white/10 rounded-xl shadow-2xl z-[100] max-h-[500px] overflow-y-auto custom-scrollbar animate-scale-in">
                     {/* Quick Actions Section */}
                     {groupedResults.actions.length > 0 && (
                         <div className="p-2 border-b border-white/5">
@@ -378,7 +301,7 @@ export default function SearchBar() {
                     {groupedResults.tasks.length === 0 && groupedResults.actions.length === 0 && (
                         <div className="p-6 text-center text-text-secondary">
                             <span className="material-symbols-outlined text-4xl mb-2 opacity-50">search_off</span>
-                            <p className="text-sm">Nenhum resultado encontrado</p>
+                            <p className="text-sm">Nenhuma tarefa encontrada</p>
                         </div>
                     )}
                 </div>
