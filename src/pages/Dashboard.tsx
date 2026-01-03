@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { ProductivityWidget } from '../components/ProductivityWidget';
 import { extractChecklistFromHtml } from '../utils/checklist';
 import Header from '../components/layout/Header/Header';
+import { useClickOutside } from '../hooks/useClickOutside';
 
 type Task = {
     id: string;
@@ -69,6 +70,9 @@ export default function Dashboard() {
     // Active Team Logs (Manager View)
     const [activeTeamLogs, setActiveTeamLogs] = useState<Record<string, { user_name: string }>>({});
 
+
+    // Click-outside handler for filter dropdown
+    useClickOutside(filterDropdownRef, () => setShowFilterDropdown(false));
 
     useEffect(() => {
         fetchTasks();
@@ -418,19 +422,24 @@ export default function Dashboard() {
                             <div className="relative shrink-0" ref={filterDropdownRef}>
                                 <button
                                     onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-                                    className={`flex items-center gap-2 px-4 py-3 rounded-xl border hover:border-primary/30 text-sm font-medium transition-all ${entityFilter.type ? 'bg-primary/20 border-primary text-primary' : 'bg-surface-highlight/50 border-surface-highlight text-text-secondary hover:text-white hover:bg-surface-highlight/80'}`}
+                                    className={`flex items-center gap-2 px-4 py-3 rounded-xl border text-sm font-medium transition-all ${showFilterDropdown
+                                        ? 'bg-surface-highlight/50 border-primary ring-2 ring-primary/50 shadow-[0_0_20px_rgba(19,236,91,0.3)] text-white'
+                                        : (entityFilter.type
+                                            ? 'bg-primary/20 border-primary text-primary hover:border-primary/50'
+                                            : 'bg-surface-highlight/50 border-surface-highlight text-text-secondary hover:text-white hover:bg-surface-highlight/80 hover:border-primary/30')
+                                        }`}
                                 >
                                     <span className="material-symbols-outlined text-[20px]">filter_alt</span>
                                     <span>{entityFilter.name || 'Projetos ou Clientes'}</span>
                                     {entityFilter.type ? (
                                         <span onClick={(e) => { e.stopPropagation(); setEntityFilter({ type: null, id: null, name: null }); }} className="material-symbols-outlined text-[16px] hover:text-white">close</span>
                                     ) : (
-                                        <span className="material-symbols-outlined text-[20px]">expand_more</span>
+                                        <span className={`material-symbols-outlined text-[20px] transition-transform ${showFilterDropdown ? 'rotate-180 text-primary' : ''}`}>expand_more</span>
                                     )}
                                 </button>
 
                                 {showFilterDropdown && (
-                                    <div className="absolute top-full left-0 mt-2 w-64 bg-surface-dark border border-white/10 rounded-xl shadow-xl z-50 overflow-hidden">
+                                    <div className="absolute top-full left-0 mt-2 w-64 bg-surface-dark border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden animate-scale-in">
                                         <div className="max-h-80 overflow-y-auto custom-scrollbar">
                                             {/* Clients Section */}
                                             {clients.length > 0 && (

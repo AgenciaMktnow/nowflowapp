@@ -16,6 +16,7 @@ import Profile from './pages/Profile';
 import NotFound from './pages/NotFound';
 
 import Portfolio from './pages/Portfolio';
+import MyQueue from './pages/MyQueue'; // Correct import
 import TaskCalendar from './pages/TaskCalendar';
 import { ToastProvider } from './components/ui/ToastProvider';
 import { SettingsProvider } from './contexts/SettingsContext';
@@ -50,6 +51,7 @@ function App() {
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="portfolio" element={<Portfolio />} />
               <Route path="dashboard" element={<Dashboard />} />
+              <Route path="queue" element={<MyQueue />} /> {/* Corrected Component Name */}
               <Route path="kanban" element={<Projects />} />
               <Route path="calendar" element={<TaskCalendar />} />
               <Route path="projects/new" element={<CreateProject />} />
