@@ -4,12 +4,11 @@ import Header from '../components/layout/Header/Header';
 import GeneralSettings from './settings/GeneralSettings';
 import ClientManagement from './ClientManagement';
 import TeamManagement from './TeamManagement';
-import TeamsSettings from './settings/TeamsSettings';
 import IntegrationsSettings from './settings/IntegrationsSettings';
 import WorkflowsSettings from './settings/WorkflowsSettings';
 import ProjectSettings from './settings/ProjectSettings';
 
-type Tab = 'general' | 'clients' | 'projects' | 'workflows' | 'team' | 'teams_list' | 'integrations';
+type Tab = 'general' | 'clients' | 'projects' | 'workflows' | 'team' | 'integrations';
 
 export default function Settings() {
     const navigate = useNavigate();
@@ -22,7 +21,6 @@ export default function Settings() {
         if (path.includes('/settings/clients')) setActiveTab('clients');
         else if (path.includes('/settings/projects')) setActiveTab('projects');
         else if (path.includes('/settings/workflows')) setActiveTab('workflows');
-        else if (path.includes('/settings/teams')) setActiveTab('teams_list');
         else if (path.includes('/settings/team')) setActiveTab('team');
         else if (path.includes('/settings/integrations')) setActiveTab('integrations');
         else setActiveTab('general');
@@ -34,7 +32,6 @@ export default function Settings() {
         if (tab === 'clients') route = '/settings/clients';
         else if (tab === 'projects') route = '/settings/projects';
         else if (tab === 'workflows') route = '/settings/workflows';
-        else if (tab === 'teams_list') route = '/settings/teams';
         else if (tab === 'team') route = '/settings/team';
         else if (tab === 'integrations') route = '/settings/integrations';
 
@@ -81,13 +78,7 @@ export default function Settings() {
                             Fluxos
                             {activeTab === 'workflows' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full shadow-neon"></span>}
                         </button>
-                        <button
-                            onClick={() => handleTabChange('teams_list')}
-                            className={`pb-4 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === 'teams_list' ? 'text-primary' : 'text-text-muted hover:text-white'}`}
-                        >
-                            Equipes
-                            {activeTab === 'teams_list' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full shadow-neon"></span>}
-                        </button>
+
                         <button
                             onClick={() => handleTabChange('team')}
                             className={`pb-4 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === 'team' ? 'text-primary' : 'text-text-muted hover:text-white'}`}
@@ -111,7 +102,6 @@ export default function Settings() {
                     {activeTab === 'clients' && <ClientManagement />}
                     {activeTab === 'projects' && <ProjectSettings />}
                     {activeTab === 'workflows' && <WorkflowsSettings />}
-                    {activeTab === 'teams_list' && <TeamsSettings />}
                     {activeTab === 'team' && <TeamManagement />}
                     {activeTab === 'integrations' && <IntegrationsSettings />}
                 </div>

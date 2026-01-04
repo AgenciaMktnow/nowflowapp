@@ -22,10 +22,8 @@ export default function Sidebar({ onMobileClose }: { onMobileClose?: () => void 
     const menuItems = [
         { icon: 'dashboard', label: 'Dashboard', path: '/dashboard' },
         { icon: 'checklist', label: 'Minha Fila', path: '/queue' },
-        { icon: 'analytics', label: 'Portfólio', path: '/portfolio' },
         { icon: 'view_kanban', label: 'Kanban', path: '/kanban' },
         { icon: 'calendar_month', label: 'Calendário', path: '/calendar' },
-        { icon: 'groups', label: 'Equipes', path: '/teams' },
         { icon: 'add_task', label: 'Nova Tarefa', path: '/tasks/new' },
         { icon: 'schedule', label: 'Time Tracking', path: '/time-tracking' },
     ];

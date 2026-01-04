@@ -11,11 +11,10 @@ import TimeTracking from './pages/TimeTracking';
 import NewTask from './pages/NewTask';
 import TaskDetail from './pages/TaskDetail';
 import Settings from './pages/Settings';
-import Teams from './pages/Teams';
 import Profile from './pages/Profile';
 import NotFound from './pages/NotFound';
 
-import Portfolio from './pages/Portfolio';
+
 import MyQueue from './pages/MyQueue'; // Correct import
 import TaskCalendar from './pages/TaskCalendar';
 import { ToastProvider } from './components/ui/ToastProvider';
@@ -49,7 +48,6 @@ function App() {
               </ProtectedRoute>
             }>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="portfolio" element={<Portfolio />} />
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="queue" element={<MyQueue />} /> {/* Corrected Component Name */}
               <Route path="kanban" element={<Projects />} />
@@ -58,7 +56,6 @@ function App() {
               <Route path="tasks/new" element={<NewTask />} />
               <Route path="tasks/:id" element={<TaskDetail />} />
               <Route path="tasks/:id/edit" element={<NewTask />} />
-              <Route path="teams" element={<Teams />} />
               <Route path="time-tracking" element={<TimeTracking />} />
               <Route path="profile" element={<Profile />} />
               <Route path="settings/*" element={<Settings />} />
