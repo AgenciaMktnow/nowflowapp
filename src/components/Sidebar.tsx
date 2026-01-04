@@ -45,42 +45,50 @@ export default function Sidebar({ onMobileClose }: { onMobileClose?: () => void 
                 Let's try a dedicated toggle button row or integrated into logo row.
             */}
 
-            <div className={`flex flex-col gap-6 p-4 ${isCollapsed ? 'px-2 items-center' : 'px-4'}`}>
-                {/* Header: Logo + Toggle */}
-                <div className={`flex items-center ${isCollapsed ? 'justify-center flex-col gap-2' : 'justify-between'} min-h-[48px] relative group/header`}>
+            <div className={`flex flex-col gap-6 p-4 ${isCollapsed ? 'items-center px-2' : ''}`}>
+                {/* Header Container */}
+                <div className="flex flex-col gap-1 w-full relative group/header">
 
-                    {/* Logo Section */}
-                    <div className={`flex items-center gap-2 ${isCollapsed ? 'justify-center' : 'px-2'}`}>
-                        {/* Logo Icon */}
-                        <div
-                            className="bg-center bg-no-repeat bg-cover rounded-full shadow-lg border border-white/5 transition-all duration-300 shrink-0"
-                            style={{
-                                backgroundImage: `url("${settings.logo_dark_url || 'https://lh3.googleusercontent.com/aida-public/AB6AXuB24_ZfT5X-sHKLttEZrmZar0qRv82CJJoVclokr6vYhy6KXda1MQvRK_M0kB-K1AEEG17vCBCtSpAJXsA0EYTmAc7f7m7WVDTna75o4axavHe6391KJuJtRMdSSRJq-4da07WvwAqgB0Vbw-D11RJtPUgGBHO4Kj5lJGYHmOvIbZoGGSDqdjccux4psjAaYN0fHpWj5EPA6JCFFV2OqxROgun0VeDZs51SsX1v9AQvu5ZV4iSd6mPil7PWjacPo8rZp6Zl1CDKHd8'}")`,
-                                width: isCollapsed ? '32px' : '40px',
-                                height: isCollapsed ? '32px' : '40px'
-                            }}
-                        ></div>
+                    {/* Top Row: Logo + Title + Toggle */}
+                    <div className={`flex items-center ${isCollapsed ? 'justify-center flex-col gap-4' : 'justify-between'}`}>
 
-                        {/* Logo Text - Hidden when collapsed */}
-                        <div className={`flex flex-col transition-all duration-300 overflow-hidden ${isCollapsed ? 'w-0 opacity-0' : 'w-[120px] opacity-100'}`}>
-                            <h1 className="text-white text-base font-bold leading-normal tracking-wide truncate">{settings.company_name || 'NowFlow'}</h1>
-                            <p className="text-text-muted-dark text-xs font-normal truncate">Produtividade em sincronia</p>
+                        {/* Logo + Title Group */}
+                        <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : ''}`}>
+                            {/* Logo Icon */}
+                            <div
+                                className="bg-center bg-no-repeat bg-cover rounded-full shadow-lg border border-white/5 transition-all duration-300 shrink-0"
+                                style={{
+                                    backgroundImage: `url("${settings.logo_dark_url || 'https://lh3.googleusercontent.com/aida-public/AB6AXuB24_ZfT5X-sHKLttEZrmZar0qRv82CJJoVclokr6vYhy6KXda1MQvRK_M0kB-K1AEEG17vCBCtSpAJXsA0EYTmAc7f7m7WVDTna75o4axavHe6391KJuJtRMdSSRJq-4da07VvwAqgB0Vbw-D11RJtPUgGBHO4Kj5lJGYHmOvIbZoGGSDqdjccux4psjAaYN0fHpWj5EPA6JCFFV2OqxROgun0VeDZs51SsX1v9AQvu5ZV4iSd6mPil7PWjacPo8rZp6Zl1CDKHd8'}")`,
+                                    width: isCollapsed ? '32px' : '40px',
+                                    height: isCollapsed ? '32px' : '40px'
+                                }}
+                            ></div>
+
+                            {/* Title - Hidden when collapsed */}
+                            <h1 className={`text-white text-base font-bold leading-normal tracking-wide truncate transition-all duration-300 ${isCollapsed ? 'w-0 opacity-0 hidden' : 'w-auto opacity-100'}`}>
+                                {settings.company_name || 'NowFlow'}
+                            </h1>
                         </div>
+
+                        {/* Toggle Button */}
+                        <button
+                            onClick={toggleSidebar}
+                            className={`
+                                text-text-muted hover:text-primary transition-colors p-1 rounded-lg hover:bg-white/5
+                                ${isCollapsed ? '' : ''}
+                            `}
+                            title={isCollapsed ? "Expandir Menu" : "Recolher Menu"}
+                        >
+                            <span className={`material-symbols-outlined text-[20px] transition-transform duration-300 ${isCollapsed ? 'rotate-180' : ''}`}>
+                                menu_open
+                            </span>
+                        </button>
                     </div>
 
-                    {/* Toggle Button */}
-                    <button
-                        onClick={toggleSidebar}
-                        className={`
-                            text-text-muted hover:text-primary transition-colors p-1 rounded-lg hover:bg-white/5
-                            ${isCollapsed ? 'mt-2' : ''}
-                        `}
-                        title={isCollapsed ? "Expandir Menu" : "Recolher Menu"}
-                    >
-                        <span className={`material-symbols-outlined text-[20px] transition-transform duration-300 ${isCollapsed ? 'rotate-180' : ''}`}>
-                            menu_open
-                        </span>
-                    </button>
+                    {/* Subtitle - New Line */}
+                    <p className={`text-text-muted-dark text-xs font-normal transition-all duration-300 ${isCollapsed ? 'h-0 opacity-0 overflow-hidden' : 'h-auto opacity-100 mt-1'}`}>
+                        Produtividade em sincronia
+                    </p>
                 </div>
 
                 {/* Navigation */}
