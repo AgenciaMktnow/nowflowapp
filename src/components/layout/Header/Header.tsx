@@ -19,14 +19,17 @@ export default function Header({
                 <h2 className="text-xl font-bold tracking-tight">{title}</h2>
             </div>
 
+            <div className="flex-1 flex justify-center px-4">
+                {/* Global Search - Centered */}
+                <SearchBar />
+            </div>
+
             <div className="flex items-center gap-6">
                 {rightElement && (
                     <div className="flex items-center">
                         {rightElement}
                     </div>
                 )}
-                {/* Global Search - Always visible */}
-                <SearchBar />
                 <UserActions />
             </div>
         </header>

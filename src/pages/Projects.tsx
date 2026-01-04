@@ -41,7 +41,7 @@ export default function Projects() {
     const [availableClients, setAvailableClients] = useState<Client[]>([]);
     const [availableTeams, setAvailableTeams] = useState<Team[]>([]);
 
-    const [searchTerm, setSearchTerm] = useState('');
+
     const [columns, setColumns] = useState<Column[]>([]);
 
     const [isNewColumnModalOpen, setIsNewColumnModalOpen] = useState(false);
@@ -215,14 +215,7 @@ export default function Projects() {
         // We trust the backend for Client/Board/Team filtering. Only Project ID drills down strictly on task.
         if (selectedProject && task.project_id !== selectedProject) return false;
 
-        // 2. Search
-        if (searchTerm) {
-            const term = searchTerm.toLowerCase();
-            const matchesTitle = task.title.toLowerCase().includes(term);
-            const matchesProject = task.project?.name?.toLowerCase().includes(term);
-            const matchesNumber = task.task_number?.toString().includes(term);
-            if (!matchesTitle && !matchesProject && !matchesNumber) return false;
-        }
+
 
         // 3. Quick Filters
         if (filterMine && user && task.assignee_id !== user.id) return false;
@@ -387,10 +380,7 @@ export default function Projects() {
         <div className="flex flex-col h-full overflow-hidden bg-black/20">
             {/* Header */}
             <Header
-                title="Kanban"
-                onSearch={setSearchTerm}
-                searchPlaceholder="Buscar por ID, nome ou projeto..."
-                searchInitialValue={searchTerm}
+                title="Projetos"
             />
 
             {/* Toolbar */}

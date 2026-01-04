@@ -23,6 +23,7 @@ type Task = {
         client_id?: string;
         client?: { name: string };
     };
+    client?: { name: string };
     assignee?: {
         full_name: string;
         avatar_url?: string;
@@ -40,7 +41,7 @@ export default function MyQueue() {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [displayTasks, setDisplayTasks] = useState<Task[]>([]);
     const [activeTab, setActiveTab] = useState<'MINE' | 'CREATED' | 'REVIEW'>('MINE');
-    const [searchTerm, setSearchTerm] = useState('');
+
     const [activeTimerTask, setActiveTimerTask] = useState<any>(null);
     const [timerElapsedTime, setTimerElapsedTime] = useState(0);
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
@@ -70,19 +71,10 @@ export default function MyQueue() {
             return false;
         });
 
-        if (searchTerm.trim()) {
-            filtered = filtered.filter(task => {
-                const clientName = (task.client as any)?.name || (task.project as any)?.client?.name || '';
-                return (
-                    task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    task.project?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    clientName.toLowerCase().includes(searchTerm.toLowerCase())
-                );
-            });
-        }
+
 
         setDisplayTasks(filtered);
-    }, [tasks, activeTab, user?.id, searchTerm]);
+    }, [tasks, activeTab, user?.id]);
 
     const fetchTasks = async () => {
         if (!user) return;
@@ -229,9 +221,6 @@ export default function MyQueue() {
         <div className="flex-1 flex flex-col h-full overflow-hidden relative bg-background-dark">
             <Header
                 title="Minha Fila"
-                onSearch={setSearchTerm}
-                searchPlaceholder="Buscar tarefas, projetos..."
-                searchInitialValue={searchTerm}
             />
 
             <div className="flex-1 overflow-y-auto custom-scrollbar">

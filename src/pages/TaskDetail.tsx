@@ -927,8 +927,6 @@ export default function TaskDetail() {
             {/* Header */}
             <Header
                 title="Detalhes da Tarefa"
-                onSearch={() => { }}
-                searchPlaceholder="Buscar na tarefa..."
             />
 
             <main className="flex-1 w-full max-w-[1440px] mx-auto p-6 md:p-10">

@@ -15,7 +15,7 @@ export default function Settings() {
     const navigate = useNavigate();
     const location = useLocation();
     const [activeTab, setActiveTab] = useState<Tab>('general');
-    const [searchTerm, setSearchTerm] = useState('');
+
 
     useEffect(() => {
         const path = location.pathname;
@@ -41,26 +41,12 @@ export default function Settings() {
         navigate(route);
     };
 
-    const getHeaderTitle = () => {
-        switch (activeTab) {
-            case 'general': return 'Configurações > Geral';
-            case 'clients': return 'Configurações > Clientes';
-            case 'projects': return 'Configurações > Projetos';
-            case 'workflows': return 'Configurações > Fluxos';
-            case 'team': return 'Configurações > Usuários';
-            case 'teams_list': return 'Configurações > Equipes';
-            case 'integrations': return 'Configurações > Integrações';
-            default: return 'Configurações';
-        }
-    };
+
 
     return (
         <div className="flex-1 flex flex-col h-full overflow-hidden relative bg-background-dark">
             <Header
-                title={getHeaderTitle()}
-                onSearch={setSearchTerm}
-                searchPlaceholder="Buscar nas configurações..."
-                searchInitialValue={searchTerm}
+                title="Configurações"
             />
 
             <div className="flex-1 overflow-y-auto p-8 pb-20 scroll-smooth">

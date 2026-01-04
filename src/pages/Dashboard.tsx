@@ -54,7 +54,7 @@ export default function Dashboard() {
 
     // Filter States
     const [ownerFilter, setOwnerFilter] = useState<'ALL' | 'MINE'>('MINE');
-    const [searchTerm, setSearchTerm] = useState('');
+
 
     // Complex Filter State (Project or Client)
     const [entityFilter, setEntityFilter] = useState<{ type: 'CLIENT' | 'PROJECT' | null, id: string | null, name: string | null }>({ type: null, id: null, name: null });
@@ -279,14 +279,7 @@ export default function Dashboard() {
             if (!isAssignee && !isCreator) return false;
         }
 
-        // 2. Filter by Search Term
-        if (searchTerm) {
-            const term = searchTerm.toLowerCase();
-            const matchesTitle = task.title.toLowerCase().includes(term);
-            const matchesProject = task.project?.name?.toLowerCase().includes(term);
-            const matchesNumber = task.task_number?.toString().includes(term);
-            if (!matchesTitle && !matchesProject && !matchesNumber) return false;
-        }
+
 
         // 3. Filter by Project or Client
         if (entityFilter.type === 'PROJECT') {
@@ -392,10 +385,7 @@ export default function Dashboard() {
     return (
         <div className="flex-1 flex flex-col h-full overflow-hidden relative bg-background-dark">
             <Header
-                title="Dashboard Operacional"
-                onSearch={setSearchTerm}
-                searchPlaceholder="Buscar tarefas, projetos..."
-                searchInitialValue={searchTerm}
+                title="Dashboard"
             />
 
             <div className="flex-1 overflow-y-auto p-8 pb-20 scroll-smooth">
