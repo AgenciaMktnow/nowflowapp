@@ -181,12 +181,12 @@ export default function TeamManagement() {
 
                     const newUser = {
                         id: userId,
-                        full_name: data[0].full_name || '',
-                        email: data[0].email,
-                        role: data[0].role?.toLowerCase() || 'member',
+                        full_name: selectedUser.full_name || '',
+                        email: selectedUser.email,
+                        role: selectedUser.role?.toLowerCase() || 'member',
                         last_access: undefined,
                         is_active: true,
-                        avatar_url: data[0].avatar_url,
+                        avatar_url: selectedUser.avatar_url,
                         user_id: userId,
                         team_ids: selectedUser.team_ids || []
                     };
