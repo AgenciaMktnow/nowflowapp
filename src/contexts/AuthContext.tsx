@@ -71,10 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // Check for recovery flow first
             const hash = window.location.hash;
             if (hash && hash.includes('type=recovery')) {
-                console.log("AuthProvider: Hash contains type=recovery! Redirecting to /reset-password");
-                navigate('/reset-password');
-                // We don't return here because we still want the session to be established by Supabase
-                // but we ensure the user lands on the correct page.
+                console.log("AuthProvider: Hash contains type=recovery! Deferring to AuthCallback.");
             }
 
             // ... existing code ...
@@ -111,8 +108,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log(`AuthProvider: Auth State Change [${_event}]`);
 
             if (_event === 'PASSWORD_RECOVERY') {
-                console.log("AuthProvider: Password recovery detected! Redirecting to /reset-password");
-                navigate('/reset-password');
+                console.log("AuthProvider: Password recovery detected! Deferring to AuthCallback.");
+                // navigate('/reset-password'); // Handled by AuthCallback
                 return;
             }
 

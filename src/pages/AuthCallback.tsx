@@ -10,6 +10,15 @@ export default function AuthCallback() {
         const handleAuthRedirect = async () => {
             console.log("AuthCallback: Processing auth callback...");
 
+            // Check session explicity
+            const { data: { session }, error } = await supabase.auth.getSession();
+            console.log("AuthCallback: Current Session:", { email: session?.user?.email, error });
+
+            if (error) {
+                console.error("AuthCallback: Error getting session:", error);
+                // If error, maybe redirect to login? Or wait?
+            }
+
             // Check specifically for password recovery flow in URL
             // This is the most reliable way as onAuthStateChange might trigger SIGNED_IN first
             const hash = window.location.hash;
@@ -28,9 +37,6 @@ export default function AuthCallback() {
                     navigate('/reset-password');
                 } else if (event === 'SIGNED_IN') {
                     console.log("AuthCallback: SIGNED_IN event. Redirecting to dashboard.");
-                    // Check if it's actually a recovery session (sometimes mapped as signed_in with specific claims)
-                    // But usually PASSWORD_RECOVERY fires.
-                    // If we just signed in and it wasn't recovery, go to dashboard.
                     navigate('/');
                 }
             });
