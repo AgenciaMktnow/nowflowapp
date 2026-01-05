@@ -317,6 +317,62 @@ export default function NewTask() {
         setLoading(true);
 
         try {
+            // DEBUG: Log all IDs before submission
+            console.log('=== TASK SUBMISSION DEBUG ===');
+            console.log('User ID (created_by):', user?.id, 'Type:', typeof user?.id);
+            console.log('Client ID:', clientId, 'Type:', typeof clientId);
+            console.log('Project ID:', projectId, 'Type:', typeof projectId);
+            console.log('Workflow ID:', workflowId, 'Type:', typeof workflowId);
+            console.log('Assignee IDs:', assigneeIds, 'Types:', assigneeIds.map(id => typeof id));
+            console.log('Board IDs:', selectedBoardIds, 'Types:', selectedBoardIds.map(id => typeof id));
+
+            // Verify IDs exist in database
+            console.log('Verifying IDs in database...');
+
+            // Check if user exists
+            const { data: userData, error: userError } = await supabase
+                .from('users')
+                .select('id, full_name')
+                .eq('id', user?.id)
+                .single();
+            console.log('User check:', userData ? `✓ Found: ${userData.full_name}` : '✗ NOT FOUND', userError);
+
+            // Check if client exists
+            const { data: clientData, error: clientError } = await supabase
+                .from('clients')
+                .select('id, name')
+                .eq('id', clientId)
+                .single();
+            console.log('Client check:', clientData ? `✓ Found: ${clientData.name}` : '✗ NOT FOUND', clientError);
+
+            // Check if project exists
+            const { data: projectData, error: projectError } = await supabase
+                .from('projects')
+                .select('id, name, client_id')
+                .eq('id', projectId)
+                .single();
+            console.log('Project check:', projectData ? `✓ Found: ${projectData.name} (client: ${projectData.client_id})` : '✗ NOT FOUND', projectError);
+
+            // Check if assignees exist
+            for (const assigneeId of assigneeIds) {
+                const { data: assigneeData, error: assigneeError } = await supabase
+                    .from('users')
+                    .select('id, full_name')
+                    .eq('id', assigneeId)
+                    .single();
+                console.log(`Assignee check (${assigneeId}):`, assigneeData ? `✓ Found: ${assigneeData.full_name}` : '✗ NOT FOUND', assigneeError);
+            }
+
+            // Check if boards exist
+            for (const boardId of selectedBoardIds) {
+                const { data: boardData, error: boardError } = await supabase
+                    .from('boards')
+                    .select('id, name')
+                    .eq('id', boardId)
+                    .single();
+                console.log(`Board check (${boardId}):`, boardData ? `✓ Found: ${boardData.name}` : '✗ NOT FOUND', boardError);
+            }
+
             const payload: any = { // Using any to bypass strict checks for nulls, validated by UI logic
                 title,
                 description,
@@ -331,6 +387,8 @@ export default function NewTask() {
                 board_ids: selectedBoardIds // Multi-Board Link
             };
 
+            console.log('Final payload:', JSON.stringify(payload, null, 2));
+
             let savedTask: Task | null = null;
             let error: Error | null = null;
 
@@ -344,7 +402,10 @@ export default function NewTask() {
                 error = res.error;
             }
 
-            if (error) throw error;
+            if (error) {
+                console.error('Task creation/update error:', error);
+                throw error;
+            }
             if (!savedTask) throw new Error("Task save returned no data");
 
             // Assignees
@@ -369,7 +430,7 @@ export default function NewTask() {
             }
 
         } catch (error: any) {
-            console.error(error);
+            console.error('=== SUBMISSION ERROR ===', error);
             toast.error(error.message || 'Erro ao salvar tarefa');
         } finally {
             setLoading(false);
