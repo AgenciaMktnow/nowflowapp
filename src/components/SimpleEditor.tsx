@@ -38,6 +38,8 @@ const SimpleEditor = ({ value, onChange, placeholder, onImageUpload }: SimpleEdi
                     keepMarks: true,
                     keepAttributes: false,
                 },
+                // Disable built-in extensions that we're configuring separately
+                codeBlock: false,
             }),
             Underline,
             ImageExtension,

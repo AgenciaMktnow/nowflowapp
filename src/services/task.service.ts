@@ -43,7 +43,21 @@ function mapTaskError(error: Error | null): Error | null {
     const message = error.message.toLowerCase();
 
     if (message.includes('permission denied')) return new Error('Você não tem permissão para gerenciar tarefas.');
-    if (message.includes('foreign key constraint')) return new Error('Projeto ou usuário associado não encontrado.');
+
+    // More specific foreign key error messages
+    if (message.includes('foreign key constraint')) {
+        if (message.includes('created_by') || message.includes('assignee_id')) {
+            return new Error('Erro: Usuário não encontrado na tabela de perfis. Por favor, faça logout e login novamente.');
+        }
+        if (message.includes('project_id')) {
+            return new Error('Erro: Projeto selecionado não encontrado.');
+        }
+        if (message.includes('client_id')) {
+            return new Error('Erro: Cliente selecionado não encontrado.');
+        }
+        return new Error('Erro: Dados associados não encontrados. Verifique os campos selecionados.');
+    }
+
     if (message.includes('duplicate key')) return new Error('Dados duplicados detectados.');
 
     return new Error(`Erro na operação: ${error.message}`);
