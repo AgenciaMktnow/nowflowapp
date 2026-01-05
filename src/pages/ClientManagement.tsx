@@ -12,6 +12,9 @@ type Client = {
     created_at: string;
 };
 
+// Simplified Project Map: ServiceName -> Set of BoardIDs
+type ClientProjectMap = Map<string, Set<string>>;
+
 type CatalogTemplate = {
     id: string; // We use one ID just for keys, but logic is name-based
     name: string;
@@ -121,8 +124,12 @@ export default function ClientManagement() {
 
     // Editor
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-    const [selectedBoardId, setSelectedBoardId] = useState<string>('');
-    const [clientProjectNames, setClientProjectNames] = useState<Set<string>>(new Set());
+    // NEW: Multi-Select Boards
+    const [selectedContextBoardIds, setSelectedContextBoardIds] = useState<Set<string>>(new Set());
+    const [clientProjectMap, setClientProjectMap] = useState<ClientProjectMap>(new Map());
+
+    // Distribution Modal State
+    const [distributionTarget, setDistributionTarget] = useState<{ serviceName: string; currentBoards: Set<string> } | null>(null);
 
     // --- EFFECTS ---
     useEffect(() => {
@@ -214,39 +221,39 @@ export default function ClientManagement() {
     // --- EDITOR LOGIC ---
     const openClient = async (client: Client) => {
         setSelectedClient(client);
-        setSelectedBoardId(client.default_board_id || '');
 
-        if (client.id !== 'new') {
-            // Logic moved to useEffect depending on selectedBoardId
-            // We just clear initially
-            setClientProjectNames(new Set());
-        } else {
-            setClientProjectNames(new Set());
-        }
+        // Initialize Context with Active Boards + Default
+        const initialBoards = new Set(client.active_board_ids || []);
+        if (client.default_board_id) initialBoards.add(client.default_board_id);
+        setSelectedContextBoardIds(initialBoards);
 
+        setClientProjectMap(new Map()); // Reset initially, effect will load
         setViewMode('DETAIL');
     };
 
-    // --- EFFECT: Fetch Projects for Selected Board ---
+    // --- EFFECT: Fetch Projects for ALL Relevant Boards ---
     useEffect(() => {
-        const loadContextProjects = async () => {
-            if (!selectedClient || !selectedBoardId || selectedClient.id === 'new') {
-                setClientProjectNames(new Set());
+        const loadAllProjects = async () => {
+            if (!selectedClient || selectedClient.id === 'new') {
+                setClientProjectMap(new Map());
                 return;
             }
 
             const { data } = await supabase
                 .from('projects')
-                .select('name')
-                .eq('client_id', selectedClient.id)
-                .eq('board_id', selectedBoardId);
+                .select('name, board_id')
+                .eq('client_id', selectedClient.id);
 
-            const existingNames = new Set(data?.map(p => p.name) || []);
-            setClientProjectNames(existingNames);
+            const newMap: ClientProjectMap = new Map();
+            data?.forEach(p => {
+                if (!newMap.has(p.name)) newMap.set(p.name, new Set());
+                if (p.board_id) newMap.get(p.name)?.add(p.board_id);
+            });
+            setClientProjectMap(newMap);
         };
 
-        loadContextProjects();
-    }, [selectedClient?.id, selectedBoardId]);
+        loadAllProjects();
+    }, [selectedClient?.id]); // Only re-fetch on client change, not context change (we filter in UI)
 
     const handleCreateNewClient = () => {
         openClient({
@@ -263,12 +270,71 @@ export default function ClientManagement() {
     };
 
     const toggleProject = (templateName: string) => {
-        setClientProjectNames(prev => {
-            const next = new Set(prev);
-            if (next.has(templateName)) next.delete(templateName);
-            else next.add(templateName);
+        // 1. Get current active boards for this service in the CURRENT CONTEXT
+        const currentServiceBoards = clientProjectMap.get(templateName) || new Set();
+
+        // 2. Determine target boards (intersection of selected context and service boards)
+        // Actually, we just want to know if we should ADD or REMOVE.
+        // If > 1 board selected in context -> OPEN DISTRIBUTION MODAL
+        if (selectedContextBoardIds.size > 1) {
+            setDistributionTarget({
+                serviceName: templateName,
+                // We pass a COPY of the current state for this service
+                currentBoards: new Set(currentServiceBoards)
+            });
+            return;
+        }
+
+        // 3. Single Context Logic (Toggle)
+        const singleContextId = Array.from(selectedContextBoardIds)[0];
+        if (!singleContextId) {
+            toast.error('Selecione pelo menos um quadro no contexto para editar.');
+            return;
+        }
+
+        setClientProjectMap(prev => {
+            const next = new Map(prev);
+            const serviceSet = new Set(next.get(templateName) || []);
+
+            if (serviceSet.has(singleContextId)) {
+                serviceSet.delete(singleContextId);
+            } else {
+                serviceSet.add(singleContextId);
+            }
+
+            next.set(templateName, serviceSet);
             return next;
         });
+    };
+
+    // Distribution Modal Handler
+    const handleDistributionSave = (serviceName: string, newBoards: Set<string>) => {
+        setClientProjectMap(prev => {
+            const next = new Map(prev);
+            // We only update the boards that are in the Current Context?
+            // Actually, the modal should show options for the Selected Contexts.
+            // The user sets the state for those.
+
+            // Merge logic:
+            // 1. Get existing set (which might include boards NOT in current context)
+            const existingSet = next.get(serviceName) || new Set();
+
+            // 2. We are modifying only the boards in 'selectedContextBoardIds'.
+            // So, for every board in selectedContextBoardIds:
+            //   - if it's in newBoards -> ensure it's in existingSet
+            //   - if it's NOT in newBoards -> ensure it's REMOVED from existingSet
+            selectedContextBoardIds.forEach(contextId => {
+                if (newBoards.has(contextId)) {
+                    existingSet.add(contextId);
+                } else {
+                    existingSet.delete(contextId);
+                }
+            });
+
+            next.set(serviceName, existingSet);
+            return next;
+        });
+        setDistributionTarget(null);
     };
 
     const handleSave = async () => {
@@ -277,19 +343,20 @@ export default function ClientManagement() {
             toast.error('O nome do cliente é obrigatório.');
             return;
         }
-        if (!selectedBoardId) {
-            toast.error('O Quadro (Board) é obrigatório.');
+        if (selectedContextBoardIds.size === 0) {
+            toast.error('Selecione pelo menos um Quadro de contexto.');
             return;
         }
 
         try {
             let clientId = selectedClient.id;
 
-            // 1. Upsert Client
+            // 1. Upsert Client (Update Default Board to first selected, or keep existing)
+            const firstBoard = Array.from(selectedContextBoardIds)[0];
             const clientData = {
                 name: selectedClient.name,
                 status: selectedClient.status,
-                default_board_id: selectedBoardId
+                default_board_id: firstBoard // Fallback
             };
 
             if (clientId === 'new') {
@@ -301,42 +368,55 @@ export default function ClientManagement() {
                 if (error) throw error;
             }
 
-            // 2. Sync Projects (SCOPED BY SELECTED BOARD)
-            // We only fetch/manage projects belonging to this Board.
+            // 2. Sync Projects (SCOPED BY SELECTED BOARDS)
+            // We fetch existing projects for this client across ALL boards to be safe, 
+            // but we really only care about diffing against the boards in 'clientProjectMap'.
+
+            // Actually, simpler strategy:
+            // Wipe & Recreate? No, ID persistence is good.
+            // Upsert / Delete Strategy per Board.
+
+            const allSelectedBoards = Array.from(selectedContextBoardIds);
+
+            // Fetch existing to know IDs
             const { data: existingProjects } = await supabase
                 .from('projects')
-                .select('id, name')
-                .eq('client_id', clientId)
-                .eq('board_id', selectedBoardId); // <--- Context Filter
+                .select('id, name, board_id')
+                .eq('client_id', clientId);
 
-            const existingNames = new Set(existingProjects?.map(p => p.name) || []);
-            const targetNames = clientProjectNames;
+            // PROCESS EACH SELECTED BOARD
+            for (const boardId of allSelectedBoards) {
+                // What projects SHOULD be in this board?
+                const projectsForBoard = new Set<string>();
+                clientProjectMap.forEach((boardsSet, serviceName) => {
+                    if (boardsSet.has(boardId)) projectsForBoard.add(serviceName);
+                });
 
-            const toAdd = [...targetNames].filter(name => !existingNames.has(name));
-            const toRemove = [...existingNames].filter(name => !targetNames.has(name));
+                // What projects ARE in this board?
+                const existingForBoard = existingProjects?.filter(p => p.board_id === boardId) || [];
+                const existingNames = new Set(existingForBoard.map(p => p.name));
 
-            // Remove unselected (Only from this Board context)
-            if (toRemove.length > 0) {
-                await supabase.from('projects')
-                    .delete()
-                    .eq('client_id', clientId)
-                    .eq('board_id', selectedBoardId) // <--- Safety
-                    .in('name', toRemove);
+                // Diff
+                const toAdd = [...projectsForBoard].filter(name => !existingNames.has(name));
+                const toRemove = [...existingNames].filter(name => !projectsForBoard.has(name));
+
+                // Execute
+                if (toRemove.length > 0) {
+                    await supabase.from('projects')
+                        .delete()
+                        .eq('client_id', clientId)
+                        .eq('board_id', boardId)
+                        .in('name', toRemove);
+                }
+
+                if (toAdd.length > 0) {
+                    await supabase.from('projects').insert(toAdd.map(name => ({
+                        name,
+                        client_id: clientId,
+                        board_id: boardId
+                    })));
+                }
             }
-
-            // Create new (with board_id)
-            if (toAdd.length > 0) {
-                await supabase.from('projects').insert(toAdd.map(name => ({
-                    name,
-                    client_id: clientId,
-                    board_id: selectedBoardId
-                })));
-            }
-
-            // Update existing (NOT NEEDED anymore because we only see projects IN this board)
-            // If we fetched only board-specific projects, 'toUpdateBoard' implies they are already here.
-            // No strict need to re-update board_id unless we want to enforce consistency or handle edge cases.
-            // But logic above assumes names match.
 
             toast.success('Cliente salvo com sucesso!');
             await fetchClients();
@@ -460,36 +540,40 @@ export default function ClientManagement() {
                                 />
                             </div>
 
-                            {/* CUSTOM BOARD SELECT */}
+                            {/* MULTI-SELECT BOARD CONTEXT */}
                             <div>
-                                <CustomSelect
-                                    label={<><span className="material-symbols-outlined text-[16px]">view_kanban</span> Contexto do Quadro (Onde editar?)</>}
-                                    options={boards.map(b => ({ value: b.id, label: b.name }))}
-                                    value={selectedBoardId}
-                                    onChange={setSelectedBoardId}
-                                    placeholder="Selecione o Quadro..."
-                                />
-                                {/* Active Boards Badges */}
-                                {selectedClient.active_board_ids && selectedClient.active_board_ids.length > 0 && (
-                                    <div className="mt-3">
-                                        <p className="text-[10px] uppercase font-bold text-text-muted mb-1 ml-1">Vínculos Ativos:</p>
-                                        <div className="flex flex-wrap gap-2">
-                                            {selectedClient.active_board_ids.map(bid => {
-                                                const bName = boards.find(b => b.id === bid)?.name || '...';
-                                                const isActiveContext = bid === selectedBoardId;
-                                                return (
-                                                    <span
-                                                        key={bid}
-                                                        className={`text-xs px-2 py-1 rounded border ${isActiveContext ? 'bg-primary/20 border-primary text-primary font-bold' : 'bg-white/5 border-white/10 text-text-muted'}`}
-                                                    >
-                                                        {bName}
-                                                        {isActiveContext && <span className="ml-1 text-[10px]">(Editando)</span>}
-                                                    </span>
-                                                )
-                                            })}
-                                        </div>
-                                    </div>
-                                )}
+                                <label className="block text-xs font-bold text-primary uppercase tracking-wider mb-2 flex items-center gap-1">
+                                    <span className="material-symbols-outlined text-[16px]">view_kanban</span> Contexto do Quadro (Onde editar?)
+                                </label>
+                                <div className="flex flex-wrap gap-2">
+                                    {boards.map(board => {
+                                        const isSelected = selectedContextBoardIds.has(board.id);
+                                        return (
+                                            <div
+                                                key={board.id}
+                                                onClick={() => {
+                                                    const next = new Set(selectedContextBoardIds);
+                                                    if (next.has(board.id)) next.delete(board.id);
+                                                    else next.add(board.id);
+                                                    setSelectedContextBoardIds(next);
+                                                }}
+                                                className={`
+                                                    cursor-pointer px-3 py-2 rounded-lg border text-sm font-bold transition-all duration-200 flex items-center gap-2
+                                                    ${isSelected
+                                                        ? 'bg-primary text-[#0A1F14] border-primary shadow-[0_0_10px_rgba(33,197,94,0.4)]'
+                                                        : 'bg-background-dark/50 border-white/10 text-text-muted hover:border-primary/50 hover:text-white'
+                                                    }
+                                                `}
+                                            >
+                                                {board.name}
+                                                {isSelected && <span className="material-symbols-outlined text-[14px]">check</span>}
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                                <p className="text-[10px] text-text-muted mt-2 ml-1">
+                                    Marque os quadros onde este cliente atua.
+                                </p>
                             </div>
 
                             {/* CUSTOM STATUS SELECT */}
@@ -544,42 +628,59 @@ export default function ClientManagement() {
                                 </div>
                             ) : (
                                 catalogTemplates.map(template => {
-                                    const isSelected = clientProjectNames.has(template.name);
+                                    const projectBoards = clientProjectMap.get(template.name) || new Set();
+
+                                    // Is it fully active in current context?
+                                    // Logic: Active in AT LEAST ONE of the selected contexts?
+                                    // Or visual indication of PARTIAL?
+
+                                    // Visual Requirements:
+                                    // 1. Show Badges of boards it is active in (intersecting with context)
+                                    // 2. Checkbox state: Checked if active in ALL selected contexts? Or Any?
+                                    // Let's use "Any" for highlighting, but specific badges.
+
+                                    const activeInCurrentContexts = Array.from(selectedContextBoardIds).filter(bid => projectBoards.has(bid));
+                                    const isSelectedInAny = activeInCurrentContexts.length > 0;
+                                    const isSelectedInAll = selectedContextBoardIds.size > 0 && activeInCurrentContexts.length === selectedContextBoardIds.size;
 
                                     return (
                                         <div
                                             key={template.id}
                                             onClick={() => toggleProject(template.name)}
                                             className={`
-                                                cursor-pointer flex items-center gap-4 p-4 rounded-xl border transition-all duration-300 select-none group
-                                                ${isSelected
+                                                cursor-pointer flex items-center gap-4 p-4 rounded-xl border transition-all duration-300 select-none group relative overflow-hidden
+                                                ${isSelectedInAny
                                                     ? 'bg-[#0A1F14] border-primary text-white shadow-[0_0_15px_rgba(33,197,94,0.15)]'
                                                     : 'bg-background-dark/40 border-white/5 text-text-muted hover:bg-[#0A1F14] hover:border-primary/40 hover:text-white'
                                                 }
                                             `}
                                         >
                                             <div className={`
-                                                w-6 h-6 rounded flex items-center justify-center border transition-all duration-300
-                                                ${isSelected
+                                                w-6 h-6 rounded flex items-center justify-center border transition-all duration-300 flex-none
+                                                ${isSelectedInAll
                                                     ? 'bg-primary border-primary text-[#0A1F14]'
-                                                    : 'border-white/20 group-hover:border-primary/50'
+                                                    : isSelectedInAny ? 'bg-primary/50 border-primary text-[#0A1F14]' : 'border-white/20 group-hover:border-primary/50'
                                                 }
                                             `}>
-                                                {isSelected && <span className="material-symbols-outlined text-sm font-bold">check</span>}
+                                                {isSelectedInAll && <span className="material-symbols-outlined text-sm font-bold">check</span>}
+                                                {!isSelectedInAll && isSelectedInAny && <span className="material-symbols-outlined text-sm font-bold">remove</span>}
                                             </div>
 
-                                            <div className="flex-1">
-                                                <h4 className={`font-bold text-lg transition-colors ${isSelected ? 'text-white' : 'text-text-muted group-hover:text-white'}`}>
+                                            <div className="flex-1 flex flex-col justify-center">
+                                                <h4 className={`font-bold text-lg transition-colors ${isSelectedInAny ? 'text-white' : 'text-text-muted group-hover:text-white'}`}>
                                                     {template.name}
                                                 </h4>
-                                            </div>
 
-                                            {isSelected && (
-                                                <div className="text-xs font-bold text-primary flex items-center gap-1 opacity-80 animate-fade-in">
-                                                    <span className="material-symbols-outlined text-[14px]">link</span>
-                                                    Vinculado
-                                                </div>
-                                            )}
+                                                {/* Board Badges */}
+                                                {isSelectedInAny && (
+                                                    <div className="flex gap-1 mt-1 flex-wrap">
+                                                        {activeInCurrentContexts.map(bid => {
+                                                            const bName = boards.find(b => b.id === bid)?.name.substring(0, 3).toUpperCase();
+                                                            return <span key={bid} className="text-[9px] font-bold px-1.5 py-0.5 bg-primary/20 text-primary rounded border border-primary/30">{bName}</span>
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     );
                                 })
@@ -589,6 +690,56 @@ export default function ClientManagement() {
                 </div>
 
             </div>
+
+            {/* DISTRIBUTION MODAL */}
+            {distributionTarget && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-[#0f1115] border border-primary/30 p-6 rounded-2xl w-[90%] max-w-sm shadow-[0_0_40px_rgba(0,0,0,0.8)] animate-scale-in">
+                        <h3 className="text-xl font-bold text-white mb-2">Configurar '{distributionTarget.serviceName}'</h3>
+                        <p className="text-sm text-text-muted mb-4">Em quais dos quadros selecionados este serviço deve estar ativo?</p>
+
+                        <div className="space-y-2 mb-6">
+                            {Array.from(selectedContextBoardIds).map(boardId => {
+                                const boardName = boards.find(b => b.id === boardId)?.name || '...';
+                                const isChecked = distributionTarget.currentBoards.has(boardId);
+
+                                return (
+                                    <div
+                                        key={boardId}
+                                        onClick={() => {
+                                            const next = new Set(distributionTarget.currentBoards);
+                                            if (next.has(boardId)) next.delete(boardId);
+                                            else next.add(boardId);
+                                            setDistributionTarget({ ...distributionTarget, currentBoards: next });
+                                        }}
+                                        className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all ${isChecked ? 'bg-primary/20 border-primary text-white' : 'bg-white/5 border-white/10 text-text-muted'}`}
+                                    >
+                                        <span className="font-bold">{boardName}</span>
+                                        <div className={`w-5 h-5 rounded border flex items-center justify-center ${isChecked ? 'bg-primary border-primary text-black' : 'border-white/30'}`}>
+                                            {isChecked && <span className="material-symbols-outlined text-sm font-bold">check</span>}
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => setDistributionTarget(null)}
+                                className="px-4 py-2 rounded-lg text-text-muted hover:bg-white/5 font-bold text-sm"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={() => handleDistributionSave(distributionTarget.serviceName, distributionTarget.currentBoards)}
+                                className="px-6 py-2 rounded-lg bg-primary text-black hover:bg-primary-light font-bold text-sm shadow-lg"
+                            >
+                                Confirmar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="fixed bottom-8 right-8 z-50">
                 <button
