@@ -68,6 +68,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }, 10000);
 
         const initAuth = async () => {
+            // Check for recovery flow first
+            const hash = window.location.hash;
+            if (hash && hash.includes('type=recovery')) {
+                console.log("AuthProvider: Hash contains type=recovery! Redirecting to /reset-password");
+                navigate('/reset-password');
+                // We don't return here because we still want the session to be established by Supabase
+                // but we ensure the user lands on the correct page.
+            }
+
             // ... existing code ...
             try {
                 console.log("AuthProvider: Calling authService.getSession()...");
