@@ -156,10 +156,11 @@ export default function TeamManagement() {
                 // Wait a bit for the auth user to be created
                 await new Promise(resolve => setTimeout(resolve, 1000));
 
-                // Create user record in users table
+                // Create user record in users table with the SAME ID from auth
                 const { data, error } = await supabase
                     .from('users')
                     .insert([{
+                        id: authData.user.id, // CRITICAL: Use the ID from auth.signUp!
                         email: selectedUser.email,
                         full_name: selectedUser.full_name,
                         role: selectedUser.role.toUpperCase(),
