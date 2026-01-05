@@ -8,7 +8,7 @@ const corsHeaders = {
 }
 
 interface NotificationRequest {
-  type: 'task_created' | 'task_assigned' | 'task_commented' | 'task_status_changed' | 'task_returned'
+  type: 'task_created' | 'task_assigned' | 'task_commented' | 'task_status_changed' | 'task_returned' | 'test_email'
   data: {
     task_id: string
     user_id?: string
@@ -34,25 +34,29 @@ serve(async (req) => {
     const { type, data }: NotificationRequest = await req.json()
     console.log('Processing notification:', { type, data })
 
-    // 1. Get Task details with Assignee and Project info
-    const { data: task, error: taskError } = await supabaseClient
-      .from('tasks')
-      .select(`
-                *,
-                project:projects(name),
-                assignee:users!tasks_assignee_id_fkey(id, email, full_name),
-                creator:users!tasks_created_by_fkey(id, email, full_name)
-            `)
-      .eq('id', data.task_id)
-      .single()
+    // 1. Get Task details with Assignee and Project info (Skip for test email)
+    let task = null
+    if (type !== 'test_email') {
+      const { data: taskData, error: taskError } = await supabaseClient
+        .from('tasks')
+        .select(`
+                  *,
+                  project:projects(name),
+                  assignee:users!tasks_assignee_id_fkey(id, email, full_name),
+                  creator:users!tasks_created_by_fkey(id, email, full_name)
+              `)
+        .eq('id', data.task_id)
+        .single()
 
-    if (taskError) throw taskError
+      if (taskError) throw taskError
+      task = taskData
+    }
 
     // 2. Identify Recipient (usually assignee, or creator for status updates)
-    let recipientId = task.assignee_id
+    let recipientId = type === 'test_email' ? data.user_id : task?.assignee_id
     if (type === 'task_status_changed' || type === 'task_returned') {
       // Priority: if assignee exists, notify them. If not, notify creator.
-      recipientId = task.assignee_id || task.created_by
+      recipientId = task?.assignee_id || task?.created_by
     }
 
     if (!recipientId) return new Response('No recipient identified', { status: 200 })
@@ -128,6 +132,14 @@ serve(async (req) => {
         emailData.title = '💬 Novo Comentário'
         emailData.message = `**${comment?.user?.full_name || 'Alguém'}** comentou na tarefa.`
         emailData.context = comment?.content
+        break
+      case 'test_email':
+        emailData.subject = `🧪 E-mail de Teste NowFlow`
+        emailData.title = '🧪 Teste de Conexão'
+        emailData.message = 'Este é um e-mail de teste para validar a configuração do SMTP e do Edge Function.'
+        emailData.task_title = 'Tarefa de Teste'
+        emailData.project_name = 'Sistema NowFlow'
+        emailData.task_link = `${Deno.env.get('APP_URL')}/settings`
         break
     }
 
