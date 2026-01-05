@@ -81,57 +81,32 @@ export default function Projects() {
 
     // Cascade Logic: Update available Filters (Dependent Dropdowns)
     useEffect(() => {
-        let relevantProjects = projects;
-
-        // 1. Filter Projects by Parent Contexts (Board)
+        let boardProjects = projects;
         if (selectedBoard) {
-            relevantProjects = relevantProjects.filter(p => p.board_id === selectedBoard);
+            boardProjects = boardProjects.filter(p => p.board_id === selectedBoard);
         }
 
-        // 2. Filter Projects by Peer Contexts (Team / Client) if selected
-        // Note: For dropdown generation, we want "Options Available given the OTHER selections".
-        // But for "availableProjects", it should be the intersection of ALL selections.
-
-        let projectsForDropdown = relevantProjects;
-        if (selectedTeam) {
-            projectsForDropdown = projectsForDropdown.filter(p => p.team_id === selectedTeam);
-        }
-        if (selectedClient) {
-            const client = clients.find(c => c.id === selectedClient);
-            if (client?.project_ids) {
-                projectsForDropdown = projectsForDropdown.filter(p => client.project_ids!.includes(p.id));
-            }
-        }
-        setAvailableProjects(projectsForDropdown);
-
-        // 3. Filter Clients (Show only clients linked to Relevant Projects)
-        // If Team is selected, show clients that have projects with that Team.
-        // If Board is selected, show clients that have projects in that Board.
-        let projectsForClientCheck = relevantProjects;
-        if (selectedTeam) projectsForClientCheck = projectsForClientCheck.filter(p => p.team_id === selectedTeam);
-
-        const validClientIds = new Set<string>();
+        // 1. Available Clients (Filtered by Board)
+        const validClientIdsForBoard = new Set<string>();
         clients.forEach(c => {
-            if (c.project_ids?.some(pid => projectsForClientCheck.some(p => p.id === pid))) {
-                validClientIds.add(c.id);
+            if (c.project_ids?.some(pid => boardProjects.some(p => p.id === pid))) {
+                validClientIdsForBoard.add(c.id);
             }
         });
-        setAvailableClients(clients.filter(c => validClientIds.has(c.id)));
+        setAvailableClients(clients.filter(c => validClientIdsForBoard.has(c.id)));
 
-        // 4. Filter Teams (Show only teams linked to Relevant Projects)
-        // If Client is selected, show teams that have projects with that Client.
-        let projectsForTeamCheck = relevantProjects;
+        // 2. Available Projects (Filtered by Board AND Client)
+        let filteredProjects = boardProjects;
         if (selectedClient) {
-            const client = clients.find(c => c.id === selectedClient);
-            if (client?.project_ids) {
-                projectsForTeamCheck = projectsForTeamCheck.filter(p => client.project_ids!.includes(p.id));
-            }
+            // Direct Client ID Check (more robust than parent's list)
+            filteredProjects = filteredProjects.filter(p => p.client_id === selectedClient);
         }
+        setAvailableProjects(filteredProjects);
 
-        const validTeamIds = new Set(projectsForTeamCheck.map(p => p.team_id).filter(Boolean));
-        setAvailableTeams(teams.filter(t => validTeamIds.has(t.id)));
+        // 3. Available Teams (ALWAYS ALL - Requested by User)
+        setAvailableTeams(teams);
 
-        // 5. Update Available Users based on Team (Priority)
+        // 4. Update Available Users based on Team (Priority)
         let sortedUsers = [...allUsers];
         if (selectedTeam) {
             sortedUsers.sort((a, b) => {
@@ -145,10 +120,9 @@ export default function Projects() {
         setAvailableUsers(sortedUsers.map(u => ({ id: u.id, full_name: u.full_name })));
 
         // Validation: Clear downstream if invalid
-        if (selectedProject && !projectsForDropdown.find(p => p.id === selectedProject)) {
+        if (selectedProject && !filteredProjects.find(p => p.id === selectedProject)) {
             setSelectedProject('');
         }
-
     }, [selectedBoard, selectedTeam, selectedClient, projects, clients, teams, allUsers, selectedProject]);
 
     // Trigger Fetch on Filter Change
@@ -416,7 +390,7 @@ export default function Projects() {
             />
 
             {/* Toolbar */}
-            <div className="flex-shrink-0 px-6 py-3 border-b border-border-light dark:border-border-dark bg-background-dark min-h-[64px] flex items-center justify-between gap-4 overflow-hidden">
+            <div className="flex-shrink-0 px-6 py-3 border-b border-border-light dark:border-border-dark bg-background-dark min-h-[64px] flex items-center justify-between gap-4">
 
                 {/* Left Side: Filters (Scrollable) */}
                 <div className="flex items-center gap-3 flex-1 overflow-x-auto no-scrollbar pb-1 mask-gradient-right">
@@ -424,9 +398,10 @@ export default function Projects() {
                         value={selectedBoard}
                         onChange={(val) => {
                             setSelectedBoard(val);
-                            setSelectedTeam('');
                             setSelectedClient('');
                             setSelectedProject('');
+                            setSelectedTeam('');
+                            setSelectedUser('');
                         }}
                         options={[
                             { label: 'Todos os Quadros', value: '' },
@@ -438,25 +413,12 @@ export default function Projects() {
                     />
 
                     <SelectDropdown
-                        value={selectedTeam}
-                        onChange={(val) => {
-                            setSelectedTeam(val);
-                            setSelectedProject('');
-                        }}
-                        options={[
-                            { label: 'Todas as Equipes', value: '' },
-                            ...availableTeams.map(t => ({ label: t.name, value: t.id }))
-                        ]}
-                        placeholder="Todas as Equipes"
-                        icon="group"
-                        className="min-w-[180px] flex-shrink-0"
-                    />
-
-                    <SelectDropdown
                         value={selectedClient}
                         onChange={(val) => {
                             setSelectedClient(val);
                             setSelectedProject('');
+                            setSelectedTeam('');
+                            setSelectedUser('');
                         }}
                         options={[
                             { label: 'Todos os Clientes', value: '' },
@@ -464,6 +426,37 @@ export default function Projects() {
                         ]}
                         placeholder="Todos os Clientes"
                         icon="business"
+                        className="min-w-[180px] flex-shrink-0"
+                    />
+
+                    <SelectDropdown
+                        value={selectedProject}
+                        onChange={(val) => {
+                            setSelectedProject(val);
+                            setSelectedTeam('');
+                            setSelectedUser('');
+                        }}
+                        options={[
+                            { label: 'Todos os Projetos', value: '' },
+                            ...availableProjects.map(p => ({ label: p.name, value: p.id }))
+                        ]}
+                        placeholder="Selecione um Projeto"
+                        icon="folder"
+                        className="min-w-[200px] flex-shrink-0"
+                    />
+
+                    <SelectDropdown
+                        value={selectedTeam}
+                        onChange={(val) => {
+                            setSelectedTeam(val);
+                            setSelectedUser('');
+                        }}
+                        options={[
+                            { label: 'Todas as Equipes', value: '' },
+                            ...availableTeams.map(t => ({ label: t.name, value: t.id }))
+                        ]}
+                        placeholder="Todas as Equipes"
+                        icon="group"
                         className="min-w-[180px] flex-shrink-0"
                     />
 
@@ -477,18 +470,6 @@ export default function Projects() {
                         placeholder="Responsável"
                         icon="person"
                         className="min-w-[180px] flex-shrink-0"
-                    />
-
-                    <SelectDropdown
-                        value={selectedProject}
-                        onChange={setSelectedProject}
-                        options={[
-                            { label: 'Todos os Projetos', value: '' },
-                            ...availableProjects.map(p => ({ label: p.name, value: p.id }))
-                        ]}
-                        placeholder="Selecione um Projeto"
-                        icon="folder"
-                        className="min-w-[200px] flex-shrink-0"
                     />
 
                     <div className="h-6 w-px bg-border-dark mx-1 flex-shrink-0 hidden xl:block"></div>
