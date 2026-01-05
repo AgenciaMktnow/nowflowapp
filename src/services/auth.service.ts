@@ -95,6 +95,16 @@ export const authService = {
     },
 
     /**
+     * Send password reset email
+     */
+    async resetPasswordForEmail(email: string, redirectTo: string): Promise<{ error: Error | null }> {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: redirectTo,
+        });
+        return { error: mapAuthError(error) };
+    },
+
+    /**
      * Subscribe to auth state changes
      */
     onAuthStateChange(callback: (event: string, session: Session | null) => void) {

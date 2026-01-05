@@ -58,6 +58,27 @@ export default function Login() {
         }
     };
 
+    const [showForgotPassword, setShowForgotPassword] = useState(false);
+    const [resetEmail, setResetEmail] = useState('');
+    const [resetLoading, setResetLoading] = useState(false);
+
+    const handleForgotPassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setResetLoading(true);
+        try {
+            const { error } = await authService.resetPasswordForEmail(resetEmail, 'https://www.nowflow.it/reset-password');
+            if (error) throw error;
+            toast.success('Email de recuperação enviado! Verifique sua caixa de entrada.');
+            setShowForgotPassword(false);
+            setResetEmail('');
+        } catch (error: any) {
+            console.error(error);
+            toast.error(error.message || 'Erro ao enviar email de recuperação');
+        } finally {
+            setResetLoading(false);
+        }
+    };
+
     return (
         <div className="relative flex min-h-screen w-full flex-col overflow-hidden font-display bg-background-dark text-white">
             {/* Background Pattern - Subtle Neon Glow */}
@@ -126,9 +147,13 @@ export default function Login() {
                                         Senha
                                     </label>
                                     <div className="text-sm">
-                                        <a href="#" className="font-medium text-primary hover:text-green-400 transition-colors">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowForgotPassword(true)}
+                                            className="font-medium text-primary hover:text-green-400 transition-colors"
+                                        >
                                             Esqueci minha senha
-                                        </a>
+                                        </button>
                                     </div>
                                 </div>
                                 <div className="mt-2 relative rounded-lg shadow-sm">
@@ -231,6 +256,55 @@ export default function Login() {
                     </p>
                 </div>
             </div>
+
+            {/* Forgot Password Modal */}
+            {showForgotPassword && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                    <div className="w-full max-w-md bg-surface-card rounded-xl border border-white/10 p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+                        <button
+                            onClick={() => setShowForgotPassword(false)}
+                            className="absolute top-4 right-4 text-text-secondary hover:text-white transition-colors"
+                        >
+                            <span className="material-symbols-outlined">close</span>
+                        </button>
+
+                        <div className="mb-6 flex flex-col items-center text-center">
+                            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                <span className="material-symbols-outlined text-2xl">lock_reset</span>
+                            </div>
+                            <h3 className="text-xl font-bold text-white">Recuperar Senha</h3>
+                            <p className="mt-2 text-sm text-text-secondary">
+                                Digite seu email para receber um link de redefinição de senha.
+                            </p>
+                        </div>
+
+                        <form onSubmit={handleForgotPassword} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium leading-6 text-text-secondary" htmlFor="resetEmail">
+                                    Email cadastrado
+                                </label>
+                                <input
+                                    id="resetEmail"
+                                    type="email"
+                                    required
+                                    value={resetEmail}
+                                    onChange={(e) => setResetEmail(e.target.value)}
+                                    placeholder="seu@email.com"
+                                    className="mt-2 block w-full rounded-lg border border-white/10 py-3 px-4 text-white shadow-sm placeholder:text-text-secondary/50 focus:ring-2 focus:ring-inset focus:ring-primary bg-background-dark/50 focus:outline-none transition-all duration-300"
+                                />
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={resetLoading}
+                                className="flex w-full justify-center rounded-lg bg-primary px-3 py-3 text-sm font-bold leading-6 text-background-dark shadow-sm hover:bg-primary/90 hover:shadow-[0_0_20px_rgba(19,236,91,0.3)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-wider"
+                            >
+                                {resetLoading ? 'Enviando...' : 'Enviar Link de Recuperação'}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
