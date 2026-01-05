@@ -74,7 +74,7 @@ const SimpleEditor = ({ value, onChange, placeholder, onImageUpload }: SimpleEdi
         },
         editorProps: {
             attributes: {
-                class: 'prose prose-invert max-w-none focus:outline-none min-h-[220px] text-text-main p-4 leading-relaxed [&_ul]:list-disc [&_ul]:ml-4 [&_ol]:list-decimal [&_ol]:ml-4 [&_li]:marker:text-gray-400',
+                class: 'prose prose-invert max-w-none focus:outline-none h-full text-text-main p-4 leading-relaxed [&_ul]:list-disc [&_ul]:ml-4 [&_ol]:list-decimal [&_ol]:ml-4 [&_li]:marker:text-gray-400',
             },
         },
     });
@@ -175,7 +175,7 @@ const SimpleEditor = ({ value, onChange, placeholder, onImageUpload }: SimpleEdi
     return (
         <div
             className={`
-                w-full bg-input-bg border border-input-border rounded-3xl overflow-hidden focus-within:ring-1 focus-within:ring-primary transition-all flex flex-col shadow-sm
+                w-full h-full bg-input-bg border border-input-border rounded-xl overflow-hidden focus-within:ring-1 focus-within:ring-primary transition-all flex flex-col shadow-sm
                 ${isFullscreen ? 'fixed inset-0 z-50 rounded-none m-0 h-screen border-none bg-input-bg' : ''}
             `}
             onDrop={handleDrop}
@@ -456,10 +456,20 @@ const SimpleEditor = ({ value, onChange, placeholder, onImageUpload }: SimpleEdi
                     border-radius: 0.5rem;
                     border: 1px solid var(--color-border-main);
                 }
-                /* Editor min-height fix for fullscreen */
+                /* Editor full height fix for flex layout */
                 .ProseMirror {
                     min-height: 100%;
+                    height: 100%;
                     outline: none;
+                    display: flex;
+                    flex-direction: column;
+                }
+                .ProseMirror p.is-editor-empty:first-child::before {
+                    color: #9ca3af;
+                    content: attr(data-placeholder);
+                    float: left;
+                    height: 0;
+                    pointer-events: none;
                 }
             `}</style>
         </div >

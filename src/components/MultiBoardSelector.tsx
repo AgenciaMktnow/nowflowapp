@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import type { Board } from '../types/database.types';
 
 interface MultiBoardSelectorProps {
@@ -8,62 +9,112 @@ interface MultiBoardSelectorProps {
 }
 
 export const MultiBoardSelector: React.FC<MultiBoardSelectorProps> = ({ boards, selectedBoardIds, onChange }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [menuRect, setMenuRect] = useState<DOMRect | null>(null);
 
-    const handleToggle = (boardId: string) => {
-        const currentSet = new Set(selectedBoardIds);
-        if (currentSet.has(boardId)) {
-            // Optional: Prevent deselecting all? Maybe not for now.
-            currentSet.delete(boardId);
-        } else {
-            currentSet.add(boardId);
+    // Refs for outside click detection
+    const dropdownRef = useRef<HTMLDivElement>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as Node;
+            // Check if click is outside both the button (dropdownRef) AND the portal menu (menuRef)
+            if (
+                dropdownRef.current &&
+                !dropdownRef.current.contains(target) &&
+                menuRef.current &&
+                !menuRef.current.contains(target)
+            ) {
+                setIsOpen(false);
+            }
+        };
+
+        if (isOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
         }
-        onChange(Array.from(currentSet));
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isOpen]);
+
+    const toggleBoard = (boardId: string) => {
+        const newIds = selectedBoardIds.includes(boardId)
+            ? selectedBoardIds.filter(id => id !== boardId)
+            : [...selectedBoardIds, boardId];
+        onChange(newIds);
+    };
+
+    const displayText = selectedBoardIds.length === 0
+        ? 'Selecione os quadros...'
+        : selectedBoardIds.length === 1
+            ? boards.find(b => b.id === selectedBoardIds[0])?.name
+            : `${selectedBoardIds.length} selecionados`;
+
+    const handleOpen = () => {
+        if (!dropdownRef.current) return;
+        const rect = dropdownRef.current.getBoundingClientRect();
+        setMenuRect(rect);
+        setIsOpen(!isOpen);
     };
 
     return (
-        <div className="space-y-2">
-            <label className="block text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-1">
-                <span className="material-symbols-outlined text-[16px]">view_kanban</span> Quadros Ativos (Onde essa tarefa aparece?)
-            </label>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {boards.map(board => {
-                    const isSelected = selectedBoardIds.includes(board.id);
-                    return (
-                        <div
-                            key={board.id}
-                            onClick={() => handleToggle(board.id)}
-                            className={`
-                                cursor-pointer px-4 py-4 rounded-xl border flex items-center gap-3 transition-all duration-300 relative overflow-hidden group
-                                ${isSelected
-                                    ? 'bg-[#0A1F14] border-[#00FF00] shadow-[0_0_15px_rgba(0,255,0,0.3)]'
-                                    : 'bg-[#0A1F14]/50 border-white/5 hover:border-white/20 hover:bg-[#0A1F14]'
-                                }
-                            `}
-                        >
-                            <div className={`
-                                w-5 h-5 rounded border flex items-center justify-center transition-all duration-300
-                                ${isSelected
-                                    ? 'bg-[#00FF00] border-[#00FF00] shadow-[0_0_10px_rgba(0,255,0,0.5)]'
-                                    : 'border-white/20 group-hover:border-[#00FF00]/50'
-                                }
-                            `}>
-                                {isSelected && <span className="material-symbols-outlined text-black text-[14px] font-bold">check</span>}
-                            </div>
+        <div className="relative group/board-selector" ref={dropdownRef}>
+            <button
+                type="button"
+                onClick={handleOpen}
+                className={`w-full flex items-center justify-between gap-2 px-4 h-12 bg-surface-dark border border-gray-700/50 rounded-xl hover:border-gray-500 transition-all text-left group ${isOpen ? 'ring-2 ring-primary border-transparent' : ''}`}
+            >
+                <div className="flex items-center gap-2 overflow-hidden">
+                    <span className={`material-symbols-outlined text-[20px] transition-colors ${selectedBoardIds.length > 0 ? 'text-primary' : 'text-gray-400 group-hover:text-primary'}`}>view_kanban</span>
+                    <span className={`text-sm truncate font-medium ${selectedBoardIds.length > 0 ? 'text-white' : 'text-gray-400'}`}>
+                        {displayText}
+                    </span>
+                </div>
+                <span className={`material-symbols-outlined text-gray-500 transition-transform duration-200 ${isOpen ? 'rotate-180 text-primary' : ''}`}>
+                    expand_more
+                </span>
+            </button>
 
-                            <span className={`text-sm font-bold tracking-wide ${isSelected ? 'text-white' : 'text-slate-400 group-hover:text-white/80'}`}>
-                                {board.name}
-                            </span>
-
-                            {/* Neon Glow Effect on Selection */}
-                            {isSelected && (
-                                <div className="absolute inset-0 bg-[#00FF00]/5 pointer-events-none animate-pulse-slow" />
-                            )}
-                        </div>
-                    );
-                })}
-            </div>
-            {selectedBoardIds.length === 0 && (
-                <p className="text-xs text-red-400 mt-1">* Selecione pelo menos um quadro.</p>
+            {isOpen && menuRect && createPortal(
+                <div
+                    ref={menuRef}
+                    className="fixed z-[9999] rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-100 border border-primary/30 bg-[#193322]"
+                    style={{
+                        top: menuRect.bottom + 8,
+                        left: menuRect.left,
+                        width: menuRect.width,
+                        maxHeight: '320px',
+                        boxShadow: '0 0 0 1px rgba(19, 236, 91, 0.1), 0 10px 40px rgba(0,0,0,0.6)'
+                    }}
+                >
+                    <div className="overflow-y-auto max-h-[300px] custom-scrollbar p-1">
+                        {boards.map(board => {
+                            const isSelected = selectedBoardIds.includes(board.id);
+                            return (
+                                <div
+                                    key={board.id}
+                                    onClick={() => toggleBoard(board.id)}
+                                    className={`
+                                        px-3 py-2.5 mx-1 rounded-lg flex items-center justify-between cursor-pointer transition-all duration-200 group/item relative overflow-hidden
+                                        ${isSelected
+                                            ? 'bg-primary/20 text-white'
+                                            : 'text-gray-400 hover:text-white hover:bg-white/5'
+                                        }
+                                    `}
+                                >
+                                    <div className="flex items-center gap-3 relative z-10">
+                                        <div className={`w-1 h-8 absolute -left-4 rounded-r-full transition-all duration-300 ${isSelected ? 'bg-primary shadow-[0_0_10px_#00FF00]' : 'bg-transparent'}`}></div>
+                                        <span className={`material-symbols-outlined text-[18px] ${isSelected ? 'text-primary' : 'text-gray-500'}`}>
+                                            {isSelected ? 'check_box' : 'check_box_outline_blank'}
+                                        </span>
+                                        <span className="text-sm font-medium">{board.name}</span>
+                                    </div>
+                                    {isSelected && <span className="material-symbols-outlined text-primary text-[18px] drop-shadow-[0_0_5px_rgba(0,255,0,0.5)]">check</span>}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>,
+                document.body
             )}
         </div>
     );

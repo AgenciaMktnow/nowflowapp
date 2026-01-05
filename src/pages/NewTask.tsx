@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import SimpleEditor from '../components/SimpleEditor';
@@ -6,7 +6,7 @@ import ModernDropdown from '../components/ModernDropdown';
 import { useAuth } from '../contexts/AuthContext';
 import { taskService, type Task } from '../services/task.service';
 import { toast } from 'sonner';
-import ActivityFeed from '../components/ActivityFeed';
+
 import { MultiBoardSelector } from '../components/MultiBoardSelector';
 import type { Board } from '../types/database.types';
 
@@ -22,14 +22,7 @@ type User = {
     avatar_url?: string;
 };
 
-type Attachment = {
-    id: string;
-    name: string;
-    size: string;
-    type: string;
-    path: string;
-    uploaded_at: string;
-};
+
 
 export default function NewTask() {
     const navigate = useNavigate();
@@ -60,11 +53,24 @@ export default function NewTask() {
     // UI States
     const [assigneeSearch, setAssigneeSearch] = useState('');
     const [files, setFiles] = useState<File[]>([]);
-    const [existingAttachments, setExistingAttachments] = useState<Attachment[]>([]);
+
 
     // Multi-Board State
     const [boards, setBoards] = useState<Board[]>([]);
     const [selectedBoardIds, setSelectedBoardIds] = useState<string[]>([]);
+    const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // Close dropdown on click outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setShowAssigneeDropdown(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     // Data lists
     const [clients, setClients] = useState<SelectOption[]>([]);
@@ -289,7 +295,7 @@ export default function NewTask() {
             }
 
             if (data.attachments) {
-                setExistingAttachments(data.attachments);
+                console.log('Task has attachments:', data.attachments);
             }
         }
         setLoading(false);
@@ -379,12 +385,12 @@ export default function NewTask() {
     });
 
     const selectedUsers = sortedUsers.filter(u => assigneeIds.includes(u.id));
+    // Show ALL users in dropdown, including selected ones (so they can be toggled off)
     const filteredUsers = assigneeSearch
         ? sortedUsers.filter(u =>
-            u.full_name.toLowerCase().includes(assigneeSearch.toLowerCase()) &&
-            !assigneeIds.includes(u.id)
+            u.full_name.toLowerCase().includes(assigneeSearch.toLowerCase())
         )
-        : sortedUsers.filter(u => !assigneeIds.includes(u.id));
+        : sortedUsers;
 
     // Filter Clients based on Selected Boards
     const filteredClients = selectedBoardIds.length > 0
@@ -408,40 +414,12 @@ export default function NewTask() {
         return data.publicUrl;
     };
 
-    const handleDeleteExistingAttachment = async (attachment: Attachment) => {
-        if (!confirm(`Deseja realmente excluir o anexo "${attachment.name}"?`)) return;
 
-        try {
-            // 1. Remove from Storage
-            const { error: deleteError } = await supabase.storage
-                .from('task-attachments')
-                .remove([attachment.path]);
-
-            if (deleteError) console.error('Error deleting from storage:', deleteError);
-
-            // 2. Update task record
-            const updatedAttachments = existingAttachments.filter(a => a.id !== attachment.id);
-            const { error: updateError } = await supabase
-                .from('tasks')
-                .update({ attachments: updatedAttachments as any })
-                .eq('id', taskId);
-
-            if (updateError) throw updateError;
-
-            // 3. Update local state
-            setExistingAttachments(updatedAttachments);
-            toast.success('Anexo excluído com sucesso!');
-
-        } catch (error: any) {
-            console.error('Error deleting attachment:', error);
-            toast.error(`Erro ao excluir anexo: ${error.message}`);
-        }
-    };
 
     return (
-        <div className="flex-1 w-full max-w-5xl mx-auto p-6 md:p-10 flex flex-col gap-6 animate-fade-in pb-10 overflow-y-auto h-full">
-            <div className="flex items-center justify-between pb-4 border-b border-gray-800">
-                <div>
+        <div className="flex-1 w-full max-w-5xl mx-auto p-6 md:p-10 flex flex-col gap-6 animate-fade-in pb-0 overflow-hidden h-[90vh] max-h-[90vh]">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-800 shrink-0">
+                <div className="flex-1">
                     <input
                         type="text"
                         value={title}
@@ -451,271 +429,282 @@ export default function NewTask() {
                     />
                 </div>
                 <div className="flex items-center gap-3">
-
                     <button onClick={() => navigate('/dashboard')} className="text-gray-400 hover:text-white transition-colors p-2 rounded-full hover:bg-surface-border">
                         <span className="material-symbols-outlined">close</span>
                     </button>
                 </div>
             </div>
-            <form className="flex flex-col gap-8" onSubmit={handleSubmit}>
-                {/* Multi-Board Selector */}
-                <div className="bg-surface-dark border border-gray-700 rounded-xl p-4">
-                    <MultiBoardSelector
-                        boards={boards}
-                        selectedBoardIds={selectedBoardIds}
-                        onChange={setSelectedBoardIds}
-                    />
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Column 1: Core Context */}
-                    <div className="flex flex-col gap-6">
-                        <div className="flex flex-col gap-2">
-                            <label className="text-sm font-semibold text-gray-200 flex items-center gap-1">
+            <form className="flex-1 flex flex-col gap-6 px-1 overflow-hidden" onSubmit={handleSubmit}>
+                {/* Scrollable Content Area */}
+                <div className="flex-1 flex flex-col gap-6 overflow-y-auto pr-2 custom-scrollbar">
+                    {/* Row 1: Context (3 Columns) */}
+                    <div className="grid grid-cols-12 gap-5 items-end shrink-0">
+                        {/* Col 1: Boards (Robust Multi-Select) */}
+                        <div className="col-span-12 md:col-span-4 flex flex-col gap-2">
+                            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider pl-1 flex items-center gap-2">
+                                <span className="material-symbols-outlined text-[16px] text-primary">view_kanban</span>
+                                Quadros <span className="text-primary">*</span>
+                            </label>
+                            <MultiBoardSelector
+                                boards={boards}
+                                selectedBoardIds={selectedBoardIds}
+                                onChange={setSelectedBoardIds}
+                            />
+                        </div>
+
+                        {/* Col 2: Client */}
+                        <div className="col-span-12 md:col-span-4 flex flex-col gap-2">
+                            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider pl-1 flex items-center gap-2">
+                                <span className="material-symbols-outlined text-[16px]">business</span>
                                 Cliente <span className="text-primary">*</span>
                             </label>
-                            <div className="relative group">
-                                <ModernDropdown
-                                    value={clientId}
-                                    onChange={setClientId}
-                                    options={filteredClients}
-                                    placeholder="Selecione o cliente..."
-                                    disabled={selectedBoardIds.length === 0}
-                                />
-                                {selectedBoardIds.length === 0 && <span className="text-[10px] text-gray-500 absolute -bottom-4 left-0">* Selecione um quadro primeiro para filtrar</span>}
-                            </div>
+                            <ModernDropdown
+                                value={clientId}
+                                onChange={setClientId}
+                                options={filteredClients}
+                                placeholder="Selecione..."
+                                disabled={selectedBoardIds.length === 0}
+                            />
                         </div>
 
-                        <div className="flex flex-col gap-2">
-                            <label className="text-sm font-semibold text-gray-200 flex items-center gap-1">
+                        {/* Col 3: Workflow */}
+                        <div className="col-span-12 md:col-span-4 flex flex-col gap-2">
+                            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider pl-1 flex items-center gap-2">
+                                <span className="material-symbols-outlined text-[16px]">rule</span>
+                                Fluxo
+                            </label>
+                            <ModernDropdown
+                                value={workflowId}
+                                onChange={setWorkflowId}
+                                options={workflows.length > 0 ? workflows : [
+                                    { id: 'backlog', name: '📋 Backlog' },
+                                    { id: 'todo', name: '🚀 A Fazer' },
+                                    { id: 'inprogress', name: '⚡ Em Progresso' },
+                                    { id: 'review', name: '👀 Revisão' },
+                                    { id: 'done', name: '✅ Concluído' }
+                                ]}
+                                placeholder="Etapa..."
+                                icon="view_kanban"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Row 2: Details (3 Columns) */}
+                    <div className="grid grid-cols-12 gap-5 items-end shrink-0">
+                        {/* Col 1: Project */}
+                        <div className="col-span-12 md:col-span-4 flex flex-col gap-2">
+                            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider pl-1 flex items-center gap-2">
+                                <span className="material-symbols-outlined text-[16px]">folder</span>
                                 Projeto <span className="text-primary">*</span>
                             </label>
-                            <div className="relative group">
-                                <ModernDropdown
-                                    value={projectId}
-                                    onChange={setProjectId}
-                                    options={projects}
-                                    placeholder="Selecione o projeto..."
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Column 2: Process & Deadlines */}
-                    <div className="flex flex-col gap-6">
-                        <div className="flex flex-col gap-2">
-                            <label className="text-sm font-semibold text-gray-200 flex items-center gap-1">
-                                Fluxo da Tarefa
-                            </label>
-                            <div className="relative group">
-                                <ModernDropdown
-                                    value={workflowId}
-                                    onChange={setWorkflowId}
-                                    options={workflows.length > 0 ? workflows : [
-                                        { id: 'backlog', name: '📋 Backlog' },
-                                        { id: 'todo', name: '🚀 A Fazer' },
-                                        { id: 'inprogress', name: '⚡ Em Progresso' },
-                                        { id: 'review', name: '👀 Revisão' },
-                                        { id: 'done', name: '✅ Concluído' }
-                                    ]}
-                                    placeholder="Selecione a etapa..."
-                                    icon="view_kanban"
-                                />
-                            </div>
+                            <ModernDropdown
+                                value={projectId}
+                                onChange={setProjectId}
+                                options={projects}
+                                placeholder="Projeto..."
+                            />
                         </div>
 
-                        <div className="flex flex-col gap-2">
-                            <div className="flex items-center justify-between">
-                                <label className="text-sm font-semibold text-gray-200 flex items-center gap-1">
-                                    Prazo {!isOngoing && <span className="text-primary">*</span>}
+                        {/* Col 2: Due Date */}
+                        <div className="col-span-12 md:col-span-4 flex flex-col gap-2">
+                            <div className="flex items-center justify-between pl-1">
+                                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-[16px]">calendar_today</span>
+                                    Prazo
                                 </label>
-                                <label className="flex items-center gap-2 cursor-pointer group">
-                                    <div className="relative">
-                                        <input
-                                            type="checkbox"
-                                            checked={isOngoing}
-                                            onChange={(e) => setIsOngoing(e.target.checked)}
-                                            className="sr-only peer"
+                                {/* Modern Toggle Switch */}
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] text-gray-500 font-medium uppercase tracking-tight">Contínua</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsOngoing(!isOngoing)}
+                                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface-dark ${isOngoing ? 'bg-primary' : 'bg-gray-600'
+                                            }`}
+                                    >
+                                        <span
+                                            className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-lg transition-transform duration-200 ${isOngoing ? 'translate-x-5' : 'translate-x-0.5'
+                                                }`}
                                         />
-                                        <div className="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
-                                    </div>
-                                    <span className="text-xs text-gray-400 font-medium group-hover:text-primary transition-colors">Tarefa Contínua</span>
-                                </label>
+                                    </button>
+                                </div>
                             </div>
-                            <div className="relative group">
-                                <input
-                                    type="date"
-                                    value={dueDate}
-                                    disabled={isOngoing}
-                                    onChange={(e) => setDueDate(e.target.value)}
-                                    className={`w-full h-14 bg-surface-dark border border-gray-700 rounded-xl px-4 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-medium [color-scheme:dark] ${isOngoing ? 'opacity-50 cursor-not-allowed text-gray-500' : ''}`}
-                                    placeholder="DD/MM/AAAA"
-                                />
-                            </div>
+                            <input
+                                type="date"
+                                value={dueDate}
+                                disabled={isOngoing}
+                                onChange={(e) => setDueDate(e.target.value)}
+                                className={`w-full h-12 bg-surface-dark border border-gray-700 rounded-xl px-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-medium [color-scheme:dark] ${isOngoing ? 'opacity-50 cursor-not-allowed text-gray-500' : ''}`}
+                            />
                         </div>
-                    </div>
-                </div>
-                <div className="flex flex-col gap-2 col-span-1 md:col-span-2">
-                    <label className="text-sm font-semibold text-gray-200 flex items-center gap-1">
-                        Atribuir para (Múltiplos) <span className="text-primary">*</span>
-                    </label>
-                    <div className="relative group w-full min-h-[56px] bg-surface-dark border border-gray-700 rounded-xl px-3 py-2 text-white focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent transition-all cursor-text hover:border-gray-500 flex flex-wrap items-center gap-2">
-                        {selectedUsers.map(user => (
-                            <div key={user.id} className="flex items-center gap-2 bg-gray-800 pl-1 pr-2 py-1 rounded-lg border border-gray-700 select-none">
-                                <div className="size-6 rounded-full bg-cover bg-center" style={{ backgroundImage: user.avatar_url ? `url('${user.avatar_url}')` : undefined, backgroundColor: '#cbd5e1' }}></div>
-                                <span className="text-xs font-bold text-gray-200">{user.full_name}</span>
+
+                        {/* Col 3: Assignees */}
+                        <div className="col-span-12 md:col-span-4 flex flex-col gap-2">
+                            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider pl-1 flex items-center gap-2">
+                                <span className="material-symbols-outlined text-[16px]">group</span>
+                                Responsáveis <span className="text-primary">*</span>
+                            </label>
+                            {/* Assignee Dropdown Logic */}
+
+                            <div className="relative group w-full" ref={dropdownRef}>
                                 <button
                                     type="button"
-                                    onClick={() => setAssigneeIds(prev => prev.filter(id => id !== user.id))}
-                                    className="text-gray-400 hover:text-red-500 transition-colors ml-1"
+                                    onClick={() => {
+                                        setShowAssigneeDropdown(!showAssigneeDropdown);
+                                        if (!showAssigneeDropdown) {
+                                            setTimeout(() => document.getElementById('assignee-search-input')?.focus(), 50);
+                                        }
+                                    }}
+                                    className={`w-full h-12 bg-surface-dark border border-gray-700 rounded-xl px-3 flex items-center justify-between gap-2 text-white transition-all hover:border-gray-500 ${showAssigneeDropdown ? 'ring-2 ring-primary border-transparent' : ''}`}
                                 >
-                                    <span className="material-symbols-outlined text-[16px]">close</span>
-                                </button>
-                            </div>
-                        ))}
-                        <input
-                            type="text"
-                            value={assigneeSearch}
-                            onChange={(e) => setAssigneeSearch(e.target.value)}
-                            className="bg-transparent border-none outline-none focus:ring-0 p-1 text-sm text-white placeholder-gray-400 flex-1 min-w-[150px]"
-                            placeholder={assigneeIds.length === 0 ? "Adicionar pessoas ou times..." : "Adicionar mais..."}
-                        />
-                        {assigneeSearch && (
-                            <div className="absolute top-full left-0 w-full bg-surface-dark border border-gray-700 rounded-xl mt-1 py-1 shadow-lg z-50 max-h-48 overflow-y-auto">
-                                {filteredUsers.length > 0 ? filteredUsers.map(u => (
-                                    <div
-                                        key={u.id}
-                                        onClick={() => {
-                                            setAssigneeIds(prev => [...prev, u.id]);
-                                            setAssigneeSearch('');
-                                        }}
-                                        className="px-4 py-2 hover:bg-gray-800 cursor-pointer flex items-center gap-2"
-                                    >
-                                        <div className="size-6 rounded-full bg-gray-300"></div>
-                                        <div className="flex flex-col flex-1">
-                                            <span className="text-sm text-white">{u.full_name}</span>
+                                    <div className="flex items-center gap-2 overflow-hidden flex-1">
+                                        <div className="flex items-center justify-center size-5 rounded-full border border-gray-600 bg-gray-800 shrink-0">
+                                            {selectedUsers.length > 0 && selectedUsers[0].avatar_url ? (
+                                                <div className="size-full rounded-full bg-cover bg-center" style={{ backgroundImage: `url('${selectedUsers[0].avatar_url}')` }}></div>
+                                            ) : (
+                                                <span className="material-symbols-outlined text-[16px] text-gray-400">group</span>
+                                            )}
                                         </div>
-                                        {teamMemberIds.has(u.id) && (
-                                            <span className="text-[9px] font-black text-primary px-1.5 py-0.5 rounded bg-primary/10 border border-primary/20">TIME</span>
-                                        )}
+
+                                        <span className={`text-sm font-medium truncate ${selectedUsers.length > 0 ? 'text-white' : 'text-gray-500'}`}>
+                                            {selectedUsers.length === 0
+                                                ? "Selecionar responsáveis..."
+                                                : selectedUsers.length <= 2
+                                                    ? selectedUsers.map(u => u.full_name?.split(' ')[0]).join(', ')
+                                                    : `${selectedUsers.length} selecionados`
+                                            }
+                                        </span>
                                     </div>
-                                )) : (
-                                    <div className="px-4 py-2 text-sm text-gray-400">Nenhum usuário encontrado</div>
+                                    <span className={`material-symbols-outlined text-gray-500 transition-transform duration-200 ${showAssigneeDropdown ? 'rotate-180 text-primary' : ''}`}>expand_more</span>
+                                </button>
+
+                                {showAssigneeDropdown && (
+                                    <div className="absolute top-[110%] left-0 w-full bg-surface-dark border border-gray-700 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] z-[9999] overflow-hidden animate-in fade-in zoom-in-95 duration-100 flex flex-col max-h-[300px]">
+                                        <div className="p-2 border-b border-gray-800 bg-surface-dark sticky top-0 z-10">
+                                            <div className="flex items-center gap-2 bg-gray-800/50 px-3 py-1.5 rounded-lg border border-gray-700 focus-within:border-primary/50 transition-colors">
+                                                <span className="material-symbols-outlined text-gray-500 text-[18px]">search</span>
+                                                <input
+                                                    id="assignee-search-input"
+                                                    type="text"
+                                                    value={assigneeSearch}
+                                                    onChange={(e) => setAssigneeSearch(e.target.value)}
+                                                    placeholder="Buscar usuário..."
+                                                    className="bg-transparent border-none outline-none text-sm text-white w-full placeholder-gray-500"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="overflow-y-auto custom-scrollbar p-1">
+                                            {filteredUsers.length > 0 ? filteredUsers.map(u => {
+                                                const isSelected = assigneeIds.includes(u.id);
+                                                return (
+                                                    <div
+                                                        key={u.id}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setAssigneeIds(prev => isSelected
+                                                                ? prev.filter(id => id !== u.id)
+                                                                : [...prev, u.id]
+                                                            );
+                                                        }}
+                                                        className={`
+                                                            px-3 py-2.5 mx-1 rounded-lg flex items-center justify-between cursor-pointer transition-all duration-200 group/item relative overflow-hidden
+                                                            ${isSelected
+                                                                ? 'bg-primary/20 text-white'
+                                                                : 'text-gray-400 hover:text-white hover:bg-white/5'
+                                                            }
+                                                        `}
+                                                    >
+                                                        <div className="flex items-center gap-3 relative z-10">
+                                                            <div className={`w-1 h-8 absolute -left-4 rounded-r-full transition-all duration-300 ${isSelected ? 'bg-primary shadow-[0_0_10px_#00FF00]' : 'bg-transparent'}`}></div>
+                                                            <span className={`material-symbols-outlined text-[20px] ${isSelected ? 'text-primary' : 'text-gray-500 group-hover/item:text-gray-300'}`}>
+                                                                {isSelected ? 'check_box' : 'check_box_outline_blank'}
+                                                            </span>
+
+                                                            <div className={`size-6 rounded-full border bg-cover bg-center shrink-0 ${isSelected ? 'border-primary/50' : 'border-gray-600 bg-gray-700'}`} style={{ backgroundImage: u.avatar_url ? `url('${u.avatar_url}')` : undefined }}>
+                                                                {!u.avatar_url && <span className="flex items-center justify-center h-full text-[9px] font-bold text-gray-400">{u.full_name?.charAt(0)}</span>}
+                                                            </div>
+
+                                                            <span className="text-sm font-medium">{u.full_name}</span>
+                                                        </div>
+                                                        {isSelected && <span className="material-symbols-outlined text-primary text-[18px] drop-shadow-[0_0_5px_rgba(0,255,0,0.5)]">check</span>}
+                                                    </div>
+                                                );
+                                            }) : <div className="px-4 py-8 text-sm text-gray-400 text-center italic flex flex-col items-center gap-2">
+                                                <span className="material-symbols-outlined text-[24px] opacity-50">person_off</span>
+                                                Nenhum usuário encontrado
+                                            </div>}
+                                        </div>
+                                    </div>
                                 )}
                             </div>
-                        )}
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none group-focus-within:text-primary transition-colors">
-                            <span className="material-symbols-outlined">expand_more</span>
+                        </div>
+                    </div>
+
+                    {/* Description - Fills Remaining Space */}
+                    <div className="flex-1 flex flex-col gap-2 min-h-0 overflow-hidden pb-0">
+                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider pl-1 flex items-center gap-2">
+                            <span className="material-symbols-outlined text-[16px]">description</span>
+                            Descrição
+                        </label>
+                        <div className="flex-1 rounded-xl overflow-hidden focus-within:border-primary/50 transition-colors flex flex-col h-full">
+                            <SimpleEditor
+                                value={description}
+                                onChange={setDescription}
+                                placeholder="Descreva os detalhes da tarefa aqui..."
+                                onImageUpload={handleEditorImageUpload}
+                            />
                         </div>
                     </div>
                 </div>
 
-                <div className="flex flex-col gap-2">
-                    <label className="text-sm font-semibold text-gray-200 flex items-center gap-1">
-                        Descrição da Tarefa <span className="text-primary">*</span>
-                    </label>
-                    <SimpleEditor
-                        value={description}
-                        onChange={setDescription}
-                        placeholder="Descreva os detalhes da tarefa aqui..."
-                        onImageUpload={handleEditorImageUpload}
-                    />
-                </div>
-                <div className="flex flex-col gap-2">
-                    <label className="text-sm font-semibold text-gray-200">
-                        Anexos
-                    </label>
-                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-700 rounded-xl cursor-pointer bg-surface-dark hover:border-primary hover:bg-surface-border/30 transition-all group">
-                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                            <span className="material-symbols-outlined text-3xl text-gray-400 group-hover:text-primary mb-2 transition-colors">cloud_upload</span>
-                            <p className="text-sm text-gray-400"><span className="font-semibold text-primary">Clique para fazer upload</span> ou arraste e solte</p>
-                            <p className="text-xs text-gray-500 mt-1">SVG, PNG, JPG ou PDF (max. 10MB)</p>
-                        </div>
-                        <input type="file" multiple className="hidden" onChange={(e) => e.target.files && setFiles([...files, ...Array.from(e.target.files)])} />
-                    </label>
-                    {files.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mt-2">
-                            {files.map((f, idx) => (
-                                <div key={idx} className="flex items-center gap-2 bg-surface-dark border border-gray-700 px-2 py-1 rounded text-xs text-white">
-                                    <span className="material-symbols-outlined text-[14px]">description</span>
-                                    {f.name} (Novo)
-                                    <button type="button" onClick={() => setFiles(files.filter((_, i) => i !== idx))} className="hover:text-red-500"><span className="material-symbols-outlined text-[14px]">close</span></button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                    {existingAttachments.length > 0 && (
-                        <div className="flex flex-col gap-2 mt-4">
-                            <label className="text-xs font-semibold text-gray-400">Anexos Existentes</label>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                {existingAttachments.map((att) => (
-                                    <div key={att.id} className="flex items-center justify-between p-3 rounded-lg bg-surface-dark border border-gray-700">
-                                        <div className="flex items-center gap-3 overflow-hidden">
-                                            <div className="size-8 rounded flex items-center justify-center bg-gray-600/20 text-gray-400 shrink-0">
-                                                <span className="material-symbols-outlined text-[18px]">
-                                                    {att.type.includes('image') ? 'image' : 'description'}
-                                                </span>
-                                            </div>
-                                            <span className="text-sm text-gray-300 truncate">{att.name}</span>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleDeleteExistingAttachment(att)}
-                                            className="text-gray-500 hover:text-red-500 p-1 rounded hover:bg-white/5 transition-colors"
-                                            title="Excluir anexo"
-                                        >
-                                            <span className="material-symbols-outlined text-[18px]">delete</span>
-                                        </button>
-                                    </div>
-                                ))}
+                {/* Footer: Locked to Bottom (Sticky/Fixed behavior) */}
+                <div className="flex flex-col md:flex-row items-center justify-between gap-6 border-t border-white/5 pt-5 mt-auto bg-transparent backdrop-blur-xl shrink-0 sticky bottom-0 z-10 w-full px-6 md:px-10 -mx-6 md:-mx-10 mb-[-24px] pb-8">
+                    {/* Left: Metadata */}
+                    <div className="flex items-center gap-4 flex-1 w-full md:w-auto">
+                        <div className="relative group shrink-0">
+                            <input type="file" multiple className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" onChange={(e) => e.target.files && setFiles([...files, ...Array.from(e.target.files)])} />
+                            <div className={`flex items-center gap-2 px-5 py-3 rounded-xl border transition-all cursor-pointer ${files.length > 0 ? 'bg-primary/10 border-primary/30 text-primary shadow-[0_0_15px_rgba(0,255,0,0.1)]' : 'bg-surface-dark border-gray-700/50 text-gray-400 hover:border-gray-500 hover:text-gray-200'}`}>
+                                <span className="material-symbols-outlined text-[20px]">attach_file</span>
+                                <span className="text-xs font-bold uppercase tracking-wider">{files.length > 0 ? `${files.length} Anexos` : 'Anexar Arquivos'}</span>
                             </div>
                         </div>
-                    )}
-                </div>
-                <div className="flex flex-col gap-2">
-                    <label className="text-sm font-semibold text-gray-200">Prioridade</label>
-                    <div className="flex items-center gap-3">
-                        {['low', 'medium', 'high'].map(p => (
-                            <label key={p} className="cursor-pointer">
-                                <input type="radio" name="priority" value={p.toUpperCase()} checked={priority === p.toUpperCase()} onChange={() => setPriority(p.toUpperCase() as any)} className="peer sr-only" />
-                                <div className={`px-4 py-2 rounded-full border border-gray-700 text-gray-400 text-sm font-medium transition-all hover:bg-surface-border capitalize
-                                    ${p === 'low' ? 'peer-checked:bg-blue-500/20 peer-checked:border-blue-500 peer-checked:text-blue-500' : ''}
-                                    ${p === 'medium' ? 'peer-checked:bg-yellow-500/20 peer-checked:border-yellow-500 peer-checked:text-yellow-500' : ''}
-                                    ${p === 'high' ? 'peer-checked:bg-red-500/20 peer-checked:border-red-500 peer-checked:text-red-500' : ''}
-                                `}>
+
+                        <div className="flex items-center bg-surface-dark border border-gray-700/50 rounded-xl p-1.5 shrink-0">
+                            {['low', 'medium', 'high'].map(p => (
+                                <button
+                                    key={p}
+                                    type="button"
+                                    onClick={() => setPriority(p.toUpperCase() as any)}
+                                    className={`px-5 py-2 rounded-lg text-[10px] font-bold uppercase transition-all ${priority === p.toUpperCase()
+                                        ? (p === 'low' ? 'bg-blue-500/10 text-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.2)]' : p === 'medium' ? 'bg-yellow-500/10 text-yellow-400 shadow-[0_0_10px_rgba(234,179,8,0.2)]' : 'bg-red-500/10 text-red-400 shadow-[0_0_10px_rgba(239,68,68,0.2)]')
+                                        : 'text-gray-500 hover:text-white hover:bg-white/5'
+                                        }`}
+                                >
                                     {p === 'low' ? 'Baixa' : p === 'medium' ? 'Média' : 'Alta'}
-                                </div>
-                            </label>
-                        ))}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Right: Actions */}
+                    <div className="flex items-center gap-4 shrink-0 w-full md:w-auto justify-end">
+                        <button type="button" onClick={() => navigate('/dashboard')} className="px-6 py-3 rounded-xl text-gray-400 text-xs font-bold hover:text-white hover:bg-white/5 transition-colors uppercase tracking-wider">
+                            Cancelar
+                        </button>
+                        <button type="submit" disabled={loading} className="flex items-center gap-3 px-10 py-3.5 bg-primary hover:bg-[#0fd650] text-[#112217] font-bold text-sm uppercase tracking-wider rounded-xl shadow-[0_0_25px_rgba(19,236,91,0.4)] hover:shadow-[0_0_35px_rgba(19,236,91,0.6)] transition-all transform hover:-translate-y-0.5 disabled:opacity-50">
+                            <span>{taskId ? 'Salvar Edição' : 'Criar Tarefa'}</span>
+                            <span className="material-symbols-outlined text-[20px] font-bold">arrow_forward</span>
+                        </button>
                     </div>
                 </div>
-                <div className="flex items-center justify-end gap-4 mt-4 pt-4 border-t border-gray-800">
-                    <button type="button" onClick={() => navigate('/dashboard')} className="px-6 py-3 rounded-full text-gray-300 font-bold text-sm hover:bg-surface-border transition-colors">
-                        Cancelar
-                    </button>
-                    <button type="submit" disabled={loading} className="flex items-center justify-center gap-2 px-8 py-3 bg-primary hover:bg-[#0fd650] text-[#112217] font-bold text-sm rounded-full shadow-[0_0_15px_rgba(19,236,91,0.3)] hover:shadow-[0_0_25px_rgba(19,236,91,0.5)] transition-all transform hover:-translate-y-0.5 disabled:opacity-50">
-                        <span>{taskId ? 'Salvar Alterações' : 'Criar Tarefa'}</span>
-                        <span className="material-symbols-outlined text-[18px] font-bold">{taskId ? 'save' : 'arrow_forward'}</span>
-                    </button>
-                </div>
-            </form >
+            </form>
 
-            {taskId && (
-                <div className="mt-8 border-t border-gray-800 pt-8">
-                    <h3 className="text-white text-lg font-bold mb-6 flex items-center gap-2">
-                        <span className="material-symbols-outlined text-primary">history</span>
-                        Histórico e Comentários
-                    </h3>
-                    <div className="bg-surface-dark/50 rounded-xl border border-gray-800 p-4">
-                        <ActivityFeed taskId={taskId} />
-                    </div>
-                </div>
-            )
-            }
-
-            <div className="absolute bottom-6 text-gray-400 text-xs hidden md:block opacity-50">
-                Pressione <kbd className="font-sans px-1 py-0.5 bg-surface-border rounded text-[10px]">Ctrl</kbd> + <kbd className="font-sans px-1 py-0.5 bg-surface-border rounded text-[10px]">Enter</kbd> para enviar
+            <div className="absolute bottom-6 left-10 text-gray-500 text-[10px] hidden lg:block opacity-30 pointer-events-none">
+                Pressione <kbd className="font-sans px-1.5 py-0.5 bg-gray-800 rounded border border-gray-700 text-gray-300">Ctrl</kbd> + <kbd className="font-sans px-1.5 py-0.5 bg-gray-800 rounded border border-gray-700 text-gray-300">Enter</kbd> para enviar rápido
             </div>
-        </div >
+        </div>
     );
+
 }

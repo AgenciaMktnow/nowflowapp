@@ -1006,41 +1006,41 @@ export default function TaskDetail() {
                     <span className="text-white text-sm font-medium leading-normal">{task.title}</span>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
                     <div className="lg:col-span-8 flex flex-col gap-8">
-                        {/* Task Header Info */}
-                        <div className="flex flex-col gap-4">
+                        {/* Task Header Info - Compact */}
+                        <div className="flex flex-col gap-3">
                             <div className="flex flex-col gap-1">
-                                <div className="flex items-center gap-3 text-text-muted text-sm">
-                                    <span className="bg-surface-border px-2 py-0.5 rounded text-xs font-mono">#{task.task_number}</span>
+                                <div className="flex items-center gap-2 text-text-muted text-xs">
+                                    <span className="bg-surface-border px-1.5 py-0.5 rounded font-mono">#{task.task_number}</span>
                                     <span>•</span>
-                                    <span>Criado por {task.creator?.full_name || 'Sistema'}</span>
+                                    <span>{task.creator?.full_name || 'Sistema'}</span>
                                 </div>
                             </div>
-                            <div className="flex flex-wrap items-start justify-between gap-4">
-                                <div className="flex flex-col gap-2">
-                                    <h1 className="text-white text-3xl md:text-4xl font-black leading-tight tracking-[-0.033em]">{task.title}</h1>
-                                    <div className="flex flex-wrap items-center gap-3 text-sm">
-                                        <span className={`flex items-center gap-1 px-2 py-1 rounded border ${task.priority === 'HIGH' ? 'text-[#ff6b6b] bg-[#ff6b6b]/10 border-[#ff6b6b]/20' :
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div className="flex flex-col gap-1.5">
+                                    <h1 className="text-white text-2xl md:text-3xl font-black leading-tight tracking-[-0.033em]">{task.title}</h1>
+                                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                                        <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded border ${task.priority === 'HIGH' ? 'text-[#ff6b6b] bg-[#ff6b6b]/10 border-[#ff6b6b]/20' :
                                             task.priority === 'MEDIUM' ? 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20' :
                                                 'text-blue-400 bg-blue-400/10 border-blue-400/20'
                                             }`}>
-                                            <span className="material-symbols-outlined text-[16px]">priority_high</span>
-                                            {task.priority === 'HIGH' ? 'Alta' : task.priority === 'MEDIUM' ? 'Média' : 'Baixa'} Prioridade
+                                            <span className="material-symbols-outlined text-[14px]">priority_high</span>
+                                            {task.priority === 'HIGH' ? 'Alta' : task.priority === 'MEDIUM' ? 'Média' : 'Baixa'}
                                         </span>
-                                        <span className="flex items-center gap-1 text-text-muted bg-surface-dark px-2 py-1 rounded border border-border-dark">
-                                            <span className="material-symbols-outlined text-[16px]">calendar_today</span>
-                                            Prazo: {formatDate(task.due_date)}
+                                        <span className="flex items-center gap-1 text-text-muted bg-surface-dark px-1.5 py-0.5 rounded border border-border-dark">
+                                            <span className="material-symbols-outlined text-[14px]">calendar_today</span>
+                                            {formatDate(task.due_date)}
                                         </span>
                                         {task.workflow && (
-                                            <span className="flex items-center gap-1 text-purple-400 bg-purple-500/10 px-2 py-1 rounded border border-purple-500/20">
-                                                <span className="material-symbols-outlined text-[16px]">view_kanban</span>
+                                            <span className="flex items-center gap-1 text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20">
+                                                <span className="material-symbols-outlined text-[14px]">view_kanban</span>
                                                 {task.workflow.name}
                                             </span>
                                         )}
                                         {task.tags?.map(tag => (
-                                            <span key={tag} className="flex items-center gap-1 text-text-muted bg-surface-dark px-2 py-1 rounded border border-border-dark">
-                                                <span className="material-symbols-outlined text-[16px]">tag</span> {tag}
+                                            <span key={tag} className="flex items-center gap-1 text-text-muted bg-surface-dark px-1.5 py-0.5 rounded border border-border-dark">
+                                                <span className="material-symbols-outlined text-[14px]">tag</span> {tag}
                                             </span>
                                         ))}
                                     </div>
@@ -1048,16 +1048,16 @@ export default function TaskDetail() {
                                 <div className="flex items-center gap-2">
                                     <button
                                         onClick={handleEditTask}
-                                        className="flex items-center gap-2 px-3 py-2 bg-surface-dark hover:bg-surface-dark/80 text-white text-sm font-medium rounded-lg border border-border-dark transition-colors"
+                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-dark hover:bg-surface-dark/80 text-white text-xs font-bold uppercase tracking-wider rounded-lg border border-border-dark transition-colors"
                                     >
-                                        <span className="material-symbols-outlined text-[18px]">edit</span>
+                                        <span className="material-symbols-outlined text-[16px]">edit</span>
                                         Editar
                                     </button>
                                     <button
                                         onClick={handleCloneTask}
-                                        className="flex items-center gap-2 px-3 py-2 bg-surface-dark hover:bg-surface-dark/80 text-white text-sm font-medium rounded-lg border border-border-dark transition-colors"
+                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-dark hover:bg-surface-dark/80 text-white text-xs font-bold uppercase tracking-wider rounded-lg border border-border-dark transition-colors"
                                     >
-                                        <span className="material-symbols-outlined text-[18px]">content_copy</span>
+                                        <span className="material-symbols-outlined text-[16px]">content_copy</span>
                                         Clonar
                                     </button>
                                 </div>
@@ -1141,10 +1141,12 @@ export default function TaskDetail() {
                                     <button
                                         onClick={() => fileInputRef.current?.click()}
                                         disabled={uploading}
-                                        className="text-xs font-bold text-primary bg-primary/10 px-3 py-1.5 rounded border border-primary/20 hover:bg-primary/20 transition-colors flex items-center gap-1"
+                                        className="relative flex items-center gap-2 border border-dashed border-gray-700 bg-surface-dark/50 rounded-lg px-3 py-1.5 hover:border-primary/50 transition-all cursor-pointer hover:bg-surface-dark group"
                                     >
-                                        <span className="material-symbols-outlined text-[16px]">add</span>
-                                        {uploading ? 'Enviando...' : 'Adicionar'}
+                                        <span className="material-symbols-outlined text-[16px] text-gray-400 group-hover:text-primary transition-colors">cloud_upload</span>
+                                        <span className="text-xs font-bold text-gray-300 group-hover:text-white transition-colors">
+                                            {uploading ? 'Enviando...' : 'Adicionar Anexo'}
+                                        </span>
                                     </button>
                                 </div>
                             </div>
@@ -1342,13 +1344,13 @@ export default function TaskDetail() {
                         </div>
                     </div>
 
-                    <div className="lg:col-span-4 flex flex-col gap-6 sticky top-24">
+                    <div className="lg:col-span-4 flex flex-col gap-4 sticky top-24">
                         {/* Multi-Board Selector */}
-                        <div className="bg-surface-dark rounded-xl border border-border-dark p-6 shadow-lg">
-                            <h3 className="text-white text-sm font-bold uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <div className="bg-surface-dark rounded-xl border border-border-dark p-4 shadow-lg flex flex-col gap-2">
+                            <div className="flex items-center gap-2 mb-1">
                                 <span className="material-symbols-outlined text-primary text-[18px]">dashboard</span>
-                                Quadros Vinculados
-                            </h3>
+                                <span className="text-white text-xs font-bold uppercase tracking-wider">Quadros</span>
+                            </div>
                             <MultiBoardSelector
                                 boards={boards}
                                 selectedBoardIds={selectedBoardIds}
@@ -1357,32 +1359,32 @@ export default function TaskDetail() {
                         </div>
 
                         {/* Assignees */}
-                        <div className="bg-surface-dark rounded-xl border border-border-dark p-6 shadow-lg">
-                            <h3 className="text-white text-sm font-bold uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <div className="bg-surface-dark rounded-xl border border-border-dark p-4 shadow-lg flex flex-col gap-2">
+                            <div className="flex items-center gap-2 mb-1">
                                 <span className="material-symbols-outlined text-primary text-[18px]">group</span>
-                                Responsáveis
-                            </h3>
+                                <span className="text-white text-xs font-bold uppercase tracking-wider">Responsáveis</span>
+                            </div>
                             <div className="flex flex-wrap gap-2">
                                 {task.task_assignees && task.task_assignees.length > 0 ? (
                                     task.task_assignees.map((assignee) => (
-                                        <div key={assignee.user.id} className="flex items-center gap-2 bg-background-dark border border-border-dark rounded-full pl-1 pr-3 py-1.5 transition-colors hover:border-primary/50 group cursor-default">
+                                        <div key={assignee.user.id} className="flex items-center gap-1.5 bg-background-dark border border-border-dark rounded-full pl-1 pr-2 py-1 transition-colors hover:border-primary/50 group cursor-default">
                                             <div
-                                                className="size-6 rounded-full bg-cover bg-center bg-[#2a2a2e] ring-1 ring-white/10 flex items-center justify-center shrink-0"
+                                                className="size-5 rounded-full bg-cover bg-center bg-[#2a2a2e] ring-1 ring-white/10 flex items-center justify-center shrink-0"
                                                 style={{ backgroundImage: assignee.user.avatar_url ? `url('${assignee.user.avatar_url}')` : undefined }}
                                             >
                                                 {!assignee.user.avatar_url && (
-                                                    <span className="text-[10px] text-white font-bold">
+                                                    <span className="text-[9px] text-white font-bold">
                                                         {assignee.user.full_name?.charAt(0) || assignee.user.email?.charAt(0).toUpperCase()}
                                                     </span>
                                                 )}
                                             </div>
-                                            <span className="text-xs font-bold text-gray-200 group-hover:text-white transition-colors">{assignee.user.full_name || assignee.user.email}</span>
+                                            <span className="text-[10px] font-bold text-gray-200 group-hover:text-white transition-colors max-w-[100px] truncate">{assignee.user.full_name || assignee.user.email}</span>
                                         </div>
                                     ))
                                 ) : (
-                                    <div className="text-text-muted text-sm italic flex items-center gap-2">
-                                        <span className="material-symbols-outlined text-[16px]">person_off</span>
-                                        Nenhum responsável atribuído
+                                    <div className="text-text-muted text-xs italic flex items-center gap-1">
+                                        <span className="material-symbols-outlined text-[14px]">person_off</span>
+                                        Nenhum
                                     </div>
                                 )}
                             </div>
@@ -1510,7 +1512,7 @@ export default function TaskDetail() {
 
                         {/* Workflow Actions */}
                         <div className="bg-surface-dark rounded-xl border border-border-dark p-6 flex flex-col gap-5">
-                            <button onClick={handleCompleteTask} className="w-full h-14 bg-primary hover:bg-primary-dark text-background-dark text-lg font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_25px_-5px_rgba(19,236,91,0.5)] hover:shadow-[0_0_35px_-5px_rgba(19,236,91,0.7)] group transform active:scale-[0.98]">
+                            <button onClick={handleCompleteTask} className="w-full h-12 bg-primary hover:bg-primary-dark text-background-dark text-lg font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_25px_-5px_rgba(19,236,91,0.5)] hover:shadow-[0_0_35px_-5px_rgba(19,236,91,0.7)] group transform active:scale-[0.98]">
                                 <span className="material-symbols-outlined text-[24px] fill-current">check_circle</span>
                                 Concluir Tarefa
                             </button>
