@@ -6,6 +6,7 @@ import ModernDropdown from '../components/ModernDropdown';
 import { useAuth } from '../contexts/AuthContext';
 import { taskService, type Task } from '../services/task.service';
 import { toast } from 'sonner';
+import ActivityFeed from '../components/ActivityFeed';
 
 type SelectOption = {
     id: string;
@@ -16,6 +17,15 @@ type User = {
     id: string;
     full_name: string;
     avatar_url?: string;
+};
+
+type Attachment = {
+    id: string;
+    name: string;
+    size: string;
+    type: string;
+    path: string;
+    uploaded_at: string;
 };
 
 export default function NewTask() {
@@ -47,6 +57,7 @@ export default function NewTask() {
     // UI States
     const [assigneeSearch, setAssigneeSearch] = useState('');
     const [files, setFiles] = useState<File[]>([]);
+    const [existingAttachments, setExistingAttachments] = useState<Attachment[]>([]);
 
     // Data lists
     const [clients, setClients] = useState<SelectOption[]>([]);
@@ -141,7 +152,8 @@ export default function NewTask() {
             if (data.workflow_id) setWorkflowId(data.workflow_id); // Type 'string | null' is not assignable to type 'SetStateAction<string>'.
 
             if (data.due_date) {
-                setDueDate(data.due_date);
+                // Ensure YYYY-MM-DD format for input[type="date"] from ISO string
+                setDueDate(data.due_date.split('T')[0]);
                 setIsOngoing(false);
             } else {
                 setIsOngoing(true);
@@ -151,6 +163,10 @@ export default function NewTask() {
                 setAssigneeIds(data.task_assignees.map((ta: any) => ta.user_id));
             } else if (data.assignee_id) {
                 setAssigneeIds([data.assignee_id]);
+            }
+
+            if (data.attachments) {
+                setExistingAttachments(data.attachments);
             }
         }
         setLoading(false);
@@ -248,6 +264,36 @@ export default function NewTask() {
         return data.publicUrl;
     };
 
+    const handleDeleteExistingAttachment = async (attachment: Attachment) => {
+        if (!confirm(`Deseja realmente excluir o anexo "${attachment.name}"?`)) return;
+
+        try {
+            // 1. Remove from Storage
+            const { error: deleteError } = await supabase.storage
+                .from('task-attachments')
+                .remove([attachment.path]);
+
+            if (deleteError) console.error('Error deleting from storage:', deleteError);
+
+            // 2. Update task record
+            const updatedAttachments = existingAttachments.filter(a => a.id !== attachment.id);
+            const { error: updateError } = await supabase
+                .from('tasks')
+                .update({ attachments: updatedAttachments as any })
+                .eq('id', taskId);
+
+            if (updateError) throw updateError;
+
+            // 3. Update local state
+            setExistingAttachments(updatedAttachments);
+            toast.success('Anexo excluído com sucesso!');
+
+        } catch (error: any) {
+            console.error('Error deleting attachment:', error);
+            toast.error(`Erro ao excluir anexo: ${error.message}`);
+        }
+    };
+
     return (
         <div className="flex-1 w-full max-w-5xl mx-auto p-6 md:p-10 flex flex-col gap-6 animate-fade-in pb-10 overflow-y-auto h-full">
             <div className="flex items-center justify-between pb-4 border-b border-gray-800">
@@ -261,10 +307,7 @@ export default function NewTask() {
                     />
                 </div>
                 <div className="flex items-center gap-3">
-                    <button className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-full border border-gray-700 text-xs font-bold text-gray-300 hover:bg-surface-border transition-colors hover:text-primary" type="button">
-                        <span className="material-symbols-outlined text-[16px]">content_copy</span>
-                        Clonar Tarefa
-                    </button>
+
                     <button onClick={() => navigate('/dashboard')} className="text-gray-400 hover:text-white transition-colors p-2 rounded-full hover:bg-surface-border">
                         <span className="material-symbols-outlined">close</span>
                     </button>
@@ -426,10 +469,37 @@ export default function NewTask() {
                             {files.map((f, idx) => (
                                 <div key={idx} className="flex items-center gap-2 bg-surface-dark border border-gray-700 px-2 py-1 rounded text-xs text-white">
                                     <span className="material-symbols-outlined text-[14px]">description</span>
-                                    {f.name}
+                                    {f.name} (Novo)
                                     <button type="button" onClick={() => setFiles(files.filter((_, i) => i !== idx))} className="hover:text-red-500"><span className="material-symbols-outlined text-[14px]">close</span></button>
                                 </div>
                             ))}
+                        </div>
+                    )}
+                    {existingAttachments.length > 0 && (
+                        <div className="flex flex-col gap-2 mt-4">
+                            <label className="text-xs font-semibold text-gray-400">Anexos Existentes</label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {existingAttachments.map((att) => (
+                                    <div key={att.id} className="flex items-center justify-between p-3 rounded-lg bg-surface-dark border border-gray-700">
+                                        <div className="flex items-center gap-3 overflow-hidden">
+                                            <div className="size-8 rounded flex items-center justify-center bg-gray-600/20 text-gray-400 shrink-0">
+                                                <span className="material-symbols-outlined text-[18px]">
+                                                    {att.type.includes('image') ? 'image' : 'description'}
+                                                </span>
+                                            </div>
+                                            <span className="text-sm text-gray-300 truncate">{att.name}</span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleDeleteExistingAttachment(att)}
+                                            className="text-gray-500 hover:text-red-500 p-1 rounded hover:bg-white/5 transition-colors"
+                                            title="Excluir anexo"
+                                        >
+                                            <span className="material-symbols-outlined text-[18px]">delete</span>
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
                 </div>
@@ -460,6 +530,19 @@ export default function NewTask() {
                     </button>
                 </div>
             </form>
+
+            {taskId && (
+                <div className="mt-8 border-t border-gray-800 pt-8">
+                    <h3 className="text-white text-lg font-bold mb-6 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary">history</span>
+                        Histórico e Comentários
+                    </h3>
+                    <div className="bg-surface-dark/50 rounded-xl border border-gray-800 p-4">
+                        <ActivityFeed taskId={taskId} />
+                    </div>
+                </div>
+            )}
+
             <div className="absolute bottom-6 text-gray-400 text-xs hidden md:block opacity-50">
                 Pressione <kbd className="font-sans px-1 py-0.5 bg-surface-border rounded text-[10px]">Ctrl</kbd> + <kbd className="font-sans px-1 py-0.5 bg-surface-border rounded text-[10px]">Enter</kbd> para enviar
             </div>
