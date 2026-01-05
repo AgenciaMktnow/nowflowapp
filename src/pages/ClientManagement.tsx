@@ -134,26 +134,43 @@ export default function ClientManagement() {
     // --- FETCH FUNCTIONS ---
     const fetchClients = async () => {
         try {
-            const { data, error } = await supabase
+            // 1. Fetch Clients
+            const { data: clientsData, error: clientsError } = await supabase
                 .from('clients')
-                .select(`
-                    *,
-                    projects(board_id)
-                `)
+                .select('*')
                 .order('created_at', { ascending: false });
 
-            if (error) throw error;
+            if (clientsError) throw clientsError;
 
-            // Map to include active_board_ids
-            const clientsWithBoards = data?.map(c => ({
+            // 2. Fetch Project-Board Map (Avoid Join issues)
+            const { data: projectsData, error: projectsError } = await supabase
+                .from('projects')
+                .select('client_id, board_id');
+
+            if (projectsError) throw projectsError;
+
+            // 3. Map Active Boards
+            const clientBoardMap = new Map<string, Set<string>>();
+
+            projectsData?.forEach(p => {
+                if (p.client_id && p.board_id) {
+                    if (!clientBoardMap.has(p.client_id)) {
+                        clientBoardMap.set(p.client_id, new Set());
+                    }
+                    clientBoardMap.get(p.client_id)?.add(p.board_id);
+                }
+            });
+
+            // 4. Merge
+            const finalClients = clientsData?.map(c => ({
                 ...c,
-                active_board_ids: Array.from(new Set(c.projects?.map((p: any) => p.board_id).filter(Boolean)))
+                active_board_ids: Array.from(clientBoardMap.get(c.id) || [])
             })) || [];
 
-            setClients(clientsWithBoards);
-        } catch (error) {
+            setClients(finalClients);
+        } catch (error: any) {
             console.error('Error fetching clients:', error);
-            toast.error('Erro ao carregar clientes.');
+            toast.error(`Erro ao carregar clientes: ${error.message}`);
         }
     };
 
