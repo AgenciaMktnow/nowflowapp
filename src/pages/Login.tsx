@@ -62,6 +62,14 @@ export default function Login() {
     const [resetEmail, setResetEmail] = useState('');
     const [resetLoading, setResetLoading] = useState(false);
 
+    // Fallback: Check for recovery hash if we landed on login page mistakenly
+    useEffect(() => {
+        if (window.location.hash.includes('type=recovery')) {
+            console.log("Login: Recovery hash detected, redirecting to /reset-password");
+            navigate('/reset-password');
+        }
+    }, [navigate]);
+
     const handleForgotPassword = async (e: React.FormEvent) => {
         e.preventDefault();
         setResetLoading(true);
