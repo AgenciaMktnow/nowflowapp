@@ -328,32 +328,22 @@ export default function NewTask() {
             // CRITICAL: Force create/update user profile BEFORE task creation
             // This ensures the user exists in public.users table
             if (user?.id && user?.email) {
-                console.log('🔧 Forcing user profile upsert...');
+                console.log('🔧 Calling RPC to ensure user profile exists...');
 
-                const { data: upsertData, error: upsertError } = await supabase
-                    .from('users')
-                    .upsert({
-                        id: user.id,
-                        email: user.email,
-                        full_name: userProfile?.full_name || user.email,
-                        role: userProfile?.role || 'MEMBER'
-                    }, {
-                        onConflict: 'id',
-                        ignoreDuplicates: false
-                    })
-                    .select()
-                    .single();
+                // Call RPC function with SECURITY DEFINER to bypass RLS
+                const { data: rpcData, error: rpcError } = await supabase
+                    .rpc('ensure_user_profile', {
+                        user_id: user.id,
+                        user_email: user.email,
+                        user_full_name: userProfile?.full_name || null,
+                        user_role: userProfile?.role || 'MEMBER'
+                    });
 
-                if (upsertError) {
-                    // Ignore duplicate key errors - user already exists, which is fine
-                    if (upsertError.code === '23505' || upsertError.message?.toLowerCase().includes('duplicate')) {
-                        console.log('✅ User already exists in database (duplicate key), continuing...');
-                    } else {
-                        console.warn('⚠️ Profile upsert failed (non-critical):', upsertError);
-                        // Don't throw - let task creation proceed anyway
-                    }
+                if (rpcError) {
+                    console.warn('⚠️ RPC ensure_user_profile failed (non-critical):', rpcError);
+                    // Don't throw - let task creation proceed anyway
                 } else {
-                    console.log('✅ Profile upserted successfully:', upsertData);
+                    console.log('✅ User profile ensured via RPC:', rpcData);
                 }
             } else {
                 console.warn('⚠️ Missing user ID or email, skipping profile upsert');
