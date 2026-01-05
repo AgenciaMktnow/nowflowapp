@@ -24,7 +24,10 @@ import { SettingsProvider } from './contexts/SettingsContext';
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
 
-  if (loading) return <div>Loading...</div>;
+  // Check if we are in a recovery flow (hash contains type=recovery)
+  const isRecovery = window.location.hash.includes('type=recovery');
+
+  if (loading || isRecovery) return <div className="flex min-h-screen items-center justify-center bg-background-dark text-white">Carregando...</div>;
 
   if (!session) {
     return <Navigate to="/login" replace />;
