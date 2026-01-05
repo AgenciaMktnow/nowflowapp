@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
@@ -29,7 +29,7 @@ export default function AuthCallback() {
             }
 
             // Fallback to detecting session state changes
-            const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
                 console.log(`AuthCallback: Event detected: ${event}`);
 
                 if (event === 'PASSWORD_RECOVERY') {

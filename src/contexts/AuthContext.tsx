@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+
 import type { User, Session } from '@supabase/supabase-js';
 import { authService } from '../services/auth.service';
 import { toast } from 'sonner';
@@ -27,7 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
     const [session, setSession] = useState<Session | null>(null);
     const [loading, setLoading] = useState(true);
-    const navigate = useNavigate();
+
 
     const fetchUserProfile = async (userId: string) => {
         try {
