@@ -14,14 +14,27 @@ export default function ResetPassword() {
     const { settings } = useSettings();
 
     useEffect(() => {
-        // Check if user came from email link
-        const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        const type = hashParams.get('type');
+        const checkAccess = async () => {
+            // Check for active session FIRST
+            const { data: { session } } = await supabase.auth.getSession();
 
-        if (type !== 'recovery' && type !== 'signup') {
-            toast.error('Link inválido ou expirado');
-            navigate('/login');
-        }
+            if (session) {
+                // User is authenticated (via recovery link or login), allow access
+                return;
+            }
+
+            // Fallback: Check hash if session is not immediately available (rare)
+            const hashParams = new URLSearchParams(window.location.hash.substring(1));
+            const type = hashParams.get('type');
+
+            if (type !== 'recovery' && type !== 'signup') {
+                // No session and no valid hash -> invalid access
+                toast.error('Link inválido ou expirado');
+                navigate('/login');
+            }
+        };
+
+        checkAccess();
     }, [navigate]);
 
     const handleResetPassword = async (e: React.FormEvent) => {
