@@ -8,6 +8,7 @@ type Client = {
     name: string;
     status: 'ACTIVE' | 'INACTIVE';
     default_board_id?: string;
+    active_board_ids?: string[]; // Virtual field
     created_at: string;
 };
 
@@ -135,11 +136,21 @@ export default function ClientManagement() {
         try {
             const { data, error } = await supabase
                 .from('clients')
-                .select('*')
+                .select(`
+                    *,
+                    projects(board_id)
+                `)
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
-            setClients(data || []);
+
+            // Map to include active_board_ids
+            const clientsWithBoards = data?.map(c => ({
+                ...c,
+                active_board_ids: Array.from(new Set(c.projects?.map((p: any) => p.board_id).filter(Boolean)))
+            })) || [];
+
+            setClients(clientsWithBoards);
         } catch (error) {
             console.error('Error fetching clients:', error);
             toast.error('Erro ao carregar clientes.');
@@ -435,12 +446,33 @@ export default function ClientManagement() {
                             {/* CUSTOM BOARD SELECT */}
                             <div>
                                 <CustomSelect
-                                    label={<><span className="material-symbols-outlined text-[16px]">view_kanban</span> Quadro (Board)</>}
+                                    label={<><span className="material-symbols-outlined text-[16px]">view_kanban</span> Contexto do Quadro (Onde editar?)</>}
                                     options={boards.map(b => ({ value: b.id, label: b.name }))}
                                     value={selectedBoardId}
                                     onChange={setSelectedBoardId}
                                     placeholder="Selecione o Quadro..."
                                 />
+                                {/* Active Boards Badges */}
+                                {selectedClient.active_board_ids && selectedClient.active_board_ids.length > 0 && (
+                                    <div className="mt-3">
+                                        <p className="text-[10px] uppercase font-bold text-text-muted mb-1 ml-1">Vínculos Ativos:</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {selectedClient.active_board_ids.map(bid => {
+                                                const bName = boards.find(b => b.id === bid)?.name || '...';
+                                                const isActiveContext = bid === selectedBoardId;
+                                                return (
+                                                    <span
+                                                        key={bid}
+                                                        className={`text-xs px-2 py-1 rounded border ${isActiveContext ? 'bg-primary/20 border-primary text-primary font-bold' : 'bg-white/5 border-white/10 text-text-muted'}`}
+                                                    >
+                                                        {bName}
+                                                        {isActiveContext && <span className="ml-1 text-[10px]">(Editando)</span>}
+                                                    </span>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* CUSTOM STATUS SELECT */}
