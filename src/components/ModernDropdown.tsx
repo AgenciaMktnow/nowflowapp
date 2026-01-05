@@ -81,21 +81,21 @@ export default function ModernDropdown({
             <button
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
-                className={`w-full flex items-center justify-between gap-2 px-4 h-14 rounded-xl border hover:border-primary/30 text-sm font-medium transition-all appearance-none cursor-pointer
+                className={`w-full flex items-center justify-between gap-2 px-4 h-14 rounded-xl border hover:border-primary/50 text-sm font-medium transition-all appearance-none cursor-pointer
                     ${value
-                        ? 'bg-transparent border-primary/50 text-white'
-                        : 'bg-surface-dark border-gray-700 text-gray-400 hover:text-white hover:border-gray-500'
+                        ? 'bg-transparent border-primary/50 text-text-main'
+                        : 'bg-input-bg border-input-border text-text-secondary hover:text-text-main hover:border-text-secondary/50'
                     }
                     ${isOpen ? 'ring-2 ring-primary border-transparent' : ''}
                 `}
             >
                 <div className="flex items-center gap-2 truncate">
                     {icon && <span className="material-symbols-outlined text-[20px]">{icon}</span>}
-                    <span className={value ? 'text-white' : ''}>
+                    <span className={value ? 'text-text-main' : ''}>
                         {selectedOption ? selectedOption.name : placeholder}
                     </span>
                 </div>
-                <span className={`material-symbols-outlined text-[20px] transition-transform duration-200 ${isOpen ? 'rotate-180 text-primary' : 'text-gray-400'}`}>
+                <span className={`material-symbols-outlined text-[20px] transition-transform duration-200 ${isOpen ? 'rotate-180 text-primary' : 'text-text-secondary'}`}>
                     expand_more
                 </span>
             </button>
@@ -108,7 +108,7 @@ export default function ModernDropdown({
                         left: coords.left,
                         width: coords.width,
                     }}
-                    className="fixed bg-[#162e21] border border-[#23482f] rounded-xl shadow-xl z-[9999] overflow-hidden animate-in fade-in zoom-in-95 duration-100"
+                    className="fixed bg-surface-card border border-border-main rounded-xl shadow-xl z-[9999] overflow-hidden animate-in fade-in zoom-in-95 duration-100"
                 >
                     <div className="max-h-60 overflow-y-auto custom-scrollbar p-2 space-y-1">
                         {options.length > 0 ? (
@@ -126,8 +126,8 @@ export default function ModernDropdown({
                                     }}
                                     className={`w-full text-left px-3 py-2.5 text-sm rounded-lg transition-colors flex items-center justify-between group
                                         ${value === option.id
-                                            ? 'bg-primary/20 text-white'
-                                            : 'text-gray-300 hover:bg-white/5 hover:text-white'
+                                            ? 'bg-primary/20 text-text-main font-bold'
+                                            : 'text-text-secondary hover:bg-surface-highlight hover:text-text-main'
                                         }
                                     `}
                                 >

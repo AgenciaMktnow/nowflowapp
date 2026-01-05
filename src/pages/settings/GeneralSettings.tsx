@@ -51,14 +51,18 @@ export default function GeneralSettings() {
             toast.loading('Enviando arquivo...', { id: 'upload' });
             const url = await settingsService.uploadAsset(file, type);
 
-            if (type === 'logo-dark') handleChange('logo_dark_url', url);
-            else if (type === 'logo-light') handleChange('logo_light_url', url);
-            else if (type === 'favicon') handleChange('favicon_url', url);
+            const newSettings = { ...settings };
+            if (type === 'logo-dark') newSettings.logo_dark_url = url;
+            else if (type === 'logo-light') newSettings.logo_light_url = url;
+            else if (type === 'favicon') newSettings.favicon_url = url;
 
-            toast.success('Arquivo enviado com sucesso!', { id: 'upload' });
-            // Auto-save to persist the URL immediately? Or just wait for manual save?
-            // User flow implies saving everything at the end usually, but file uploads are async.
-            // Let's keep it in state and wait for "Salvar Configurações" for the DB update of the URL.
+            setSettings(newSettings);
+
+            // Persist immediately to DB
+            await settingsService.updateSettings(newSettings);
+            await refreshSettings(); // Sync app-wide
+
+            toast.success('Arquivo enviado e salvo com sucesso!', { id: 'upload' });
         } catch (error: any) {
             toast.error('Erro ao enviar arquivo: ' + error.message, { id: 'upload' });
         }
@@ -78,8 +82,8 @@ export default function GeneralSettings() {
 
     const getNeonBorderClass = (hasValue: boolean) =>
         hasValue
-            ? 'border-primary shadow-[0_0_15px_rgba(0,255,0,0.3)] bg-primary/5'
-            : 'border-white/10 hover:border-primary/50 bg-background-dark/30 hover:bg-primary/5';
+            ? 'border-primary shadow-[0_0_15px_rgba(0,255,0,0.3)] bg-surface-card'
+            : 'border-white/10 hover:border-primary/50 bg-surface-card/50 hover:bg-surface-card';
 
     return (
         <div className="space-y-8 animate-fade-in-up pb-32">
@@ -97,13 +101,13 @@ export default function GeneralSettings() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-6">
                         <div className="group/input">
-                            <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2 transition-colors group-focus-within/input:text-primary">Nome da Empresa</label>
+                            <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2 transition-colors">Nome da Empresa</label>
                             <input
                                 type="text"
-                                value={settings.company_name || ''}
-                                onChange={e => handleChange('company_name', e.target.value)}
-                                className="w-full bg-background-dark/50 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-text-muted focus:outline-none focus:border-primary/50 focus:shadow-[0_0_15px_rgba(0,255,0,0.1)] transition-all duration-300"
-                                placeholder="Ex: Acme Corp"
+                                value="NowFlow"
+                                readOnly
+                                className="w-full bg-background-dark/30 border border-white/5 rounded-lg px-4 py-3 text-text-muted cursor-not-allowed transition-all duration-300"
+                                placeholder="Agora Fixo: NowFlow"
                             />
                         </div>
 
@@ -159,8 +163,8 @@ export default function GeneralSettings() {
                             <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2 transition-colors">Tema do Sistema</label>
                             <ModernDropdown
                                 options={[
-                                    { id: 'DARK', name: 'Dark (Padrão)' },
-                                    { id: 'LIGHT', name: 'Light (Em breve)' }
+                                    { id: 'DARK', name: 'Dark (Neon Green)' },
+                                    { id: 'LIGHT', name: 'Light (Clean Blue)' }
                                 ]}
                                 value={settings.theme_preference || 'DARK'}
                                 onChange={(val) => handleChange('theme_preference', val)}
@@ -175,12 +179,12 @@ export default function GeneralSettings() {
                         <div className="absolute top-2 right-2 px-2 py-1 bg-primary/10 rounded border border-primary/20 text-[10px] text-primary font-bold uppercase">Preview</div>
                         <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider mb-6 self-start">Visualização no Menu</h4>
 
-                        <div className="flex items-center gap-4 p-4 bg-[#112217] rounded-xl border border-white/5 mb-4 w-full max-w-[280px] shadow-lg">
+                        <div className="flex items-center gap-4 p-4 bg-surface-card rounded-xl border border-white/5 mb-4 w-full max-w-[280px] shadow-lg">
                             <div className="size-10 bg-primary/20 rounded-lg flex items-center justify-center text-primary font-bold text-lg border border-primary/20">
-                                {settings.company_name?.charAt(0) || 'A'}
+                                N
                             </div>
                             <div className="text-left overflow-hidden">
-                                <span className="block text-white font-bold truncate text-base leading-tight">{settings.company_name || 'Sua Empresa'}</span>
+                                <span className="block text-white font-bold truncate text-base leading-tight">NowFlow</span>
                                 <span className="text-[10px] text-text-muted font-medium tracking-wider uppercase">Workspace</span>
                             </div>
                         </div>

@@ -59,15 +59,11 @@ export default function Login() {
     };
 
     return (
-        <div className="relative flex min-h-screen w-full flex-col overflow-hidden font-display bg-background-light dark:bg-background-dark text-slate-900 dark:text-white">
-            {/* Abstract Background Pattern */}
+        <div className="relative flex min-h-screen w-full flex-col overflow-hidden font-display bg-background-dark text-white">
+            {/* Background Pattern - Subtle Neon Glow */}
             <div className="absolute inset-0 z-0">
-                <img
-                    alt="Background Pattern"
-                    className="h-full w-full object-cover opacity-10 mix-blend-overlay"
-                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuBy8xWhvq5GyMfIGsUJiNkVRTWwuNnUAUyqDlETmxCUd5zF8CQTBgmHdjNkoXQcYNdvF62K0Q-MjbWH0OWvLrneZGpYNi3zlGY3scjnzHOiA2OHRNTtHU7i24n_P--4ycjCL70mSLLBDvWznhW-APkCirhRDvnxtVTzvwoRn5rtKu7rcf--znwpZot6rn4tE9pyCcdu8CiHbJcQ6bbqgE6zmVGV6wlCE7L5vaZ9MMLjoXdJYFp2VGwXCATKXIz2j1ynBwlIfNTe_D0"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-background-dark via-background-dark/90 to-background-dark/80"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-background-dark via-background-dark/95 to-background-dark/90"></div>
+                <div className="absolute top-0 left-0 w-full h-1 bg-primary/20 shadow-[0_0_20px_rgba(19,236,91,0.2)]"></div>
             </div>
 
             <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-12 pb-16 sm:px-6 lg:px-8">
@@ -77,8 +73,8 @@ export default function Login() {
                         {settings.logo_dark_url ? (
                             <img
                                 src={settings.logo_dark_url}
-                                alt={settings.company_name || 'NowFlow'}
-                                className="h-auto mb-6 object-contain max-w-[280px]"
+                                alt="Logo"
+                                className="max-h-12 w-auto mb-8 object-contain"
                             />
                         ) : (
                             <>
@@ -90,14 +86,14 @@ export default function Login() {
                                 </h1>
                             </>
                         )}
-                        <p className="mt-2 text-base font-normal text-slate-300">
+                        <p className="mt-2 text-base font-normal text-text-secondary">
                             Produtividade em sincronia.
                         </p>
                     </div>
 
                     {/* Login Card */}
-                    <div className="bg-white dark:bg-[#152a1d]/80 backdrop-blur-sm rounded-xl border border-slate-200 dark:border-[#326744] shadow-xl p-8 sm:p-10">
-                        <h2 className="mb-6 text-center text-2xl font-bold leading-tight tracking-tight text-slate-900 dark:text-white">
+                    <div className="bg-surface-card backdrop-blur-sm rounded-xl border border-white/5 shadow-2xl p-8 sm:p-10">
+                        <h2 className="mb-6 text-center text-2xl font-bold leading-tight tracking-tight text-white">
                             Acesse sua conta
                         </h2>
 
@@ -105,7 +101,7 @@ export default function Login() {
 
                             {/* Email Field */}
                             <div>
-                                <label className="block text-sm font-medium leading-6 text-slate-900 dark:text-white" htmlFor="email">
+                                <label className="block text-sm font-medium leading-6 text-text-secondary" htmlFor="email">
                                     E-mail ou Usuário
                                 </label>
                                 <div className="mt-2 relative">
@@ -118,7 +114,7 @@ export default function Login() {
                                         placeholder="exemplo@nowflow.com"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
-                                        className="block w-full rounded-lg border-0 py-3 px-4 text-slate-900 dark:text-white shadow-sm ring-1 ring-inset ring-slate-300 dark:ring-[#326744] placeholder:text-slate-400 dark:placeholder:text-[#5c856b] focus:ring-2 focus:ring-inset focus:ring-primary dark:bg-[#193322] text-base sm:text-sm sm:leading-6"
+                                        className="block w-full rounded-lg border border-white/10 py-3 px-4 text-white shadow-sm placeholder:text-text-secondary/50 focus:ring-2 focus:ring-inset focus:ring-primary bg-background-dark/50 text-base sm:text-sm sm:leading-6 focus:outline-none transition-all duration-300"
                                     />
                                 </div>
                             </div>
@@ -126,7 +122,7 @@ export default function Login() {
                             {/* Password Field */}
                             <div>
                                 <div className="flex items-center justify-between">
-                                    <label className="block text-sm font-medium leading-6 text-slate-900 dark:text-white" htmlFor="password">
+                                    <label className="block text-sm font-medium leading-6 text-text-secondary" htmlFor="password">
                                         Senha
                                     </label>
                                     <div className="text-sm">
@@ -145,13 +141,13 @@ export default function Login() {
                                         placeholder="••••••••"
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
-                                        className="block w-full rounded-lg border-0 py-3 px-4 pr-10 text-slate-900 dark:text-white shadow-sm ring-1 ring-inset ring-slate-300 dark:ring-[#326744] placeholder:text-slate-400 dark:placeholder:text-[#5c856b] focus:ring-2 focus:ring-inset focus:ring-primary dark:bg-[#193322] text-base sm:text-sm sm:leading-6"
+                                        className="block w-full rounded-lg border border-white/10 py-3 px-4 pr-10 text-white shadow-sm placeholder:text-text-secondary/50 focus:ring-2 focus:ring-inset focus:ring-primary bg-background-dark/50 text-base sm:text-sm sm:leading-6 focus:outline-none transition-all duration-300"
                                     />
                                     <div
                                         className="absolute inset-y-0 right-0 flex items-center pr-3 cursor-pointer group"
                                         onClick={() => setShowPassword(!showPassword)}
                                     >
-                                        <span className="material-symbols-outlined text-slate-400 group-hover:text-slate-600 dark:text-[#5c856b] dark:group-hover:text-[#92c9a4] transition-colors" style={{ fontSize: '20px' }}>
+                                        <span className="material-symbols-outlined text-text-secondary/60 group-hover:text-primary transition-colors" style={{ fontSize: '20px' }}>
                                             {showPassword ? 'visibility_off' : 'visibility'}
                                         </span>
                                     </div>
@@ -163,7 +159,7 @@ export default function Login() {
                                 <button
                                     type="submit"
                                     disabled={loading}
-                                    className="flex w-full justify-center rounded-lg bg-primary px-3 py-3 text-sm font-bold leading-6 text-[#112217] shadow-sm hover:bg-[#3bf57a] hover:shadow-[0_0_20px_rgba(19,236,91,0.4)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="flex w-full justify-center rounded-lg bg-primary px-3 py-3 text-sm font-bold leading-6 text-background-dark shadow-sm hover:bg-primary/90 hover:shadow-[0_0_20px_rgba(19,236,91,0.3)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-wider"
                                 >
                                     {loading ? 'Entrando...' : 'Entrar'}
                                 </button>
@@ -172,10 +168,10 @@ export default function Login() {
 
                         <div className="relative mt-8 mb-6">
                             <div aria-hidden="true" className="absolute inset-0 flex items-center">
-                                <div className="w-full border-t border-slate-200 dark:border-[#326744]"></div>
+                                <div className="w-full border-t border-white/5"></div>
                             </div>
-                            <div className="relative flex justify-center text-xs font-semibold uppercase tracking-wider">
-                                <span className="bg-white px-4 text-slate-400 dark:bg-[#152a1d]">
+                            <div className="relative flex justify-center text-[10px] font-bold uppercase tracking-widest">
+                                <span className="bg-surface-card px-4 text-text-secondary/60">
                                     Ou continue com
                                 </span>
                             </div>
@@ -184,7 +180,7 @@ export default function Login() {
                         <button
                             type="button"
                             onClick={handleGoogleLogin}
-                            className="flex w-full items-center justify-center gap-3 rounded-lg border border-slate-300 dark:border-[#326744] bg-white dark:bg-[#193322] px-3 h-[50px] text-sm font-semibold text-slate-700 dark:text-white shadow-sm hover:bg-slate-50 dark:hover:bg-[#1f3f2a] transition-all duration-200"
+                            className="flex w-full items-center justify-center gap-3 rounded-lg border border-white/10 bg-background-dark/50 px-3 h-[50px] text-sm font-semibold text-white shadow-sm hover:bg-background-dark transition-all duration-300"
                         >
                             <svg className="h-5 w-5" viewBox="0 0 24 24">
                                 <path
@@ -210,10 +206,10 @@ export default function Login() {
                         {/* Divider */}
                         <div className="relative mt-8">
                             <div aria-hidden="true" className="absolute inset-0 flex items-center">
-                                <div className="w-full border-t border-slate-200 dark:border-[#326744]"></div>
+                                <div className="w-full border-t border-white/5"></div>
                             </div>
                             <div className="relative flex justify-center text-sm font-medium leading-6">
-                                <span className="bg-white px-6 text-slate-500 dark:bg-[#152a1d] dark:text-[#92c9a4]">
+                                <span className="bg-surface-card px-6 text-text-secondary">
                                     Novo no Nowflow?
                                 </span>
                             </div>
@@ -221,17 +217,17 @@ export default function Login() {
 
                         {/* Create Account Link */}
                         <div className="mt-6">
-                            <Link to="/signup" className="flex w-full items-center justify-center gap-2 rounded-lg bg-slate-50 dark:bg-[#193322]/50 px-3 py-3 text-sm font-semibold text-slate-900 dark:text-white shadow-sm ring-1 ring-inset ring-slate-300 dark:ring-[#326744] hover:bg-slate-100 dark:hover:bg-[#193322] transition-colors">
+                            <Link to="/signup" className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary/5 hover:bg-primary/10 px-3 py-3 text-sm font-semibold text-white shadow-sm border border-primary/20 hover:border-primary/40 transition-all duration-300">
                                 Criar uma conta
                             </Link>
                         </div>
                     </div>
 
                     {/* Footer Links */}
-                    <p className="text-center text-xs text-slate-400">
+                    <p className="text-center text-xs text-text-secondary/60">
                         © {new Date().getFullYear()} NowFlow Inc. Todos os direitos reservados.
                         <br />
-                        <a href="#" className="hover:text-white underline decoration-dotted underline-offset-2">Privacidade</a> · <a href="#" className="hover:text-white underline decoration-dotted underline-offset-2">Termos</a>
+                        <a href="#" className="hover:text-primary transition-colors underline decoration-dotted underline-offset-4">Privacidade</a> · <a href="#" className="hover:text-primary transition-colors underline decoration-dotted underline-offset-4">Termos</a>
                     </p>
                 </div>
             </div>

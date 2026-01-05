@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
+import { useSettings } from '../contexts/SettingsContext';
 
 export default function Layout() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const { settings } = useSettings();
 
     return (
         <div className="flex h-screen w-full bg-background-dark text-white font-display overflow-hidden print:h-auto print:overflow-visible">
@@ -20,8 +22,20 @@ export default function Layout() {
                 >
                     <span className="material-symbols-outlined text-3xl">menu</span>
                 </button>
-                <span className="font-bold text-lg tracking-tight">NowFlow</span>
-                <div className="w-8"></div> {/* Spacer for centering */}
+                <div
+                    className="flex-1 flex justify-center cursor-pointer"
+                    onClick={() => window.location.href = '/dashboard'}
+                >
+                    {settings.logo_dark_url ? (
+                        <img
+                            src={settings.logo_dark_url}
+                            alt="Logo"
+                            className="max-h-8 w-auto object-contain"
+                        />
+                    ) : (
+                        <span className="font-bold text-lg tracking-tight">NowFlow</span>
+                    )}
+                </div>
             </div>
 
             {/* Mobile Sidebar Overlay */}

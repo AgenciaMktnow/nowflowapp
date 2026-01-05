@@ -42,6 +42,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         refreshSettings();
     }, []);
 
+    // Apply Theme
+    // Force Dark Mode (Rollback)
+    useEffect(() => {
+        const root = window.document.documentElement;
+        root.classList.remove('light');
+        root.classList.add('dark');
+    }, []);
+
     return (
         <SettingsContext.Provider value={{ settings, refreshSettings, isLoading }}>
             {children}

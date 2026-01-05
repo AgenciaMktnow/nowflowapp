@@ -74,7 +74,7 @@ const SimpleEditor = ({ value, onChange, placeholder, onImageUpload }: SimpleEdi
         },
         editorProps: {
             attributes: {
-                class: 'prose prose-invert max-w-none focus:outline-none min-h-[220px] text-white p-4 leading-relaxed [&_ul]:list-disc [&_ul]:ml-4 [&_ol]:list-decimal [&_ol]:ml-4 [&_li]:marker:text-gray-400',
+                class: 'prose prose-invert max-w-none focus:outline-none min-h-[220px] text-text-main p-4 leading-relaxed [&_ul]:list-disc [&_ul]:ml-4 [&_ol]:list-decimal [&_ol]:ml-4 [&_li]:marker:text-gray-400',
             },
         },
     });
@@ -175,8 +175,8 @@ const SimpleEditor = ({ value, onChange, placeholder, onImageUpload }: SimpleEdi
     return (
         <div
             className={`
-                w-full bg-[#112217] border border-[#1bfd6c] rounded-3xl overflow-hidden focus-within:ring-1 focus-within:ring-[#1bfd6c] transition-all flex flex-col shadow-sm
-                ${isFullscreen ? 'fixed inset-0 z-50 rounded-none m-0 h-screen border-none bg-[#0a140e]' : ''}
+                w-full bg-input-bg border border-input-border rounded-3xl overflow-hidden focus-within:ring-1 focus-within:ring-primary transition-all flex flex-col shadow-sm
+                ${isFullscreen ? 'fixed inset-0 z-50 rounded-none m-0 h-screen border-none bg-input-bg' : ''}
             `}
             onDrop={handleDrop}
             onDragOver={(e) => e.preventDefault()}
@@ -194,7 +194,7 @@ const SimpleEditor = ({ value, onChange, placeholder, onImageUpload }: SimpleEdi
                         }
                     }}
                     value={editor.getAttributes('textStyle').fontFamily || 'default'}
-                    className="h-8 bg-transparent text-gray-400 hover:text-white text-xs font-bold border border-transparent hover:bg-white/10 rounded px-2 outline-none cursor-pointer appearance-none transition-colors"
+                    className="h-8 bg-transparent text-text-muted hover:text-text-main text-xs font-bold border border-transparent hover:bg-surface-highlight rounded px-2 outline-none cursor-pointer appearance-none transition-colors"
                     style={{ maxWidth: '100px' }}
                 >
                     <option value="default">Fonte</option>
@@ -215,7 +215,7 @@ const SimpleEditor = ({ value, onChange, placeholder, onImageUpload }: SimpleEdi
                         }
                     }}
                     value={editor.getAttributes('textStyle').fontSize || 'default'}
-                    className="h-8 bg-transparent text-gray-400 hover:text-white text-xs font-bold border border-transparent hover:bg-white/10 rounded px-2 outline-none cursor-pointer appearance-none transition-colors"
+                    className="h-8 bg-transparent text-text-muted hover:text-text-main text-xs font-bold border border-transparent hover:bg-surface-highlight rounded px-2 outline-none cursor-pointer appearance-none transition-colors"
                 >
                     <option value="default">Size</option>
                     <option value="12px">12</option>
@@ -228,14 +228,14 @@ const SimpleEditor = ({ value, onChange, placeholder, onImageUpload }: SimpleEdi
                     <option value="36px">36</option>
                 </select>
 
-                <div className="h-5 w-px bg-gray-700 mx-2"></div>
+                <div className="h-5 w-px bg-border-main mx-2"></div>
 
                 {/* Headings Selector */}
                 <button
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => editor.chain().focus().setParagraph().run()}
-                    className={`px-2 h-8 flex items-center justify-center rounded text-xs font-bold transition-colors ${editor.isActive('paragraph') ? 'bg-white/20 text-white' : 'text-gray-400 hover:text-white hover:bg-white/10'}`}
+                    className={`px-2 h-8 flex items-center justify-center rounded text-xs font-bold transition-colors ${editor.isActive('paragraph') ? 'bg-surface-highlight text-text-main' : 'text-text-muted hover:text-text-main hover:bg-surface-highlight'}`}
                 >
                     Normal
                 </button>
@@ -243,20 +243,20 @@ const SimpleEditor = ({ value, onChange, placeholder, onImageUpload }: SimpleEdi
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-                    className={`size-8 flex items-center justify-center rounded text-gray-400 hover:text-white transition-colors ${editor.isActive('heading', { level: 1 }) ? 'bg-[#13ec5b]/10 text-[#13ec5b]' : 'hover:bg-white/10'}`}
+                    className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('heading', { level: 1 }) ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
                     title="Título 1"
                 >
                     <span className="font-bold text-sm">H1</span>
                 </button>
 
 
-                <div className="h-5 w-px bg-gray-700 mx-2"></div>
+                <div className="h-5 w-px bg-border-main mx-2"></div>
 
                 <button
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => editor.chain().focus().toggleBold().run()}
-                    className={`size-8 flex items-center justify-center rounded text-gray-400 hover:text-white transition-colors ${editor.isActive('bold') ? 'bg-[#13ec5b]/10 text-[#13ec5b]' : 'hover:bg-white/10'}`}
+                    className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('bold') ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
                     title="Negrito"
                 >
                     <span className="material-symbols-outlined text-[20px]">format_bold</span>
@@ -265,7 +265,7 @@ const SimpleEditor = ({ value, onChange, placeholder, onImageUpload }: SimpleEdi
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => editor.chain().focus().toggleItalic().run()}
-                    className={`size-8 flex items-center justify-center rounded text-gray-400 hover:text-white transition-colors ${editor.isActive('italic') ? 'bg-[#13ec5b]/10 text-[#13ec5b]' : 'hover:bg-white/10'}`}
+                    className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('italic') ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
                     title="Itálico"
                 >
                     <span className="material-symbols-outlined text-[20px]">format_italic</span>
@@ -274,7 +274,7 @@ const SimpleEditor = ({ value, onChange, placeholder, onImageUpload }: SimpleEdi
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => editor.chain().focus().toggleUnderline().run()}
-                    className={`size-8 flex items-center justify-center rounded text-gray-400 hover:text-white transition-colors ${editor.isActive('underline') ? 'bg-[#13ec5b]/10 text-[#13ec5b]' : 'hover:bg-white/10'}`}
+                    className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('underline') ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
                     title="Sublinhado"
                 >
                     <span className="material-symbols-outlined text-[20px]">format_underlined</span>
@@ -283,12 +283,12 @@ const SimpleEditor = ({ value, onChange, placeholder, onImageUpload }: SimpleEdi
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => editor.chain().focus().toggleStrike().run()}
-                    className={`size-8 flex items-center justify-center rounded text-gray-400 hover:text-white transition-colors ${editor.isActive('strike') ? 'bg-[#13ec5b]/10 text-[#13ec5b]' : 'hover:bg-white/10'}`}
+                    className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('strike') ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
                     title="Tachado"
                 >
                     <span className="material-symbols-outlined text-[20px]">strikethrough_s</span>
                 </button>
-                <label className="size-8 flex items-center justify-center rounded text-gray-400 hover:text-white transition-colors cursor-pointer hover:bg-white/10" title="Cor de Destaque">
+                <label className="size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors cursor-pointer hover:bg-surface-highlight" title="Cor de Destaque">
                     <input
                         type="color"
                         onInput={(e) => editor.chain().focus().setColor((e.target as HTMLInputElement).value).run()}
@@ -308,19 +308,19 @@ const SimpleEditor = ({ value, onChange, placeholder, onImageUpload }: SimpleEdi
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={setLink}
-                    className={`size-8 flex items-center justify-center rounded text-gray-400 hover:text-white transition-colors ${editor.isActive('link') ? 'bg-[#13ec5b]/10 text-[#13ec5b]' : 'hover:bg-white/10'}`}
+                    className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('link') ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
                     title="Link"
                 >
                     <span className="material-symbols-outlined text-[20px]">link</span>
                 </button>
 
-                <div className="h-5 w-px bg-gray-700 mx-2"></div>
+                <div className="h-5 w-px bg-border-main mx-2"></div>
 
                 <button
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => editor.chain().focus().toggleOrderedList().run()}
-                    className={`size-8 flex items-center justify-center rounded text-gray-400 hover:text-white transition-colors ${editor.isActive('orderedList') ? 'bg-[#13ec5b]/10 text-[#13ec5b]' : 'hover:bg-white/10'}`}
+                    className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('orderedList') ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
                     title="Lista Numerada"
                 >
                     <span className="material-symbols-outlined text-[20px]">format_list_numbered</span>
@@ -330,7 +330,7 @@ const SimpleEditor = ({ value, onChange, placeholder, onImageUpload }: SimpleEdi
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => editor.chain().focus().toggleBulletList().run()}
-                    className={`size-8 flex items-center justify-center rounded text-gray-400 hover:text-white transition-colors ${editor.isActive('bulletList') ? 'bg-[#13ec5b]/10 text-[#13ec5b]' : 'hover:bg-white/10'}`}
+                    className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('bulletList') ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
                     title="Lista com marcadores"
                 >
                     <span className="material-symbols-outlined text-[20px]">format_list_bulleted</span>
@@ -340,7 +340,7 @@ const SimpleEditor = ({ value, onChange, placeholder, onImageUpload }: SimpleEdi
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => editor.chain().focus().setTextAlign('left').run()}
-                    className={`size-8 flex items-center justify-center rounded text-gray-400 hover:text-white transition-colors ${editor.isActive({ textAlign: 'left' }) ? 'bg-[#13ec5b]/10 text-[#13ec5b]' : 'hover:bg-white/10'}`}
+                    className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive({ textAlign: 'left' }) ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
                     title="Alinhar Esquerda"
                 >
                     <span className="material-symbols-outlined text-[20px]">format_align_left</span>
@@ -350,19 +350,19 @@ const SimpleEditor = ({ value, onChange, placeholder, onImageUpload }: SimpleEdi
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => editor.chain().focus().toggleTaskList().run()}
-                    className={`size-8 flex items-center justify-center rounded text-gray-400 hover:text-white transition-colors ${editor.isActive('taskList') ? 'bg-[#13ec5b]/10 text-[#13ec5b]' : 'hover:bg-white/10'}`}
+                    className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('taskList') ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
                     title="Checklist"
                 >
                     <span className="material-symbols-outlined text-[20px]">check_box</span>
                 </button>
 
-                <div className="h-5 w-px bg-gray-700 mx-2"></div>
+                <div className="h-5 w-px bg-border-main mx-2"></div>
 
                 <button
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => editor.chain().focus().toggleBlockquote().run()}
-                    className={`size-8 flex items-center justify-center rounded text-gray-400 hover:text-white transition-colors ${editor.isActive('blockquote') ? 'bg-[#13ec5b]/10 text-[#13ec5b]' : 'hover:bg-white/10'}`}
+                    className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('blockquote') ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
                     title="Citação"
                 >
                     <span className="material-symbols-outlined text-[20px]">format_quote</span>
@@ -372,7 +372,7 @@ const SimpleEditor = ({ value, onChange, placeholder, onImageUpload }: SimpleEdi
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-                    className={`size-8 flex items-center justify-center rounded text-gray-400 hover:text-white transition-colors ${editor.isActive('codeBlock') ? 'bg-[#13ec5b]/10 text-[#13ec5b]' : 'hover:bg-white/10'}`}
+                    className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('codeBlock') ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
                     title="Código"
                 >
                     <span className="material-symbols-outlined text-[20px]">code</span>
@@ -382,7 +382,7 @@ const SimpleEditor = ({ value, onChange, placeholder, onImageUpload }: SimpleEdi
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={addImage}
-                    className="size-8 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                    className="size-8 flex items-center justify-center rounded hover:bg-surface-highlight text-text-muted hover:text-text-main transition-colors"
                     title="Inserir Imagem"
                 >
                     <span className="material-symbols-outlined text-[20px]">image</span>
@@ -391,8 +391,8 @@ const SimpleEditor = ({ value, onChange, placeholder, onImageUpload }: SimpleEdi
                 <button
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => alert('Arraste um arquivo para o editor para anexar.')} // Alert for now as drop is handled
-                    className="size-8 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                    onClick={() => alert('Arraste um arquivo para o editor para anexar.')}
+                    className="size-8 flex items-center justify-center rounded hover:bg-surface-highlight text-text-muted hover:text-text-main transition-colors"
                     title="Arquivo"
                 >
                     <span className="material-symbols-outlined text-[20px]">description</span>
@@ -404,7 +404,7 @@ const SimpleEditor = ({ value, onChange, placeholder, onImageUpload }: SimpleEdi
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => setIsFullscreen(!isFullscreen)}
-                    className={`size-8 flex items-center justify-center rounded hover:bg-white/10 text-white transition-colors ${isFullscreen ? 'bg-primary/20 text-primary' : ''}`}
+                    className={`size-8 flex items-center justify-center rounded hover:bg-surface-highlight text-text-main transition-colors ${isFullscreen ? 'bg-primary/20 text-primary' : ''}`}
                     title={isFullscreen ? "Sair da Tela Cheia" : "Tela Cheia"}
                 >
                     <span className="material-symbols-outlined text-[20px]">{isFullscreen ? 'close_fullscreen' : 'open_in_full'}</span>
@@ -439,7 +439,7 @@ const SimpleEditor = ({ value, onChange, placeholder, onImageUpload }: SimpleEdi
                 }
                 .prose blockquote {
                     border-left-color: #13ec5b;
-                    background: rgba(255,255,255,0.05);
+                    background: var(--color-surface-highlight);
                     padding: 0.5rem 1rem;
                     border-radius: 0 0.5rem 0.5rem 0;
                 }
@@ -451,10 +451,10 @@ const SimpleEditor = ({ value, onChange, placeholder, onImageUpload }: SimpleEdi
                     color: #13ec5b;
                 }
                  .prose pre {
-                    background: #0d1a12;
+                    background: var(--color-surface-card);
                     padding: 1rem;
                     border-radius: 0.5rem;
-                    border: 1px solid #333;
+                    border: 1px solid var(--color-border-main);
                 }
                 /* Editor min-height fix for fullscreen */
                 .ProseMirror {

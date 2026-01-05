@@ -2,14 +2,34 @@
 
 @theme {
     --color-primary: #13ec5b;
+    --color-primary-dark: #0ea842;
     --color-background-light: #f6f8f6;
     --color-background-dark: #102216;
+    --color-surface: #1A1A1A;
     --color-surface-dark: #162E20;
+    --color-surface-card: #1d3d28;
+    --color-surface-light: #ffffff;
+    --color-surface-highlight: #23482f;
+    --color-surface-border: #23482f;
     --color-border-green: #1F402C;
+    --color-border-dark: #23482f;
+    --color-border-light: #e2e8f0;
+    --color-input-dark: #23482f;
+    --color-input-border: #326744;
+    --color-text-secondary: #92c9a4;
     --color-text-subtle: #92c9a4;
+    --color-text-muted: #92c9a4;
+    --color-text-muted-dark: #92c9a4;
+    --color-text-muted-light: #64748b;
+    --color-kanban-bg: #0B0B0B;
 
     --font-display: "Spline Sans", sans-serif;
     --font-body: "Noto Sans", sans-serif;
+    --font-inter: "Inter", sans-serif;
+    --font-montserrat: "Montserrat", sans-serif;
+
+    --radius-lg: 2rem;
+    --radius-xl: 3rem;
 }
 
 @layer utilities {
@@ -33,59 +53,7 @@
     }
 }
 
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
 
-::-webkit-scrollbar-track {
-    background: #102216;
-}
-
-::-webkit-scrollbar-thumb {
-    background: #1F402C;
-    border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: #326744;
-}
-
-@theme {
-    --color-primary: #13ec5b;
-    --color-primary-dark: #0ea842;
-
-    --color-background-light: #f6f8f6;
-    --color-background-dark: #102216;
-
-    --color-surface: #1A1A1A;
-    --color-surface-dark: #193322;
-    --color-surface-light: #ffffff;
-    --color-surface-highlight: #23482f;
-    --color-surface-border: #23482f;
-
-    --color-input-dark: #23482f;
-    --color-input-border: #326744;
-
-    --color-border-dark: #23482f;
-    --color-border-light: #e2e8f0;
-
-    --color-text-secondary: #92c9a4;
-    --color-text-muted: #92c9a4;
-    --color-text-muted-dark: #92c9a4;
-    --color-text-muted-light: #64748b;
-
-    --color-kanban-bg: #0B0B0B;
-
-    --font-display: "Spline Sans", sans-serif;
-    --font-body: "Noto Sans", sans-serif;
-    --font-inter: "Inter", sans-serif;
-    --font-montserrat: "Montserrat", sans-serif;
-
-    --radius-lg: 2rem;
-    --radius-xl: 3rem;
-}
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {

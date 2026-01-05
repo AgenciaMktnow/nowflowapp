@@ -50,22 +50,26 @@ export default function Sidebar({ onMobileClose }: { onMobileClose?: () => void 
                     {/* Top Row: Logo + Title + Toggle */}
                     <div className={`flex items-center ${isCollapsed ? 'justify-center flex-col gap-4' : 'justify-between'}`}>
 
-                        {/* Logo + Title Group */}
-                        <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : ''}`}>
+                        {/* Logo + Title Group - Wrapped in Dashboard Link */}
+                        <div
+                            onClick={() => navigate('/dashboard')}
+                            className={`flex items-center gap-3 p-1 cursor-pointer hover:opacity-80 transition-opacity ${isCollapsed ? 'justify-center' : ''}`}
+                        >
                             {/* Logo Icon */}
-                            <div
-                                className="bg-center bg-no-repeat bg-cover rounded-full shadow-lg border border-white/5 transition-all duration-300 shrink-0"
-                                style={{
-                                    backgroundImage: `url("${settings.logo_dark_url || 'https://lh3.googleusercontent.com/aida-public/AB6AXuB24_ZfT5X-sHKLttEZrmZar0qRv82CJJoVclokr6vYhy6KXda1MQvRK_M0kB-K1AEEG17vCBCtSpAJXsA0EYTmAc7f7m7WVDTna75o4axavHe6391KJuJtRMdSSRJq-4da07VvwAqgB0Vbw-D11RJtPUgGBHO4Kj5lJGYHmOvIbZoGGSDqdjccux4psjAaYN0fHpWj5EPA6JCFFV2OqxROgun0VeDZs51SsX1v9AQvu5ZV4iSd6mPil7PWjacPo8rZp6Zl1CDKHd8'}")`,
-                                    width: isCollapsed ? '32px' : '40px',
-                                    height: isCollapsed ? '32px' : '40px'
-                                }}
-                            ></div>
+                            <div className="flex items-center justify-center shrink-0">
+                                <img
+                                    src={settings.logo_dark_url || 'https://lh3.googleusercontent.com/aida-public/AB6AXuB24_ZfT5X-sHKLttEZrmZar0qRv82CJJoVclokr6vYhy6KXda1MQvRK_M0kB-K1AEEG17vCBCtSpAJXsA0EYTmAc7f7m7WVDTna75o4axavHe6391KJuJtRMdSSRJq-4da07VvwAqgB0Vbw-D11RJtPUgGBHO4Kj5lJGYHmOvIbZoGGSDqdjccux4psjAaYN0fHpWj5EPA6JCFFV2OqxROgun0VeDZs51SsX1v9AQvu5ZV4iSd6mPil7PWjacPo8rZp6Zl1CDKHd8'}
+                                    alt="Logo"
+                                    className={`transition-all duration-300 object-contain ${isCollapsed ? 'max-h-6 w-6' : 'max-h-8 w-auto'}`}
+                                />
+                            </div>
 
-                            {/* Title - Hidden when collapsed */}
-                            <h1 className={`text-white text-base font-bold leading-normal tracking-wide truncate transition-all duration-300 ${isCollapsed ? 'w-0 opacity-0 hidden' : 'w-auto opacity-100'}`}>
-                                {settings.company_name || 'NowFlow'}
-                            </h1>
+                            {/* Title - Hidden when collapsed OR when Logo is present (as per user request "APENAS o logo") */}
+                            {!settings.logo_dark_url && (
+                                <h1 className={`text-white text-base font-bold leading-normal tracking-wide truncate transition-all duration-300 ${isCollapsed ? 'w-0 opacity-0 hidden' : 'w-auto opacity-100'}`}>
+                                    NowFlow
+                                </h1>
+                            )}
                         </div>
 
                         {/* Toggle Button */}

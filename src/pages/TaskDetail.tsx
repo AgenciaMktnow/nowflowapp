@@ -9,7 +9,6 @@ import { logActivity } from '../services/activityLogger';
 import { boardService, type Column } from '../services/board.service';
 import { toast } from 'sonner';
 import Header from '../components/layout/Header/Header';
-import CloneTaskModal from '../components/CloneTaskModal';
 
 type Task = {
     id: string;
@@ -98,10 +97,6 @@ export default function TaskDetail() {
     const [showMentionDropdown, setShowMentionDropdown] = useState(false);
     const [availableUsers, setAvailableUsers] = useState<{ id: string, full_name: string, email: string }[]>([]);
     const [filteredUsers, setFilteredUsers] = useState<{ id: string, full_name: string, email: string }[]>([]);
-
-    // Modal controls
-    const [showCloneModal, setShowCloneModal] = useState(false);
-
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     const [task, setTask] = useState<Task | null>(null);
@@ -838,12 +833,11 @@ export default function TaskDetail() {
 
     const handleCloneTask = async () => {
         if (!task) return;
-        setShowCloneModal(true);
+        navigate(`/tasks/new?clone_from=${task.task_number}`);
     };
 
-    const handleCloneSuccess = (newTaskId: string) => {
-        navigate(`/tasks/${newTaskId}/edit`);
-    };
+
+
 
     const handleEditTask = () => {
         if (task) {
@@ -1563,16 +1557,6 @@ export default function TaskDetail() {
                     </div>
                 </div>
             </main>
-
-            {/* Clone Modal */}
-            {task && (
-                <CloneTaskModal
-                    isOpen={showCloneModal}
-                    onClose={() => setShowCloneModal(false)}
-                    task={task}
-                    onClone={handleCloneSuccess}
-                />
-            )}
         </div>
     );
 };
