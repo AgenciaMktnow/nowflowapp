@@ -189,19 +189,36 @@ export default function ClientManagement() {
         setSelectedBoardId(client.default_board_id || '');
 
         if (client.id !== 'new') {
-            const { data } = await supabase
-                .from('projects')
-                .select('name')
-                .eq('client_id', client.id);
-
-            const existingNames = new Set(data?.map(p => p.name) || []);
-            setClientProjectNames(existingNames);
+            // Logic moved to useEffect depending on selectedBoardId
+            // We just clear initially
+            setClientProjectNames(new Set());
         } else {
             setClientProjectNames(new Set());
         }
 
         setViewMode('DETAIL');
     };
+
+    // --- EFFECT: Fetch Projects for Selected Board ---
+    useEffect(() => {
+        const loadContextProjects = async () => {
+            if (!selectedClient || !selectedBoardId || selectedClient.id === 'new') {
+                setClientProjectNames(new Set());
+                return;
+            }
+
+            const { data } = await supabase
+                .from('projects')
+                .select('name')
+                .eq('client_id', selectedClient.id)
+                .eq('board_id', selectedBoardId);
+
+            const existingNames = new Set(data?.map(p => p.name) || []);
+            setClientProjectNames(existingNames);
+        };
+
+        loadContextProjects();
+    }, [selectedClient?.id, selectedBoardId]);
 
     const handleCreateNewClient = () => {
         openClient({
@@ -256,22 +273,27 @@ export default function ClientManagement() {
                 if (error) throw error;
             }
 
-            // 2. Sync Projects (Enforcing Board ID)
+            // 2. Sync Projects (SCOPED BY SELECTED BOARD)
+            // We only fetch/manage projects belonging to this Board.
             const { data: existingProjects } = await supabase
                 .from('projects')
                 .select('id, name')
-                .eq('client_id', clientId);
+                .eq('client_id', clientId)
+                .eq('board_id', selectedBoardId); // <--- Context Filter
 
             const existingNames = new Set(existingProjects?.map(p => p.name) || []);
             const targetNames = clientProjectNames;
 
             const toAdd = [...targetNames].filter(name => !existingNames.has(name));
             const toRemove = [...existingNames].filter(name => !targetNames.has(name));
-            const toUpdateBoard = existingProjects?.filter(p => targetNames.has(p.name)) || [];
 
-            // Remove unselected
+            // Remove unselected (Only from this Board context)
             if (toRemove.length > 0) {
-                await supabase.from('projects').delete().eq('client_id', clientId).in('name', toRemove);
+                await supabase.from('projects')
+                    .delete()
+                    .eq('client_id', clientId)
+                    .eq('board_id', selectedBoardId) // <--- Safety
+                    .in('name', toRemove);
             }
 
             // Create new (with board_id)
@@ -283,16 +305,10 @@ export default function ClientManagement() {
                 })));
             }
 
-            // Update existing (switch board/team if changed)
-            if (toUpdateBoard.length > 0) {
-                await supabase
-                    .from('projects')
-                    .update({
-                        board_id: selectedBoardId,
-                    })
-                    .eq('client_id', clientId)
-                    .in('id', toUpdateBoard.map(p => p.id));
-            }
+            // Update existing (NOT NEEDED anymore because we only see projects IN this board)
+            // If we fetched only board-specific projects, 'toUpdateBoard' implies they are already here.
+            // No strict need to re-update board_id unless we want to enforce consistency or handle edge cases.
+            // But logic above assumes names match.
 
             toast.success('Cliente salvo com sucesso!');
             await fetchClients();
