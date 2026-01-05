@@ -183,7 +183,7 @@ export default function TeamManagement() {
                         id: userId,
                         full_name: selectedUser.full_name || '',
                         email: selectedUser.email,
-                        role: selectedUser.role?.toLowerCase() || 'member',
+                        role: selectedUser.role?.toLowerCase() as 'admin' | 'manager' | 'operational' || 'operational',
                         last_access: undefined,
                         is_active: true,
                         avatar_url: selectedUser.avatar_url,
