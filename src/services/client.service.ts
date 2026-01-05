@@ -20,7 +20,7 @@ export const clientService = {
             .from('clients')
             .select(`
                 *,
-                client_projects (project_id)
+                client_projects!client_projects_client_id_fkey (project_id)
             `)
             .eq('status', 'ACTIVE')
             .order('name');

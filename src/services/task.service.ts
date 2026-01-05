@@ -83,21 +83,14 @@ export const taskService = {
         // REMOVED: Member-based filtering is unreliable for strict segregation.
         // We now filter strictly by Project-Board relationship.
 
-        // 3. Build Query
-        // We use !inner join to enforce filtering by Project properties (like board_id)
+        // 3. Build Query - SIMPLIFIED
+        // Fetch client directly from task.client_id instead of nested project.client
         let query = supabase
             .from('tasks')
             .select(`
                 *,
-                client:client_id(name),
-                project:projects!inner (
-                    name,
-                    client_id,
-                    team_id,
-                    board_id,
-                    client:client_id(name),
-                    board:boards(color)
-                ),
+                client_id,
+                project:projects!inner(name, client_id, team_id, board_id),
                 assignee:users!tasks_assignee_id_fkey(full_name, email, avatar_url),
                 task_boards(board_id)
             `)
@@ -106,23 +99,13 @@ export const taskService = {
         // 4. Apply Filters
 
         // STRICT BOARD FILTER (Golden Rule)
-        // Now checks task_boards junction table
         if (filters?.boardId) {
-            // Apply Inner Join Filter on task_boards
-            // We reconstruct the query to enforce !inner join on task_boards
             query = supabase
                 .from('tasks')
                 .select(`
                     *,
-                    client:client_id(name),
-                    project:projects (
-                        name,
-                        client_id,
-                        team_id,
-                        board_id,
-                        client:client_id(name),
-                        board:boards(color)
-                    ),
+                    client_id,
+                    project:projects(name, client_id, team_id, board_id),
                     assignee:users!tasks_assignee_id_fkey(full_name, email, avatar_url),
                     task_boards!inner(board_id) 
                 `)
@@ -162,6 +145,16 @@ export const taskService = {
         const { data, error } = await query;
         if (error) return { data: [], error: mapTaskError(error) };
 
+        // DEBUG: Check Client Data - ENHANCED
+        if (data && data.length > 0) {
+            console.log("=== KANBAN DEBUG: First Task ===");
+            console.log("Full Task Object:", JSON.stringify(data[0], null, 2));
+            console.log("task.client:", data[0].client);
+            console.log("task.project:", data[0].project);
+            console.log("task.client_id:", data[0].client_id);
+            console.log("task.project.client_id:", (data[0] as any).project?.client_id);
+        }
+
         const tasks = data?.map((t: any) => ({
             ...t,
             board_ids: t.task_boards?.map((tb: any) => tb.board_id) || []
@@ -179,8 +172,9 @@ export const taskService = {
             .insert(taskData as any)
             .select(`
                 *,
-                project:projects(name),
-                assignee:users!tasks_assignee_id_fkey(full_name, email)
+                project:projects(name, client_id),
+                assignee:users!tasks_assignee_id_fkey(full_name, email),
+                task_assignees(user_id)
             `)
             .single();
 
@@ -206,8 +200,9 @@ export const taskService = {
             .eq('id', id)
             .select(`
                 *,
-                project:projects(name),
-                assignee:users!tasks_assignee_id_fkey(full_name, email)
+                project:projects(name, client_id),
+                assignee:users!tasks_assignee_id_fkey(full_name, email),
+                task_assignees(user_id)
             `)
             .single();
 
@@ -265,7 +260,7 @@ export const taskService = {
             .from('tasks')
             .select(`
                 *,
-                project:projects(name),
+                project:projects(name, client_id),
                 assignee:users!tasks_assignee_id_fkey(full_name, email),
                 task_assignees(user_id)
             `)
@@ -291,7 +286,7 @@ export const taskService = {
             .from('tasks')
             .select(`
                 *,
-                project:projects(name),
+                project:projects(name, client_id),
                 assignee:users!tasks_assignee_id_fkey(full_name, email),
                 task_assignees(user_id)
             `)

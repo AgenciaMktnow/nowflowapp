@@ -67,6 +67,10 @@ export default function Projects() {
         return () => clearInterval(interval);
     }, []);
 
+    // DEBUG: Monitor Clients and Tasks State
+    // DEBUG: Monitor Clients and Tasks State - REMOVED
+
+
     // Initial URL param handling
     useEffect(() => {
         if (queryProjectId && projects.length > 0) {
@@ -108,19 +112,50 @@ export default function Projects() {
             boardProjects = boardProjects.filter(p => p.board_id === selectedBoard);
         }
 
-        // 1. Available Clients (Filtered by Board)
+        // 1. Available Clients (Filtered by Board tasks + Projects)
         const validClientIdsForBoard = new Set<string>();
+
+        // Strategy A: From Linked Projects
         clients.forEach(c => {
             if (c.project_ids?.some(pid => boardProjects.some(p => p.id === pid))) {
                 validClientIdsForBoard.add(c.id);
             }
         });
-        setAvailableClients(clients.filter(c => validClientIdsForBoard.has(c.id)));
+
+        // Strategy B: From Actual Tasks (Hydration Fallback)
+        // If tasks are loaded and belong to this board, trust their client_ids
+        if (tasks.length > 0) {
+            tasks.forEach(t => {
+                if (t.client_id) validClientIdsForBoard.add(t.client_id);
+                // Also check project if available (double safety)
+                if (t.project?.client_id) validClientIdsForBoard.add(t.project.client_id);
+            });
+        }
+
+        // Strategy C: If no board selected, show all
+        if (!selectedBoard) {
+            setAvailableClients(clients);
+        } else {
+            // If board selected but no clients found via Projects or Tasks, 
+            // it might be empty OR data not loaded yet.
+            // But showing NOTHING is bad UX. 
+            // If we found valid IDs, filter. If not, initially maybe show all?
+            // User requested "Filtered", so we stick to validClientIds IF populated.
+            if (validClientIdsForBoard.size > 0) {
+                setAvailableClients(clients.filter(c => validClientIdsForBoard.has(c.id)));
+            } else if (boardProjects.length === 0 && tasks.length === 0) {
+                // Nothing loaded for this board, empty list
+                setAvailableClients([]);
+            } else {
+                // Board has stuff but logic missed it? Unlikely with Strategy B.
+                // Fallback to empty to avoid showing wrong clients.
+                setAvailableClients([]);
+            }
+        }
 
         // 2. Available Projects (Filtered by Board AND Client)
         let filteredProjects = boardProjects;
         if (selectedClient) {
-            // Direct Client ID Check (more robust than parent's list)
             filteredProjects = filteredProjects.filter(p => p.client_id === selectedClient);
         }
         setAvailableProjects(filteredProjects);
@@ -145,16 +180,11 @@ export default function Projects() {
         if (selectedProject && !filteredProjects.find(p => p.id === selectedProject)) {
             setSelectedProject('');
         }
-    }, [selectedBoard, selectedTeam, selectedClient, projects, clients, teams, allUsers, selectedProject]);
+    }, [selectedBoard, selectedTeam, selectedClient, projects, clients, teams, allUsers, selectedProject, tasks]); // Added 'tasks' dependency
 
     // Trigger Fetch on Filter Change
     useEffect(() => {
         // Debounce could be added here if needed, but for now direct call
-        console.log('--- Fetching Tasks with Filters ---');
-        console.log('Board:', selectedBoard);
-        console.log('Team:', selectedTeam);
-        console.log('Client:', selectedClient);
-        console.log('Project:', selectedProject);
         fetchTasks();
     }, [selectedBoard, selectedClient, selectedTeam, selectedProject, filterMine, filterUrgent, filterOverdue]);
 
@@ -189,7 +219,10 @@ export default function Projects() {
 
     const loadClients = async () => {
         const { data } = await clientService.getClients();
-        if (data) setClients(data);
+        if (data) {
+            console.log('Clientes carregados:', data.length);
+            setClients(data);
+        }
     };
 
     const loadTeams = async () => {
@@ -711,13 +744,15 @@ export default function Projects() {
                                                                                                 <div className="flex items-center gap-2 overflow-hidden">
                                                                                                     <span className="text-[10px] font-mono text-text-muted">#{task.task_number}</span>
                                                                                                     {/* Client Name Lookup */}
+                                                                                                    {/* Client Name Lookup */}
                                                                                                     {(() => {
-                                                                                                        // Hierarchy: Task Client > Project Client (Joined) > Project Client (Lookup) > Project Name
+                                                                                                        // Hierarchy: Task Client Lookup > Task Client Object > Project Client Object > Project Name
+                                                                                                        const lookupClientName = clients.find(c => c.id === task.client_id)?.name;
                                                                                                         const taskClientName = task.client?.name;
                                                                                                         const projectClientName = task.project?.client?.name;
-                                                                                                        const lookupClientName = clients.find(c => c.id === task.project?.client_id)?.name;
+                                                                                                        const projectLookupName = clients.find(c => c.id === task.project?.client_id)?.name;
 
-                                                                                                        const displayText = taskClientName || projectClientName || lookupClientName || task.project?.name;
+                                                                                                        const displayText = lookupClientName || taskClientName || projectClientName || projectLookupName || task.project?.name;
 
                                                                                                         return displayText && (
                                                                                                             <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-white/5 text-text-secondary truncate max-w-[150px]">

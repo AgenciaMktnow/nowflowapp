@@ -121,7 +121,7 @@ export default function SearchBar() {
                 .select(`
                     id,
                     name,
-                    tasks(count)
+                    tasks:tasks!tasks_client_id_fkey(count)
                 `)
                 .order('tasks(count)', { ascending: false })
                 .limit(2);
