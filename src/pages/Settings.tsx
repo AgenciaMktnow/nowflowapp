@@ -7,8 +7,9 @@ import TeamManagement from './TeamManagement';
 import IntegrationsSettings from './settings/IntegrationsSettings';
 import WorkflowsSettings from './settings/WorkflowsSettings';
 import ProjectSettings from './settings/ProjectSettings';
+import NotificationsSettings from './settings/NotificationsSettings';
 
-type Tab = 'general' | 'clients' | 'projects' | 'workflows' | 'team' | 'integrations';
+type Tab = 'general' | 'clients' | 'projects' | 'workflows' | 'team' | 'integrations' | 'notifications';
 
 export default function Settings() {
     const navigate = useNavigate();
@@ -23,6 +24,7 @@ export default function Settings() {
         else if (path.includes('/settings/workflows')) setActiveTab('workflows');
         else if (path.includes('/settings/team')) setActiveTab('team');
         else if (path.includes('/settings/integrations')) setActiveTab('integrations');
+        else if (path.includes('/settings/notifications')) setActiveTab('notifications');
         else setActiveTab('general');
     }, [location.pathname]);
 
@@ -34,6 +36,7 @@ export default function Settings() {
         else if (tab === 'workflows') route = '/settings/workflows';
         else if (tab === 'team') route = '/settings/team';
         else if (tab === 'integrations') route = '/settings/integrations';
+        else if (tab === 'notifications') route = '/settings/notifications';
 
         navigate(route);
     };
@@ -87,11 +90,11 @@ export default function Settings() {
                             {activeTab === 'team' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full shadow-neon"></span>}
                         </button>
                         <button
-                            onClick={() => handleTabChange('integrations')}
-                            className={`pb-4 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === 'integrations' ? 'text-primary' : 'text-text-muted hover:text-white'}`}
+                            onClick={() => handleTabChange('notifications')}
+                            className={`pb-4 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === 'notifications' ? 'text-primary' : 'text-text-muted hover:text-white'}`}
                         >
-                            Integrações
-                            {activeTab === 'integrations' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full shadow-neon"></span>}
+                            Notificações
+                            {activeTab === 'notifications' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full shadow-neon"></span>}
                         </button>
                     </div>
                 </div>
@@ -104,6 +107,7 @@ export default function Settings() {
                     {activeTab === 'workflows' && <WorkflowsSettings />}
                     {activeTab === 'team' && <TeamManagement />}
                     {activeTab === 'integrations' && <IntegrationsSettings />}
+                    {activeTab === 'notifications' && <NotificationsSettings />}
                 </div>
             </div>
         </div>
