@@ -136,7 +136,7 @@ export default function TeamManagement() {
                             full_name: selectedUser.full_name,
                             role: selectedUser.role.toUpperCase()
                         },
-                        emailRedirectTo: 'https://www.nowflow.it/reset-password'
+                        emailRedirectTo: 'https://www.nowflow.it/auth/callback'
                     }
                 });
 
