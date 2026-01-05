@@ -52,6 +52,7 @@ export default function Projects() {
 
     const [searchParams] = useSearchParams();
     const queryProjectId = searchParams.get('projectId');
+    const queryBoardId = searchParams.get('boardId'); // <--- NEW
 
     // Load initial data
     useEffect(() => {
@@ -69,15 +70,35 @@ export default function Projects() {
     useEffect(() => {
         if (queryProjectId && projects.length > 0) {
             setSelectedProject(queryProjectId);
-            // Also find board for this project
             const proj = projects.find(p => p.id === queryProjectId);
             if (proj) {
                 if (proj.board_id) setSelectedBoard(proj.board_id);
                 if (proj.client_id) setSelectedClient(proj.client_id);
                 if (proj.team_id) setSelectedTeam(proj.team_id);
             }
+        } else if (queryBoardId) {
+            // Direct Board Link
+            setSelectedBoard(queryBoardId);
         }
-    }, [queryProjectId, projects]);
+    }, [queryProjectId, queryBoardId, projects]);
+
+    // Update URL on Board Change (PERSISTENCE)
+    useEffect(() => {
+        const newParams = new URLSearchParams(searchParams);
+        if (selectedBoard) {
+            newParams.set('boardId', selectedBoard);
+        } else {
+            newParams.delete('boardId');
+        }
+
+        // Only navigate if actually changed to avoid heavy loops, 
+        // though setSearchParams usually handles this well.
+        // We use { replace: true } to not clutter history too much? 
+        // Or false if they want back button support. Let's start with default (push).
+        if (newParams.toString() !== searchParams.toString()) {
+            navigate(`?${newParams.toString()}`, { replace: true });
+        }
+    }, [selectedBoard, navigate, searchParams]);
 
     // Cascade Logic: Update available Filters (Dependent Dropdowns)
     useEffect(() => {
@@ -400,7 +421,7 @@ export default function Projects() {
                             setSelectedBoard(val);
                             setSelectedClient('');
                             setSelectedProject('');
-                            setSelectedTeam('');
+                            // Team is global, keep it selected for better UX across boards
                             setSelectedUser('');
                         }}
                         options={[

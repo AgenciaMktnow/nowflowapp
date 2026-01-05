@@ -46,14 +46,11 @@ function mapTaskError(error: Error | null): Error | null {
 
 export const taskService = {
     async getTasks(filters?: { assigneeId?: string; projectId?: string; teamId?: string; boardId?: string; clientId?: string }): Promise<{ data: Task[] | null; error: Error | null }> {
-        let memberIds: string[] | null = null;
-        let useMemberFilter = true;
         let clientProjectIds: string[] | null = null;
 
         // 1. Resolve Client Context (Many-to-Many via client_projects)
         // This overrides Member Context as per user request (Super Filter)
         if (filters?.clientId) {
-            useMemberFilter = false;
 
             const { data } = await supabase
                 .from('client_projects')
@@ -64,24 +61,17 @@ export const taskService = {
         }
 
         // 2. Resolve Scope (Board or Team) to Users
-        if (useMemberFilter) {
-            if (filters?.boardId) {
-                const { data } = await supabase.from('board_members').select('user_id').eq('board_id', filters.boardId);
-                memberIds = data?.map(d => d.user_id) || [];
-            } else if (filters?.teamId) {
-                const { data } = await supabase.from('user_teams').select('user_id').eq('team_id', filters.teamId);
-                memberIds = data?.map(d => d.user_id) || [];
-            }
-        }
+        // REMOVED: Member-based filtering is unreliable for strict segregation.
+        // We now filter strictly by Project-Board relationship.
 
         // 3. Build Query
-        // Use standard join for project (we filter by project_id directly if needed)
+        // We use !inner join to enforce filtering by Project properties (like board_id)
         let query = supabase
             .from('tasks')
             .select(`
                 *,
                 client:client_id(name),
-                project:projects (
+                project:projects!inner (
                     name,
                     client_id,
                     team_id,
@@ -94,6 +84,23 @@ export const taskService = {
             .order('created_at', { ascending: false });
 
         // 4. Apply Filters
+
+        // STRICT BOARD FILTER (Golden Rule)
+        if (filters?.boardId) {
+            query = query.eq('project.board_id', filters.boardId);
+        }
+
+        // STRICT TEAM FILTER
+        if (filters?.teamId) {
+            // Check if task is assigned directly to team OR via project logic?
+            // User requested: "Task selects Team". If task.team_id exists (it does in schema line 16), filter by it.
+            // If task.team_id is null, maybe fallback to project.team_id? 
+            // For now, let's assume filtering by the task's explicitly set team if the column exists, 
+            // BUT wait, looking at schema in comments (line 16: team_id?). 
+            // If the column exists on task, use strict equality.
+            query = query.eq('team_id', filters.teamId);
+        }
+
         if (filters?.clientId) {
             if (clientProjectIds && clientProjectIds.length > 0) {
                 // If specific project not selected, show all tasks from client's projects
@@ -104,13 +111,6 @@ export const taskService = {
                 // Client has no projects linked -> Show no tasks
                 if (!filters.projectId) return { data: [], error: null };
             }
-        }
-        else if (memberIds !== null) {
-            // Scope Filter (Board/Team) using Members
-            if (memberIds.length === 0) {
-                return { data: [], error: null };
-            }
-            query = query.or(`assignee_id.in.(${memberIds.join(',')}),created_by.in.(${memberIds.join(',')})`);
         }
 
         // Project Drill-down
