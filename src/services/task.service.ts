@@ -21,6 +21,7 @@ export interface Task {
     tags?: string[];
     created_at: string;
     // Expanded fields for UI
+    board_ids?: string[]; // Virtual field for Multi-Board
     project?: { name: string; client_id?: string; board_id?: string; team_id?: string; client?: { name: string } };
     client?: { name: string };
     assignee?: { full_name: string; email: string; avatar_url?: string };
@@ -29,7 +30,11 @@ export interface Task {
     attachments?: any[];
 }
 
-export type CreateTaskDTO = Omit<Task, 'id' | 'task_number' | 'created_at' | 'project' | 'assignee' | 'comments_count' | 'task_assignees'> & { created_by?: string; workflow_id?: string | null };
+export type CreateTaskDTO = Omit<Task, 'id' | 'task_number' | 'created_at' | 'project' | 'assignee' | 'comments_count' | 'task_assignees' | 'board_ids'> & {
+    created_by?: string;
+    workflow_id?: string | null;
+    board_ids?: string[]; // Explicitly allow board_ids in DTO
+};
 export type UpdateTaskDTO = Partial<Omit<Task, 'id' | 'task_number' | 'created_at' | 'project' | 'assignee' | 'comments_count' | 'task_assignees'>>;
 
 // Helpers
@@ -79,15 +84,36 @@ export const taskService = {
                     client:client_id(name),
                     board:boards(color)
                 ),
-                assignee:users!tasks_assignee_id_fkey(full_name, email, avatar_url)
+                assignee:users!tasks_assignee_id_fkey(full_name, email, avatar_url),
+                task_boards(board_id)
             `)
             .order('created_at', { ascending: false });
 
         // 4. Apply Filters
 
         // STRICT BOARD FILTER (Golden Rule)
+        // Now checks task_boards junction table
         if (filters?.boardId) {
-            query = query.eq('project.board_id', filters.boardId);
+            // Apply Inner Join Filter on task_boards
+            // We reconstruct the query to enforce !inner join on task_boards
+            query = supabase
+                .from('tasks')
+                .select(`
+                    *,
+                    client:client_id(name),
+                    project:projects (
+                        name,
+                        client_id,
+                        team_id,
+                        board_id,
+                        client:client_id(name),
+                        board:boards(color)
+                    ),
+                    assignee:users!tasks_assignee_id_fkey(full_name, email, avatar_url),
+                    task_boards!inner(board_id) 
+                `)
+                .eq('task_boards.board_id', filters.boardId)
+                .order('created_at', { ascending: false });
         }
 
         // STRICT TEAM FILTER
@@ -120,13 +146,23 @@ export const taskService = {
         if (filters?.assigneeId) query = query.eq('assignee_id', filters.assigneeId);
 
         const { data, error } = await query;
-        return { data: data as Task[], error: mapTaskError(error) };
+        if (error) return { data: [], error: mapTaskError(error) };
+
+        const tasks = data?.map((t: any) => ({
+            ...t,
+            board_ids: t.task_boards?.map((tb: any) => tb.board_id) || []
+        })) || [];
+
+        return { data: tasks as Task[], error: null };
     },
 
-    async createTask(task: CreateTaskDTO): Promise<{ data: Task | null; error: Error | null }> {
+    async createTask(task: CreateTaskDTO & { board_ids?: string[] }): Promise<{ data: Task | null; error: Error | null }> {
+        // Separate board_ids from the rest of the task data
+        const { board_ids, ...taskData } = task;
+
         const { data, error } = await supabase
             .from('tasks')
-            .insert(task as any) // Supabase types sometimes strict with optionals
+            .insert(taskData as any)
             .select(`
                 *,
                 project:projects(name),
@@ -134,13 +170,25 @@ export const taskService = {
             `)
             .single();
 
+        if (data && board_ids && board_ids.length > 0) {
+            const boardLinks = board_ids.map(bid => ({
+                task_id: data.id,
+                board_id: bid
+            }));
+            const { error: linkError } = await supabase.from('task_boards').insert(boardLinks);
+            if (linkError) console.error('Error linking boards:', linkError);
+        }
+
         return { data: data as Task, error: mapTaskError(error) };
     },
 
-    async updateTask(id: string, updates: UpdateTaskDTO): Promise<{ data: Task | null; error: Error | null }> {
+    async updateTask(id: string, updates: UpdateTaskDTO & { board_ids?: string[] }): Promise<{ data: Task | null; error: Error | null }> {
+        // Separate board_ids from the rest
+        const { board_ids, ...taskUpdates } = updates;
+
         const { data, error } = await supabase
             .from('tasks')
-            .update(updates as any)
+            .update(taskUpdates as any)
             .eq('id', id)
             .select(`
                 *,
@@ -148,6 +196,17 @@ export const taskService = {
                 assignee:users!tasks_assignee_id_fkey(full_name, email)
             `)
             .single();
+
+        // Handle Board updates if present
+        if (!error && board_ids) {
+            // 1. Delete existing
+            await supabase.from('task_boards').delete().eq('task_id', id);
+            // 2. Insert new
+            if (board_ids.length > 0) {
+                const links = board_ids.map(bid => ({ task_id: id, board_id: bid }));
+                await supabase.from('task_boards').insert(links);
+            }
+        }
 
         return { data: data as Task, error: mapTaskError(error) };
     },
@@ -199,7 +258,18 @@ export const taskService = {
             .eq('id', id)
             .single();
 
-        return { data: data as any, error: mapTaskError(error) };
+        // Get Boards
+        const { data: boardLinks } = await supabase
+            .from('task_boards')
+            .select('board_id')
+            .eq('task_id', id);
+
+        const taskWithBoards = data ? {
+            ...data,
+            board_ids: boardLinks?.map(b => b.board_id) || []
+        } : null;
+
+        return { data: taskWithBoards as any, error: mapTaskError(error) };
     },
 
     async getTaskByNumber(taskNumber: string): Promise<{ data: Task | null; error: Error | null }> {
@@ -214,7 +284,14 @@ export const taskService = {
             .eq('task_number', taskNumber)
             .single();
 
-        return { data: data as any, error: mapTaskError(error) };
+        if (!data) return { data: null, error: mapTaskError(error) };
+
+        const { data: boardsData } = await supabase.from('task_boards').select('board_id').eq('task_id', data.id);
+
+        return {
+            data: { ...data, board_ids: boardsData?.map(b => b.board_id) || [] } as any,
+            error: null
+        };
     },
 
     async assignUsersToTask(taskId: string, userIds: string[]): Promise<{ error: Error | null }> {

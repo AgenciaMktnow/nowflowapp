@@ -7,6 +7,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { taskService, type Task } from '../services/task.service';
 import { toast } from 'sonner';
 import ActivityFeed from '../components/ActivityFeed';
+import { MultiBoardSelector } from '../components/MultiBoardSelector';
+import type { Board } from '../types/database.types';
 
 type SelectOption = {
     id: string;
@@ -60,6 +62,10 @@ export default function NewTask() {
     const [files, setFiles] = useState<File[]>([]);
     const [existingAttachments, setExistingAttachments] = useState<Attachment[]>([]);
 
+    // Multi-Board State
+    const [boards, setBoards] = useState<Board[]>([]);
+    const [selectedBoardIds, setSelectedBoardIds] = useState<string[]>([]);
+
     // Data lists
     const [clients, setClients] = useState<SelectOption[]>([]);
     const [projects, setProjects] = useState<SelectOption[]>([]);
@@ -69,8 +75,12 @@ export default function NewTask() {
 
     const [loading, setLoading] = useState(false);
 
+    // Client Filtering Context
+    const [clientBoardMap, setClientBoardMap] = useState<Map<string, Set<string>>>(new Map());
+
     useEffect(() => {
-        fetchClients();
+        fetchBoards();
+        fetchClientsAndMap();
         fetchWorkflows();
         fetchUsers();
     }, []);
@@ -110,10 +120,36 @@ export default function NewTask() {
         }
     }, [projectId, clientId]);
 
-    const fetchClients = async () => {
-        const { data } = await supabase.from('clients').select('id, name, default_team_id').eq('status', 'ACTIVE').order('name');
-        if (data) setClients(data);
+
+
+    // Fetch Clients & Build Board Map for Filtering
+    const fetchClientsAndMap = async () => {
+        // 1. Fetch Clients
+        const { data: clientsData } = await supabase.from('clients').select('id, name, default_team_id, default_board_id').eq('status', 'ACTIVE').order('name');
+        if (clientsData) setClients(clientsData);
+
+        // 2. Fetch All Project Links (Client -> Board)
+        const { data: projectsData } = await supabase.from('projects').select('client_id, board_id');
+
+        const map = new Map<string, Set<string>>();
+
+        // Add default boards
+        clientsData?.forEach(c => {
+            if (!map.has(c.id)) map.set(c.id, new Set());
+            if (c.default_board_id) map.get(c.id)?.add(c.default_board_id);
+        });
+
+        // Add project boards
+        projectsData?.forEach(p => {
+            if (p.client_id && p.board_id) {
+                if (!map.has(p.client_id)) map.set(p.client_id, new Set());
+                map.get(p.client_id)?.add(p.board_id);
+            }
+        });
+
+        setClientBoardMap(map);
     };
+
     const fetchWorkflows = async () => {
         const { data } = await supabase.from('workflows').select('id, name').order('name');
         if (data) setWorkflows(data);
@@ -137,6 +173,18 @@ export default function NewTask() {
             }
         } else {
             setTeamMemberIds(new Set());
+        }
+    };
+
+    const fetchBoards = async () => {
+        const { data } = await supabase.from('boards').select('*').order('name');
+        if (data) {
+            setBoards(data);
+            // Pre-select from URL if creating new
+            const paramBoardId = searchParams.get('boardId');
+            if (paramBoardId && !id && !cloneFrom) {
+                setSelectedBoardIds([paramBoardId]);
+            }
         }
     };
 
@@ -167,12 +215,22 @@ export default function NewTask() {
     };
 
     const fetchProjectsByClient = async (clientId: string) => {
-        const clientProjectsPromise = supabase.from('projects').select('id, name').eq('client_id', clientId).order('name');
-        const globalProjectsPromise = supabase.from('projects').select('id, name').is('client_id', null).order('name');
+        const clientProjectsPromise = supabase.from('projects').select('id, name, board_id').eq('client_id', clientId).order('name');
+        const globalProjectsPromise = supabase.from('projects').select('id, name, board_id').is('client_id', null).order('name');
 
         const [clientResult, globalResult] = await Promise.all([clientProjectsPromise, globalProjectsPromise]);
         const combinedData = [...(clientResult.data || []), ...(globalResult.data || [])];
-        const uniqueProjects = Array.from(new Map(combinedData.map(item => [item.id, item])).values()).sort((a, b) => a.name.localeCompare(b.name));
+
+        let uniqueProjects = Array.from(new Map(combinedData.map(item => [item.id, item])).values()).sort((a, b) => a.name.localeCompare(b.name));
+
+        // Filter by Selected Boards if any
+        if (selectedBoardIds.length > 0) {
+            uniqueProjects = uniqueProjects.filter(p => !p.board_id || selectedBoardIds.includes(p.board_id));
+            // Note: Global projects might not have board_id? Or they do. If they don't, keep them? 
+            // Projects usually MUST have board_id in this system.
+            // If p.board_id is null, maybe keep? Or exclude.
+            // Assuming strict filtering if board is selected.
+        }
 
         if (uniqueProjects.length > 0) {
             setProjects(uniqueProjects);
@@ -222,6 +280,14 @@ export default function NewTask() {
                 setAssigneeIds([data.assignee_id]);
             }
 
+            // Load Boards
+            if (data.board_ids && data.board_ids.length > 0) {
+                setSelectedBoardIds(data.board_ids);
+            } else if (data.project?.board_id) {
+                // Fallback for old tasks
+                setSelectedBoardIds([data.project.board_id]);
+            }
+
             if (data.attachments) {
                 setExistingAttachments(data.attachments);
             }
@@ -255,7 +321,8 @@ export default function NewTask() {
                 project_id: projectId,
                 workflow_id: workflowId || null,
                 assignee_id: assigneeIds[0], // Legacy/Primary assignee
-                created_by: !taskId ? user?.id : undefined // Only on create
+                created_by: !taskId ? user?.id : undefined, // Only on create
+                board_ids: selectedBoardIds // Multi-Board Link
             };
 
             let savedTask: Task | null = null;
@@ -317,9 +384,19 @@ export default function NewTask() {
             u.full_name.toLowerCase().includes(assigneeSearch.toLowerCase()) &&
             !assigneeIds.includes(u.id)
         )
-        : sortedUsers.filter(u => !assigneeIds.includes(u.id)); // Show all if search is empty? Or maybe just team members?
-    // Let's show filtered candidates if there is a search, or a subset if not.
-    // Actually, the current UI likely shows a dropdown when focused.
+        : sortedUsers.filter(u => !assigneeIds.includes(u.id));
+
+    // Filter Clients based on Selected Boards
+    const filteredClients = selectedBoardIds.length > 0
+        ? clients.filter(c => {
+            const clientBoards = clientBoardMap.get(c.id);
+            if (!clientBoards) return false;
+            // Check intersection: Does client have ANY of the selected boards?
+            return selectedBoardIds.some(bid => clientBoards.has(bid));
+        })
+        : clients; // If no board selected, show all? Or Show None? User flow implies choosing Board first. 
+    // Let's show all for flexibility if they selected nothing yet.
+
 
     // Independent editor upload logic (could be service, but simple enough here)
     const handleEditorImageUpload = async (file: File): Promise<string> => {
@@ -381,138 +458,158 @@ export default function NewTask() {
                 </div>
             </div>
             <form className="flex flex-col gap-8" onSubmit={handleSubmit}>
-                {/* Editor, Fields, same layout logic... */}
+                {/* Multi-Board Selector */}
+                <div className="bg-surface-dark border border-gray-700 rounded-xl p-4">
+                    <MultiBoardSelector
+                        boards={boards}
+                        selectedBoardIds={selectedBoardIds}
+                        onChange={setSelectedBoardIds}
+                    />
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="flex flex-col gap-2">
-                        <label className="text-sm font-semibold text-gray-200 flex items-center gap-1">
-                            Cliente <span className="text-primary">*</span>
-                        </label>
-                        <div className="relative group">
-                            <ModernDropdown
-                                value={clientId}
-                                onChange={setClientId}
-                                options={clients}
-                                placeholder="Selecione o cliente..."
-                            />
-                        </div>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                        <label className="text-sm font-semibold text-gray-200 flex items-center gap-1">
-                            Projeto <span className="text-primary">*</span>
-                        </label>
-                        <div className="relative group">
-                            <ModernDropdown
-                                value={projectId}
-                                onChange={setProjectId}
-                                options={projects}
-                                placeholder="Selecione o projeto..."
-                            />
-                        </div>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                        <label className="text-sm font-semibold text-gray-200 flex items-center gap-1">
-                            Fluxo da Tarefa
-                        </label>
-                        <div className="relative group">
-                            <ModernDropdown
-                                value={workflowId}
-                                onChange={setWorkflowId}
-                                options={workflows.length > 0 ? workflows : [
-                                    { id: 'backlog', name: '📋 Backlog' },
-                                    { id: 'todo', name: '🚀 A Fazer' },
-                                    { id: 'inprogress', name: '⚡ Em Progresso' },
-                                    { id: 'review', name: '👀 Revisão' },
-                                    { id: 'done', name: '✅ Concluído' }
-                                ]}
-                                placeholder="Selecione a etapa..."
-                                icon="view_kanban"
-                            />
-                        </div>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                        <div className="flex items-center justify-between">
+                    {/* Column 1: Core Context */}
+                    <div className="flex flex-col gap-6">
+                        <div className="flex flex-col gap-2">
                             <label className="text-sm font-semibold text-gray-200 flex items-center gap-1">
-                                Prazo {!isOngoing && <span className="text-primary">*</span>}
+                                Cliente <span className="text-primary">*</span>
                             </label>
-                            <label className="flex items-center gap-2 cursor-pointer group">
-                                <div className="relative">
-                                    <input
-                                        type="checkbox"
-                                        checked={isOngoing}
-                                        onChange={(e) => setIsOngoing(e.target.checked)}
-                                        className="sr-only peer"
-                                    />
-                                    <div className="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
-                                </div>
-                                <span className="text-xs text-gray-400 font-medium group-hover:text-primary transition-colors">Tarefa Contínua</span>
-                            </label>
+                            <div className="relative group">
+                                <ModernDropdown
+                                    value={clientId}
+                                    onChange={setClientId}
+                                    options={filteredClients}
+                                    placeholder="Selecione o cliente..."
+                                    disabled={selectedBoardIds.length === 0}
+                                />
+                                {selectedBoardIds.length === 0 && <span className="text-[10px] text-gray-500 absolute -bottom-4 left-0">* Selecione um quadro primeiro para filtrar</span>}
+                            </div>
                         </div>
-                        <div className="relative group">
-                            <input
-                                type="date"
-                                value={dueDate}
-                                disabled={isOngoing}
-                                onChange={(e) => setDueDate(e.target.value)}
-                                className={`w-full h-14 bg-surface-dark border border-gray-700 rounded-xl px-4 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-medium [color-scheme:dark] ${isOngoing ? 'opacity-50 cursor-not-allowed text-gray-500' : ''}`}
-                                placeholder="DD/MM/AAAA"
-                            />
+
+                        <div className="flex flex-col gap-2">
+                            <label className="text-sm font-semibold text-gray-200 flex items-center gap-1">
+                                Projeto <span className="text-primary">*</span>
+                            </label>
+                            <div className="relative group">
+                                <ModernDropdown
+                                    value={projectId}
+                                    onChange={setProjectId}
+                                    options={projects}
+                                    placeholder="Selecione o projeto..."
+                                />
+                            </div>
                         </div>
                     </div>
-                    <div className="flex flex-col gap-2 col-span-1 md:col-span-2">
-                        <label className="text-sm font-semibold text-gray-200 flex items-center gap-1">
-                            Atribuir para (Múltiplos) <span className="text-primary">*</span>
-                        </label>
-                        <div className="relative group w-full min-h-[56px] bg-surface-dark border border-gray-700 rounded-xl px-3 py-2 text-white focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent transition-all cursor-text hover:border-gray-500 flex flex-wrap items-center gap-2">
-                            {selectedUsers.map(user => (
-                                <div key={user.id} className="flex items-center gap-2 bg-gray-800 pl-1 pr-2 py-1 rounded-lg border border-gray-700 select-none">
-                                    <div className="size-6 rounded-full bg-cover bg-center" style={{ backgroundImage: user.avatar_url ? `url('${user.avatar_url}')` : undefined, backgroundColor: '#cbd5e1' }}></div>
-                                    <span className="text-xs font-bold text-gray-200">{user.full_name}</span>
-                                    <button
-                                        type="button"
-                                        onClick={() => setAssigneeIds(prev => prev.filter(id => id !== user.id))}
-                                        className="text-gray-400 hover:text-red-500 transition-colors ml-1"
-                                    >
-                                        <span className="material-symbols-outlined text-[16px]">close</span>
-                                    </button>
-                                </div>
-                            ))}
-                            <input
-                                type="text"
-                                value={assigneeSearch}
-                                onChange={(e) => setAssigneeSearch(e.target.value)}
-                                className="bg-transparent border-none outline-none focus:ring-0 p-1 text-sm text-white placeholder-gray-400 flex-1 min-w-[150px]"
-                                placeholder={assigneeIds.length === 0 ? "Adicionar pessoas ou times..." : "Adicionar mais..."}
-                            />
-                            {assigneeSearch && (
-                                <div className="absolute top-full left-0 w-full bg-surface-dark border border-gray-700 rounded-xl mt-1 py-1 shadow-lg z-50 max-h-48 overflow-y-auto">
-                                    {filteredUsers.length > 0 ? filteredUsers.map(u => (
-                                        <div
-                                            key={u.id}
-                                            onClick={() => {
-                                                setAssigneeIds(prev => [...prev, u.id]);
-                                                setAssigneeSearch('');
-                                            }}
-                                            className="px-4 py-2 hover:bg-gray-800 cursor-pointer flex items-center gap-2"
-                                        >
-                                            <div className="size-6 rounded-full bg-gray-300"></div>
-                                            <div className="flex flex-col flex-1">
-                                                <span className="text-sm text-white">{u.full_name}</span>
-                                            </div>
-                                            {teamMemberIds.has(u.id) && (
-                                                <span className="text-[9px] font-black text-primary px-1.5 py-0.5 rounded bg-primary/10 border border-primary/20">TIME</span>
-                                            )}
-                                        </div>
-                                    )) : (
-                                        <div className="px-4 py-2 text-sm text-gray-400">Nenhum usuário encontrado</div>
-                                    )}
-                                </div>
-                            )}
-                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none group-focus-within:text-primary transition-colors">
-                                <span className="material-symbols-outlined">expand_more</span>
+
+                    {/* Column 2: Process & Deadlines */}
+                    <div className="flex flex-col gap-6">
+                        <div className="flex flex-col gap-2">
+                            <label className="text-sm font-semibold text-gray-200 flex items-center gap-1">
+                                Fluxo da Tarefa
+                            </label>
+                            <div className="relative group">
+                                <ModernDropdown
+                                    value={workflowId}
+                                    onChange={setWorkflowId}
+                                    options={workflows.length > 0 ? workflows : [
+                                        { id: 'backlog', name: '📋 Backlog' },
+                                        { id: 'todo', name: '🚀 A Fazer' },
+                                        { id: 'inprogress', name: '⚡ Em Progresso' },
+                                        { id: 'review', name: '👀 Revisão' },
+                                        { id: 'done', name: '✅ Concluído' }
+                                    ]}
+                                    placeholder="Selecione a etapa..."
+                                    icon="view_kanban"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                            <div className="flex items-center justify-between">
+                                <label className="text-sm font-semibold text-gray-200 flex items-center gap-1">
+                                    Prazo {!isOngoing && <span className="text-primary">*</span>}
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer group">
+                                    <div className="relative">
+                                        <input
+                                            type="checkbox"
+                                            checked={isOngoing}
+                                            onChange={(e) => setIsOngoing(e.target.checked)}
+                                            className="sr-only peer"
+                                        />
+                                        <div className="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                                    </div>
+                                    <span className="text-xs text-gray-400 font-medium group-hover:text-primary transition-colors">Tarefa Contínua</span>
+                                </label>
+                            </div>
+                            <div className="relative group">
+                                <input
+                                    type="date"
+                                    value={dueDate}
+                                    disabled={isOngoing}
+                                    onChange={(e) => setDueDate(e.target.value)}
+                                    className={`w-full h-14 bg-surface-dark border border-gray-700 rounded-xl px-4 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-medium [color-scheme:dark] ${isOngoing ? 'opacity-50 cursor-not-allowed text-gray-500' : ''}`}
+                                    placeholder="DD/MM/AAAA"
+                                />
                             </div>
                         </div>
                     </div>
                 </div>
+                <div className="flex flex-col gap-2 col-span-1 md:col-span-2">
+                    <label className="text-sm font-semibold text-gray-200 flex items-center gap-1">
+                        Atribuir para (Múltiplos) <span className="text-primary">*</span>
+                    </label>
+                    <div className="relative group w-full min-h-[56px] bg-surface-dark border border-gray-700 rounded-xl px-3 py-2 text-white focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent transition-all cursor-text hover:border-gray-500 flex flex-wrap items-center gap-2">
+                        {selectedUsers.map(user => (
+                            <div key={user.id} className="flex items-center gap-2 bg-gray-800 pl-1 pr-2 py-1 rounded-lg border border-gray-700 select-none">
+                                <div className="size-6 rounded-full bg-cover bg-center" style={{ backgroundImage: user.avatar_url ? `url('${user.avatar_url}')` : undefined, backgroundColor: '#cbd5e1' }}></div>
+                                <span className="text-xs font-bold text-gray-200">{user.full_name}</span>
+                                <button
+                                    type="button"
+                                    onClick={() => setAssigneeIds(prev => prev.filter(id => id !== user.id))}
+                                    className="text-gray-400 hover:text-red-500 transition-colors ml-1"
+                                >
+                                    <span className="material-symbols-outlined text-[16px]">close</span>
+                                </button>
+                            </div>
+                        ))}
+                        <input
+                            type="text"
+                            value={assigneeSearch}
+                            onChange={(e) => setAssigneeSearch(e.target.value)}
+                            className="bg-transparent border-none outline-none focus:ring-0 p-1 text-sm text-white placeholder-gray-400 flex-1 min-w-[150px]"
+                            placeholder={assigneeIds.length === 0 ? "Adicionar pessoas ou times..." : "Adicionar mais..."}
+                        />
+                        {assigneeSearch && (
+                            <div className="absolute top-full left-0 w-full bg-surface-dark border border-gray-700 rounded-xl mt-1 py-1 shadow-lg z-50 max-h-48 overflow-y-auto">
+                                {filteredUsers.length > 0 ? filteredUsers.map(u => (
+                                    <div
+                                        key={u.id}
+                                        onClick={() => {
+                                            setAssigneeIds(prev => [...prev, u.id]);
+                                            setAssigneeSearch('');
+                                        }}
+                                        className="px-4 py-2 hover:bg-gray-800 cursor-pointer flex items-center gap-2"
+                                    >
+                                        <div className="size-6 rounded-full bg-gray-300"></div>
+                                        <div className="flex flex-col flex-1">
+                                            <span className="text-sm text-white">{u.full_name}</span>
+                                        </div>
+                                        {teamMemberIds.has(u.id) && (
+                                            <span className="text-[9px] font-black text-primary px-1.5 py-0.5 rounded bg-primary/10 border border-primary/20">TIME</span>
+                                        )}
+                                    </div>
+                                )) : (
+                                    <div className="px-4 py-2 text-sm text-gray-400">Nenhum usuário encontrado</div>
+                                )}
+                            </div>
+                        )}
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none group-focus-within:text-primary transition-colors">
+                            <span className="material-symbols-outlined">expand_more</span>
+                        </div>
+                    </div>
+                </div>
+
                 <div className="flex flex-col gap-2">
                     <label className="text-sm font-semibold text-gray-200 flex items-center gap-1">
                         Descrição da Tarefa <span className="text-primary">*</span>
@@ -601,7 +698,7 @@ export default function NewTask() {
                         <span className="material-symbols-outlined text-[18px] font-bold">{taskId ? 'save' : 'arrow_forward'}</span>
                     </button>
                 </div>
-            </form>
+            </form >
 
             {taskId && (
                 <div className="mt-8 border-t border-gray-800 pt-8">
@@ -613,11 +710,12 @@ export default function NewTask() {
                         <ActivityFeed taskId={taskId} />
                     </div>
                 </div>
-            )}
+            )
+            }
 
             <div className="absolute bottom-6 text-gray-400 text-xs hidden md:block opacity-50">
                 Pressione <kbd className="font-sans px-1 py-0.5 bg-surface-border rounded text-[10px]">Ctrl</kbd> + <kbd className="font-sans px-1 py-0.5 bg-surface-border rounded text-[10px]">Enter</kbd> para enviar
             </div>
-        </div>
+        </div >
     );
 }

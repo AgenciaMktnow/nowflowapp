@@ -20,6 +20,7 @@ export default function Projects() {
     const navigate = useNavigate();
     const { user } = useAuth();
     const [tasks, setTasks] = useState<Task[]>([]);
+    const [loadingTasks, setLoadingTasks] = useState(true);
 
     // Filters
     const [selectedBoard, setSelectedBoard] = useState<string>('');
@@ -215,6 +216,7 @@ export default function Projects() {
     }, [user, selectedProject, selectedBoard, selectedClient, selectedTeam, selectedUser]); // Re-fetch on any filter change
 
     const fetchTasks = async () => {
+        setLoadingTasks(true);
         const filters: any = {};
 
         if (selectedProject) filters.projectId = selectedProject;
@@ -227,11 +229,32 @@ export default function Projects() {
 
         if (error) {
             console.error('Error fetching tasks:', error);
-            toast.error('Erro ao carregar tarefas');
+            toast.error(`Erro ao carregar tarefas: ${error.message || (error as any).details || (error as any).hint || 'Erro desconhecido'}`);
         } else if (data) {
             setTasks(data);
         }
+        setLoadingTasks(false);
     };
+
+    // Real-time Sync
+    useEffect(() => {
+        const channel = supabase
+            .channel('public:tasks')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
+                // Simple re-fetch strategy for now to ensure consistency
+                // Advanced: Optimistic updates based on payload
+                console.log('Real-time update:', payload);
+                fetchTasks();
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'task_boards' }, () => {
+                fetchTasks();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [selectedProject, selectedBoard, selectedClient, selectedTeam, selectedUser]);
 
     // Filter Tasks (Client Side - Double Check / Search / Quick Filters)
     const filteredTasks = tasks.filter(task => {
@@ -548,251 +571,276 @@ export default function Projects() {
             </div>
 
             {/* Kanban Board */}
-            <DragDropContext onDragEnd={onDragEnd}>
-                <div className="flex-1 overflow-x-auto overflow-y-hidden p-2 md:p-6">
-                    <Droppable droppableId="all-columns" direction="horizontal" type="COLUMN">
-                        {(provided) => (
-                            <div
-                                className="inline-flex h-full items-start gap-5 pb-2 snap-x snap-mandatory px-4 md:px-0"
-                                ref={provided.innerRef}
-                                {...provided.droppableProps}
-                            >
-                                {columns.map((column, index) => {
-                                    const columnTasks = filteredTasks.filter(t => {
-                                        // If the column is a default (virtual) column, use status matching.
-                                        // Virtual columns are unique by status, so duplication isn't an issue.
-                                        if (column.id.startsWith('def-')) {
-                                            return column.statuses.includes(t.status);
-                                        }
+            {loadingTasks ? (
+                <div className="flex gap-4 p-6 overflow-hidden">
+                    {[1, 2, 3, 4].map(i => (
+                        <div key={i} className="min-w-[300px] h-[70vh] bg-surface-dark/30 rounded-xl p-4 space-y-4 border border-white/5 animate-pulse">
+                            <div className="flex justify-between items-center">
+                                <div className="h-6 bg-white/5 rounded w-1/3"></div>
+                                <div className="h-5 w-8 bg-white/5 rounded"></div>
+                            </div>
+                            <div className="space-y-4 pt-4">
+                                <div className="h-32 bg-background-dark/50 rounded-lg"></div>
+                                <div className="h-24 bg-background-dark/50 rounded-lg"></div>
+                                <div className="h-40 bg-background-dark/50 rounded-lg"></div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <DragDropContext onDragEnd={onDragEnd}>
+                    <div className="flex-1 overflow-x-auto overflow-y-hidden p-2 md:p-6">
+                        <Droppable droppableId="all-columns" direction="horizontal" type="COLUMN">
+                            {(provided) => (
+                                <div
+                                    className="inline-flex h-full items-start gap-5 pb-2 snap-x snap-mandatory px-4 md:px-0"
+                                    ref={provided.innerRef}
+                                    {...provided.droppableProps}
+                                >
+                                    {columns.map((column, index) => {
+                                        const columnTasks = filteredTasks.filter(t => {
+                                            // If the column is a default (virtual) column, use status matching.
+                                            // Virtual columns are unique by status, so duplication isn't an issue.
+                                            if (column.id.startsWith('def-')) {
+                                                return column.statuses.includes(t.status);
+                                            }
 
-                                        // Otherwise, if we are in a specific project with custom columns, match by column_id
-                                        if (t.column_id === column.id) return true;
+                                            // Otherwise, if we are in a specific project with custom columns, match by column_id
+                                            if (t.column_id === column.id) return true;
 
-                                        // Fallback for tasks without column_id (legacy or status-based)
-                                        // CRITICAL: prevents duplication by only showing in the FIRST matching column 
-                                        if (!t.column_id && column.statuses.includes(t.status)) {
-                                            const primaryColumn = columns.find(c => c.statuses.includes(t.status));
-                                            return primaryColumn?.id === column.id;
-                                        }
-                                        return false;
-                                    });
+                                            // Fallback for tasks without column_id (legacy or status-based)
+                                            // CRITICAL: prevents duplication by only showing in the FIRST matching column 
+                                            if (!t.column_id && column.statuses.includes(t.status)) {
+                                                const primaryColumn = columns.find(c => c.statuses.includes(t.status));
+                                                return primaryColumn?.id === column.id;
+                                            }
+                                            return false;
+                                        });
 
-                                    const totalTime = calculateColumnTotalTime(columnTasks);
+                                        const totalTime = calculateColumnTotalTime(columnTasks);
 
-                                    return (
-                                        <Draggable key={column.id} draggableId={column.id} index={index}>
-                                            {(provided) => (
-                                                <div
-                                                    ref={provided.innerRef}
-                                                    {...provided.draggableProps}
-                                                    className="w-[85vw] md:w-[300px] flex-shrink-0 flex flex-col max-h-full bg-surface-dark rounded-xl border border-border-dark snap-center"
-                                                >
-                                                    {/* Column Header */}
+                                        return (
+                                            <Draggable key={column.id} draggableId={column.id} index={index}>
+                                                {(provided) => (
                                                     <div
-                                                        {...provided.dragHandleProps}
-                                                        className="p-3 flex items-center justify-between sticky top-0 bg-inherit rounded-t-xl z-10 border-b border-border-dark"
+                                                        ref={provided.innerRef}
+                                                        {...provided.draggableProps}
+                                                        className="w-[85vw] md:w-[300px] flex-shrink-0 flex flex-col max-h-full bg-surface-dark rounded-xl border border-border-dark snap-center"
                                                     >
-                                                        <div className="flex flex-col gap-1 flex-1 min-w-0">
-                                                            <div className="flex items-center gap-2">
-                                                                {editingColumnId === column.id ? (
-                                                                    <input
-                                                                        autoFocus
-                                                                        defaultValue={column.title}
-                                                                        onBlur={(e) => handleRenameColumn(column.id, e.target.value)}
-                                                                        className="bg-black/20 text-white text-xs font-bold px-1 rounded outline-none w-full"
-                                                                    />
-                                                                ) : (
-                                                                    <h3 className="font-bold text-text-primary text-sm uppercase tracking-wider truncate" title={column.title}>{column.title}</h3>
-                                                                )}
-                                                                <span className="bg-white/5 text-text-muted px-1.5 py-0.5 rounded text-[10px] font-bold">{columnTasks.length}</span>
-                                                            </div>
-
-                                                            {/* Column Intelligence */}
-                                                            {totalTime && (
-                                                                <div className="text-[10px] text-text-subtle flex items-center gap-1">
-                                                                    <span className="material-symbols-outlined text-[12px]">schedule</span>
-                                                                    {totalTime} estimados
+                                                        {/* Column Header */}
+                                                        <div
+                                                            {...provided.dragHandleProps}
+                                                            className="p-3 flex items-center justify-between sticky top-0 bg-inherit rounded-t-xl z-10 border-b border-border-dark"
+                                                        >
+                                                            <div className="flex flex-col gap-1 flex-1 min-w-0">
+                                                                <div className="flex items-center gap-2">
+                                                                    {editingColumnId === column.id ? (
+                                                                        <input
+                                                                            autoFocus
+                                                                            defaultValue={column.title}
+                                                                            onBlur={(e) => handleRenameColumn(column.id, e.target.value)}
+                                                                            className="bg-black/20 text-white text-xs font-bold px-1 rounded outline-none w-full"
+                                                                        />
+                                                                    ) : (
+                                                                        <h3 className="font-bold text-text-primary text-sm uppercase tracking-wider truncate" title={column.title}>{column.title}</h3>
+                                                                    )}
+                                                                    <span className="bg-white/5 text-text-muted px-1.5 py-0.5 rounded text-[10px] font-bold">{columnTasks.length}</span>
                                                                 </div>
-                                                            )}
-                                                        </div>
-                                                        <ColumnMenu
-                                                            columnId={column.id}
-                                                            onDeleteSuccess={() => handleDeleteColumnSuccess(column.id)}
-                                                            onEdit={() => setEditingColumnId(column.id)}
-                                                        />
-                                                    </div>
 
-                                                    {/* Scrollable Tasks Area */}
-                                                    <Droppable droppableId={column.id} type="TASK">
-                                                        {(provided) => (
-                                                            <div
-                                                                ref={provided.innerRef}
-                                                                {...provided.droppableProps}
-                                                                className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar"
-                                                            >
-                                                                {columnTasks.map((task, index) => {
-                                                                    const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== 'DONE';
-                                                                    const boardColor = (task as any).project?.board?.color || '#23482f';
-                                                                    // unused check
-                                                                    console.log(boardColor);
-                                                                    const attachmentCount = task.attachments?.length || 0;
-
-                                                                    // Basic check for checklist in description (not perfect count, but indication)
-                                                                    const hasChecklist = task.description?.includes('ul data-type="taskList"');
-                                                                    const checklistStats = extractChecklistFromHtml(task.description || '');
-                                                                    const checklistProgress = checklistStats.total > 0 ? Math.round((checklistStats.completed / checklistStats.total) * 100) : 0;
-                                                                    // const attachmentCount = task.attachments?.length || 0; // Already declared above
-                                                                    // const activeTeamLogs = {}; // This would override the state variable, not intended.
-                                                                    // const boardColor = task.project?.board?.color || '#3B82F6'; // Already declared above
-
-                                                                    return (
-                                                                        <Draggable key={task.id} draggableId={task.id} index={index}>
-                                                                            {(provided) => (
-                                                                                <div
-                                                                                    ref={provided.innerRef}
-                                                                                    {...provided.draggableProps}
-                                                                                    {...provided.dragHandleProps}
-                                                                                    onClick={() => navigate(`/tasks/${task.task_number}`)}
-                                                                                    className={`group relative bg-surface-dark p-4 rounded-lg shadow-sm border cursor-grab hover:shadow-md transition-all
-                                                                                        ${isOverdue ? 'border-red-500/50' : 'border-input-border/30 hover:border-primary/50'}
-                                                                                        ${column.variant === 'done' ? 'opacity-60 hover:opacity-100' : ''}
-                                                                                    `}
-                                                                                    style={{ ...provided.draggableProps.style }}
-                                                                                >
-                                                                                    {/* Priority Color Strip (Left) */}
-                                                                                    <div
-                                                                                        className="absolute top-2 bottom-2 left-0 w-1 rounded-r-md"
-                                                                                        style={{ backgroundColor: getPriorityColor(task.priority) }}
-                                                                                    ></div>
-
-                                                                                    <div className="pl-3 flex flex-col gap-2">
-                                                                                        {/* Header: ID & Client/Project */}
-                                                                                        <div className="flex items-center justify-between mb-0.5">
-                                                                                            <div className="flex items-center gap-2 overflow-hidden">
-                                                                                                <span className="text-[10px] font-mono text-text-muted">#{task.task_number}</span>
-                                                                                                {/* Client Name Lookup */}
-                                                                                                {(() => {
-                                                                                                    // Hierarchy: Task Client > Project Client (Joined) > Project Client (Lookup) > Project Name
-                                                                                                    const taskClientName = task.client?.name;
-                                                                                                    const projectClientName = task.project?.client?.name;
-                                                                                                    const lookupClientName = clients.find(c => c.id === task.project?.client_id)?.name;
-
-                                                                                                    const displayText = taskClientName || projectClientName || lookupClientName || task.project?.name;
-
-                                                                                                    return displayText && (
-                                                                                                        <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-white/5 text-text-secondary truncate max-w-[150px]">
-                                                                                                            {displayText}
-                                                                                                        </span>
-                                                                                                    );
-                                                                                                })()}
-                                                                                            </div>
-                                                                                            {getPriorityIcon(task.priority)}
-                                                                                        </div>
-
-                                                                                        {/* Title */}
-                                                                                        <h4 className={`text-[15px] font-semibold text-text-primary leading-snug mt-1 mb-2 ${column.variant === 'done' ? 'line-through text-text-muted' : ''}`}>
-                                                                                            {task.title}
-                                                                                        </h4>
-
-                                                                                        {/* Metadata Footer */}
-                                                                                        <div className="flex items-end justify-between mt-auto">
-                                                                                            {/* Left: Date / Continuous */}
-                                                                                            <div className="flex items-center gap-2">
-                                                                                                {task.due_date ? (
-                                                                                                    <div className={`flex items-center gap-1 text-[11px] font-medium ${isOverdue || new Date(task.due_date).toDateString() === new Date().toDateString() ? 'text-red-500' : 'text-text-secondary'}`}>
-                                                                                                        <span className="material-symbols-outlined text-[13px]">calendar_today</span>
-                                                                                                        <span>
-                                                                                                            {(() => {
-                                                                                                                const [y, m, d] = task.due_date!.split('T')[0].split('-').map(Number);
-                                                                                                                return new Date(y, m - 1, d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-                                                                                                            })()}
-                                                                                                        </span>
-                                                                                                    </div>
-                                                                                                ) : (
-                                                                                                    <div className="flex items-center gap-1 text-[11px] text-text-muted" title="Tarefa Contínua">
-                                                                                                        <span className="material-symbols-outlined text-[14px]">all_inclusive</span>
-                                                                                                        <span>Contínua</span>
-                                                                                                    </div>
-                                                                                                )}
-                                                                                            </div>
-
-                                                                                            {/* Right: Icons */}
-                                                                                            <div className="flex items-center gap-2 text-text-muted">
-                                                                                                {(hasChecklist || attachmentCount > 0) && (
-                                                                                                    <div className="flex items-center gap-2 text-text-muted">
-                                                                                                        {hasChecklist && (
-                                                                                                            <span className="material-symbols-outlined text-[14px]" title="Contém Checklist">check_box</span>
-                                                                                                        )}
-                                                                                                        {attachmentCount > 0 && (
-                                                                                                            <div className="flex items-center gap-0.5" title={`${attachmentCount} Anexos`}>
-                                                                                                                <span className="material-symbols-outlined text-[14px] -rotate-45">attach_file</span>
-                                                                                                                <span className="text-[10px] font-bold">{attachmentCount}</span>
-                                                                                                            </div>
-                                                                                                        )}
-                                                                                                    </div>
-                                                                                                )}
-                                                                                            </div>
-
-                                                                                            {/* Checklist Bar */}
-                                                                                            {checklistStats.total > 0 && (
-                                                                                                <div className="w-full mt-2 mb-1">
-                                                                                                    <div className="flex justify-between items-center mb-0.5">
-                                                                                                        <span className="text-[9px] text-text-muted font-bold">Checklist</span>
-                                                                                                        <span className="text-[9px] text-text-secondary">{checklistStats.completed}/{checklistStats.total}</span>
-                                                                                                    </div>
-                                                                                                    <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                                                                                                        <div
-                                                                                                            className="h-full bg-[#00FF00] transition-all duration-300 shadow-[0_0_8px_rgba(0,255,0,0.4)]"
-                                                                                                            style={{ width: `${checklistProgress}%` }}
-                                                                                                        ></div>
-                                                                                                    </div>
-                                                                                                </div>
-                                                                                            )}
-
-                                                                                            {/* Avatar */}
-                                                                                            <div className="relative">
-                                                                                                {activeTeamLogs[task.id] && (
-                                                                                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-50"></span>
-                                                                                                )}
-                                                                                                {task.assignee ? (
-                                                                                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold border border-[#333] ${activeTeamLogs[task.id] ? 'bg-primary text-black' : 'bg-surface-border text-text-subtle'}`} title={task.assignee.full_name}>
-                                                                                                        <img src={task.assignee.avatar_url} className="rounded-full w-full h-full object-cover" />
-                                                                                                    </div>
-                                                                                                ) : (
-                                                                                                    <div className="w-5 h-5 rounded-full bg-white/5 border border-dashed border-text-muted/30 flex items-center justify-center">
-                                                                                                        <span className="text-[10px] text-text-muted">?</span>
-                                                                                                    </div>
-                                                                                                )}
-                                                                                            </div>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                </div>
-                                                                            )}
-                                                                        </Draggable>
-                                                                    );
-                                                                })}
-                                                                {provided.placeholder}
-
-                                                                {columnTasks.length === 0 && (
-                                                                    <div className="h-20 flex items-center justify-center text-text-muted/20 border-2 border-dashed border-white/5 rounded-lg text-xs">
-                                                                        Vazio
+                                                                {/* Column Intelligence */}
+                                                                {totalTime && (
+                                                                    <div className="text-[10px] text-text-subtle flex items-center gap-1">
+                                                                        <span className="material-symbols-outlined text-[12px]">schedule</span>
+                                                                        {totalTime} estimados
                                                                     </div>
                                                                 )}
                                                             </div>
-                                                        )
-                                                        }
-                                                    </Droppable>
-                                                </div>
-                                            )}
-                                        </Draggable>
-                                    );
-                                })}
-                                {provided.placeholder}
-                            </div>
-                        )}
-                    </Droppable>
-                </div>
-            </DragDropContext>
+                                                            <ColumnMenu
+                                                                columnId={column.id}
+                                                                onDeleteSuccess={() => handleDeleteColumnSuccess(column.id)}
+                                                                onEdit={() => setEditingColumnId(column.id)}
+                                                            />
+                                                        </div>
+
+                                                        {/* Scrollable Tasks Area */}
+                                                        <Droppable droppableId={column.id} type="TASK">
+                                                            {(provided) => (
+                                                                <div
+                                                                    ref={provided.innerRef}
+                                                                    {...provided.droppableProps}
+                                                                    className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar"
+                                                                >
+                                                                    {columnTasks.map((task, index) => {
+                                                                        const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== 'DONE';
+                                                                        const boardColor = (task as any).project?.board?.color || '#23482f';
+                                                                        // unused check
+                                                                        console.log(boardColor);
+                                                                        const attachmentCount = task.attachments?.length || 0;
+
+                                                                        // Basic check for checklist in description (not perfect count, but indication)
+                                                                        const hasChecklist = task.description?.includes('ul data-type="taskList"');
+                                                                        const checklistStats = extractChecklistFromHtml(task.description || '');
+                                                                        const checklistProgress = checklistStats.total > 0 ? Math.round((checklistStats.completed / checklistStats.total) * 100) : 0;
+                                                                        // const attachmentCount = task.attachments?.length || 0; // Already declared above
+                                                                        // const activeTeamLogs = {}; // This would override the state variable, not intended.
+                                                                        // const boardColor = task.project?.board?.color || '#3B82F6'; // Already declared above
+
+                                                                        return (
+                                                                            <Draggable key={task.id} draggableId={task.id} index={index}>
+                                                                                {(provided) => (
+                                                                                    <div
+                                                                                        ref={provided.innerRef}
+                                                                                        {...provided.draggableProps}
+                                                                                        {...provided.dragHandleProps}
+                                                                                        onClick={() => navigate(`/tasks/${task.task_number}`)}
+                                                                                        className={`group relative bg-surface-dark p-4 rounded-lg shadow-sm border cursor-grab hover:shadow-md transition-all
+                                                                                        ${isOverdue ? 'border-red-500/50' : 'border-input-border/30 hover:border-primary/50'}
+                                                                                        ${column.variant === 'done' ? 'opacity-60 hover:opacity-100' : ''}
+                                                                                    `}
+                                                                                        style={{ ...provided.draggableProps.style }}
+                                                                                    >
+                                                                                        {/* Priority Color Strip (Left) */}
+                                                                                        <div
+                                                                                            className="absolute top-2 bottom-2 left-0 w-1 rounded-r-md"
+                                                                                            style={{ backgroundColor: getPriorityColor(task.priority) }}
+                                                                                        ></div>
+
+                                                                                        <div className="pl-3 flex flex-col gap-2">
+                                                                                            {/* Header: ID & Client/Project */}
+                                                                                            <div className="flex items-center justify-between mb-0.5">
+                                                                                                <div className="flex items-center gap-2 overflow-hidden">
+                                                                                                    <span className="text-[10px] font-mono text-text-muted">#{task.task_number}</span>
+                                                                                                    {/* Client Name Lookup */}
+                                                                                                    {(() => {
+                                                                                                        // Hierarchy: Task Client > Project Client (Joined) > Project Client (Lookup) > Project Name
+                                                                                                        const taskClientName = task.client?.name;
+                                                                                                        const projectClientName = task.project?.client?.name;
+                                                                                                        const lookupClientName = clients.find(c => c.id === task.project?.client_id)?.name;
+
+                                                                                                        const displayText = taskClientName || projectClientName || lookupClientName || task.project?.name;
+
+                                                                                                        return displayText && (
+                                                                                                            <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-white/5 text-text-secondary truncate max-w-[150px]">
+                                                                                                                {displayText}
+                                                                                                            </span>
+                                                                                                        );
+                                                                                                    })()}
+                                                                                                </div>
+                                                                                                {getPriorityIcon(task.priority)}
+                                                                                            </div>
+
+                                                                                            {/* Title */}
+                                                                                            <h4 className={`text-[15px] font-semibold text-text-primary leading-snug mt-1 mb-2 ${column.variant === 'done' ? 'line-through text-text-muted' : ''}`}>
+                                                                                                {task.title}
+                                                                                            </h4>
+
+                                                                                            {/* Metadata Footer */}
+                                                                                            <div className="flex items-end justify-between mt-auto">
+                                                                                                {/* Left: Date / Continuous */}
+                                                                                                <div className="flex items-center gap-2">
+                                                                                                    {task.due_date ? (
+                                                                                                        <div className={`flex items-center gap-1 text-[11px] font-medium ${isOverdue || new Date(task.due_date).toDateString() === new Date().toDateString() ? 'text-red-500' : 'text-text-secondary'}`}>
+                                                                                                            <span className="material-symbols-outlined text-[13px]">calendar_today</span>
+                                                                                                            <span>
+                                                                                                                {(() => {
+                                                                                                                    const [y, m, d] = task.due_date!.split('T')[0].split('-').map(Number);
+                                                                                                                    return new Date(y, m - 1, d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+                                                                                                                })()}
+                                                                                                            </span>
+                                                                                                        </div>
+                                                                                                    ) : (
+                                                                                                        <div className="flex items-center gap-1 text-[11px] text-text-muted" title="Tarefa Contínua">
+                                                                                                            <span className="material-symbols-outlined text-[14px]">all_inclusive</span>
+                                                                                                            <span>Contínua</span>
+                                                                                                        </div>
+                                                                                                    )}
+                                                                                                </div>
+
+                                                                                                {/* Right: Icons */}
+                                                                                                <div className="flex items-center gap-2 text-text-muted">
+                                                                                                    {/* Mirrored Indicator */}
+                                                                                                    {task.board_ids && task.board_ids.length > 1 && (
+                                                                                                        <div className="flex items-center gap-1 text-[#00FF00] bg-[#00FF00]/10 px-1.5 py-0.5 rounded border border-[#00FF00]/30 shadow-[0_0_5px_rgba(0,255,0,0.2)]" title="Tarefa Espelhada em Múltiplos Quadros">
+                                                                                                            <span className="material-symbols-outlined text-[12px] font-bold">dashboard_customize</span>
+                                                                                                            <span className="text-[10px] font-bold">+{task.board_ids.length - 1}</span>
+                                                                                                        </div>
+                                                                                                    )}
+                                                                                                    {(hasChecklist || attachmentCount > 0) && (
+                                                                                                        <div className="flex items-center gap-2 text-text-muted">
+                                                                                                            {hasChecklist && (
+                                                                                                                <span className="material-symbols-outlined text-[14px]" title="Contém Checklist">check_box</span>
+                                                                                                            )}
+                                                                                                            {attachmentCount > 0 && (
+                                                                                                                <div className="flex items-center gap-0.5" title={`${attachmentCount} Anexos`}>
+                                                                                                                    <span className="material-symbols-outlined text-[14px] -rotate-45">attach_file</span>
+                                                                                                                    <span className="text-[10px] font-bold">{attachmentCount}</span>
+                                                                                                                </div>
+                                                                                                            )}
+                                                                                                        </div>
+                                                                                                    )}
+                                                                                                </div>
+
+                                                                                                {/* Checklist Bar */}
+                                                                                                {checklistStats.total > 0 && (
+                                                                                                    <div className="w-full mt-2 mb-1">
+                                                                                                        <div className="flex justify-between items-center mb-0.5">
+                                                                                                            <span className="text-[9px] text-text-muted font-bold">Checklist</span>
+                                                                                                            <span className="text-[9px] text-text-secondary">{checklistStats.completed}/{checklistStats.total}</span>
+                                                                                                        </div>
+                                                                                                        <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                                                                                                            <div
+                                                                                                                className="h-full bg-[#00FF00] transition-all duration-300 shadow-[0_0_8px_rgba(0,255,0,0.4)]"
+                                                                                                                style={{ width: `${checklistProgress}%` }}
+                                                                                                            ></div>
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                )}
+
+                                                                                                {/* Avatar */}
+                                                                                                <div className="relative">
+                                                                                                    {activeTeamLogs[task.id] && (
+                                                                                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-50"></span>
+                                                                                                    )}
+                                                                                                    {task.assignee ? (
+                                                                                                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold border border-[#333] ${activeTeamLogs[task.id] ? 'bg-primary text-black' : 'bg-surface-border text-text-subtle'}`} title={task.assignee.full_name}>
+                                                                                                            <img src={task.assignee.avatar_url} className="rounded-full w-full h-full object-cover" />
+                                                                                                        </div>
+                                                                                                    ) : (
+                                                                                                        <div className="w-5 h-5 rounded-full bg-white/5 border border-dashed border-text-muted/30 flex items-center justify-center">
+                                                                                                            <span className="text-[10px] text-text-muted">?</span>
+                                                                                                        </div>
+                                                                                                    )}
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                )}
+                                                                            </Draggable>
+                                                                        );
+                                                                    })}
+                                                                    {provided.placeholder}
+
+                                                                    {columnTasks.length === 0 && (
+                                                                        <div className="h-20 flex items-center justify-center text-text-muted/20 border-2 border-dashed border-white/5 rounded-lg text-xs">
+                                                                            Vazio
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )
+                                                            }
+                                                        </Droppable>
+                                                    </div>
+                                                )}
+                                            </Draggable>
+                                        );
+                                    })}
+                                    {provided.placeholder}
+                                </div>
+                            )}
+                        </Droppable>
+                    </div>
+                </DragDropContext>
+            )}
 
             <NewColumnModal
                 isOpen={isNewColumnModalOpen}

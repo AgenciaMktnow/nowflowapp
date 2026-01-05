@@ -9,6 +9,8 @@ import { logActivity } from '../services/activityLogger';
 import { boardService, type Column } from '../services/board.service';
 import { toast } from 'sonner';
 import Header from '../components/layout/Header/Header';
+import { MultiBoardSelector } from '../components/MultiBoardSelector';
+import type { Board } from '../types/database.types';
 
 type Task = {
     id: string;
@@ -125,6 +127,10 @@ export default function TaskDetail() {
     // Checklist
     const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
 
+    // Multi-Board State
+    const [boards, setBoards] = useState<Board[]>([]);
+    const [selectedBoardIds, setSelectedBoardIds] = useState<string[]>([]);
+
     useEffect(() => {
         if (id) {
             fetchTask();
@@ -141,8 +147,22 @@ export default function TaskDetail() {
                 const items = extractChecklistFromHtml(task.description);
                 setChecklistItems(items);
             }
+
+            // Set selected boards
+            if (task.id) { // Ensure we have the UUID
+                fetchTaskBoards(task.id);
+            }
         }
     }, [task]);
+
+    // Fetch boards list once
+    useEffect(() => {
+        const fetchBoards = async () => {
+            const { data } = await supabase.from('boards').select('*').order('name');
+            if (data) setBoards(data);
+        };
+        fetchBoards();
+    }, []);
 
     useEffect(() => {
         if (isTracking) {
@@ -244,6 +264,51 @@ export default function TaskDetail() {
             }
         } catch (error) {
             console.error('Error fetching board columns:', error);
+        }
+    };
+
+    const fetchTaskBoards = async (taskId: string) => {
+        const { data } = await supabase.from('task_boards').select('board_id').eq('task_id', taskId);
+        if (data) {
+            const ids = data.map(d => d.board_id);
+            // If no boards (legacy), maybe fallback to project's board? 
+            // Logic: If task.project.board_id exists and not in list, maybe should add?
+            // For now, raw truth from task_boards.
+            if (ids.length === 0 && task?.project?.board_id) {
+                setSelectedBoardIds([task.project.board_id]);
+            } else {
+                setSelectedBoardIds(ids);
+            }
+        }
+    };
+
+    const handleBoardChange = async (newBoardIds: string[]) => {
+        if (!task) return;
+
+        // Optimistic Update
+        setSelectedBoardIds(newBoardIds);
+
+        try {
+            // 1. Get current DB state to minimize writes? Or just nuke and replace (easier but careful with RLS)
+            // Safer: Delete all for this task, Insert new.
+
+            // Delete old
+            const { error: deleteError } = await supabase.from('task_boards').delete().eq('task_id', task.id);
+            if (deleteError) throw deleteError;
+
+            // Insert new
+            if (newBoardIds.length > 0) {
+                const inserts = newBoardIds.map(bid => ({ task_id: task.id, board_id: bid }));
+                const { error: insertError } = await supabase.from('task_boards').insert(inserts);
+                if (insertError) throw insertError;
+            }
+
+            toast.success('Quadros atualizados com sucesso!');
+        } catch (error: any) {
+            console.error('Error updating boards:', error);
+            toast.error('Erro ao atualizar quadros');
+            // Revert state?
+            fetchTaskBoards(task.id);
         }
     };
 
@@ -1278,6 +1343,19 @@ export default function TaskDetail() {
                     </div>
 
                     <div className="lg:col-span-4 flex flex-col gap-6 sticky top-24">
+                        {/* Multi-Board Selector */}
+                        <div className="bg-surface-dark rounded-xl border border-border-dark p-6 shadow-lg">
+                            <h3 className="text-white text-sm font-bold uppercase tracking-wider mb-4 flex items-center gap-2">
+                                <span className="material-symbols-outlined text-primary text-[18px]">dashboard</span>
+                                Quadros Vinculados
+                            </h3>
+                            <MultiBoardSelector
+                                boards={boards}
+                                selectedBoardIds={selectedBoardIds}
+                                onChange={handleBoardChange}
+                            />
+                        </div>
+
                         {/* Assignees */}
                         <div className="bg-surface-dark rounded-xl border border-border-dark p-6 shadow-lg">
                             <h3 className="text-white text-sm font-bold uppercase tracking-wider mb-4 flex items-center gap-2">

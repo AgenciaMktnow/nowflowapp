@@ -33,7 +33,8 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const migrations = [
     'supabase/migrations/20260105_project_hierarchy_integrity.sql',
     'supabase/migrations/20260105_add_client_default_team.sql',
-    'supabase/migrations/emergency_fix_user_creation.sql'
+    'supabase/migrations/emergency_fix_user_creation.sql',
+    'supabase/migrations/20260105_create_task_boards.sql'
 ];
 
 async function runMigrations() {

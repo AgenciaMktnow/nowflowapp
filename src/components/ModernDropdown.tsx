@@ -21,8 +21,9 @@ export default function ModernDropdown({
     onChange,
     placeholder = 'Selecione...',
     icon,
-    className = ''
-}: ModernDropdownProps) {
+    className = '',
+    disabled = false
+}: ModernDropdownProps & { disabled?: boolean }) {
     const [isOpen, setIsOpen] = useState(false);
     const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -80,11 +81,13 @@ export default function ModernDropdown({
         <div className={`relative ${className}`} ref={dropdownRef}>
             <button
                 type="button"
-                onClick={() => setIsOpen(!isOpen)}
-                className={`w-full flex items-center justify-between gap-2 px-4 h-14 rounded-xl border hover:border-primary/50 text-sm font-medium transition-all appearance-none cursor-pointer
-                    ${value
+                onClick={() => !disabled && setIsOpen(!isOpen)}
+                disabled={disabled}
+                className={`w-full flex items-center justify-between gap-2 px-4 h-14 rounded-xl border hover:border-primary/50 text-sm font-medium transition-all appearance-none
+                    ${disabled ? 'opacity-50 cursor-not-allowed bg-black/20 border-white/5' : 'cursor-pointer'}
+                    ${value && !disabled
                         ? 'bg-transparent border-primary/50 text-text-main'
-                        : 'bg-input-bg border-input-border text-text-secondary hover:text-text-main hover:border-text-secondary/50'
+                        : (!disabled ? 'bg-input-bg border-input-border text-text-secondary hover:text-text-main hover:border-text-secondary/50' : '')
                     }
                     ${isOpen ? 'ring-2 ring-primary border-transparent' : ''}
                 `}

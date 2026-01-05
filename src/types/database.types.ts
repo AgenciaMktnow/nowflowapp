@@ -9,6 +9,29 @@ export type Json =
 export interface Database {
     public: {
         Tables: {
+            boards: {
+                Row: {
+                    id: string
+                    name: string
+                    color: string | null
+                    background_url: string | null
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    name: string
+                    color?: string | null
+                    background_url?: string | null
+                    created_at?: string
+                }
+                Update: {
+                    id?: string
+                    name?: string
+                    color?: string | null
+                    background_url?: string | null
+                    created_at?: string
+                }
+            }
             teams: {
                 Row: {
                     id: string
@@ -137,6 +160,26 @@ export interface Database {
                     updated_at?: string
                 }
             }
+            task_boards: {
+                Row: {
+                    task_id: string
+                    board_id: string
+                    created_at: string
+                }
+                Insert: {
+                    task_id: string
+                    board_id: string
+                    created_at?: string
+                }
+                Update: {
+                    task_id?: string
+                    board_id?: string
+                    created_at?: string
+                }
+            }
         }
     }
 }
+
+export type Board = Database['public']['Tables']['boards']['Row'];
+export type Project = Database['public']['Tables']['projects']['Row'];
