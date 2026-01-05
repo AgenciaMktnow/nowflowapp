@@ -336,9 +336,7 @@ export default function NewTask() {
                         id: user.id,
                         email: user.email,
                         full_name: userProfile?.full_name || user.email,
-                        role: userProfile?.role || 'MEMBER',
-                        avatar_url: userProfile?.avatar_url || null,
-                        updated_at: new Date().toISOString()
+                        role: userProfile?.role || 'MEMBER'
                     }, {
                         onConflict: 'id',
                         ignoreDuplicates: false
