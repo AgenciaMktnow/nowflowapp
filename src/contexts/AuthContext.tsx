@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { User, Session } from '@supabase/supabase-js';
 import { authService } from '../services/auth.service';
 import { toast } from 'sonner';
@@ -26,6 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
     const [session, setSession] = useState<Session | null>(null);
     const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
 
     const fetchUserProfile = async (userId: string) => {
         try {
@@ -98,6 +100,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Listen for changes on auth state
         const { data: { subscription } } = authService.onAuthStateChange((_event, session) => {
             console.log(`AuthProvider: Auth State Change [${_event}]`);
+
+            if (_event === 'PASSWORD_RECOVERY') {
+                console.log("AuthProvider: Password recovery detected! Redirecting to /reset-password");
+                navigate('/reset-password');
+                return;
+            }
+
             if (!mounted) return;
             setSession(session);
             setUser(session?.user ?? null);
