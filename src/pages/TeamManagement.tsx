@@ -156,22 +156,19 @@ export default function TeamManagement() {
                 // Wait a bit for the auth user to be created
                 await new Promise(resolve => setTimeout(resolve, 1000));
 
-                // Create user record in users table with the SAME ID from auth
+                // Use RPC function to create user profile (bypasses RLS)
                 const { data, error } = await supabase
-                    .from('users')
-                    .insert([{
-                        id: authData.user.id, // CRITICAL: Use the ID from auth.signUp!
-                        email: selectedUser.email,
-                        full_name: selectedUser.full_name,
-                        role: selectedUser.role.toUpperCase(),
-                        avatar_url: selectedUser.avatar_url
-                    }])
-                    .select();
+                    .rpc('ensure_user_profile', {
+                        user_id: authData.user.id,
+                        user_email: selectedUser.email,
+                        user_full_name: selectedUser.full_name,
+                        user_role: selectedUser.role.toUpperCase()
+                    });
 
                 if (error) throw error;
 
                 if (data) {
-                    const userId = data[0].id;
+                    const userId = data.id; // RPC returns JSON object, not array
 
                     // Save Teams
                     if (selectedUser.team_ids && selectedUser.team_ids.length > 0) {
