@@ -317,6 +317,48 @@ export default function NewTask() {
         setLoading(true);
 
         try {
+            // DEBUG: Log complete auth user data
+            console.log('=== AUTH USER DATA ===');
+            console.log('Full user object:', user);
+            console.log('User ID:', user?.id);
+            console.log('User Email:', user?.email);
+            console.log('User Full Name:', user?.full_name);
+            console.log('User Role:', user?.role);
+
+            // CRITICAL: Force create/update user profile BEFORE task creation
+            // This ensures the user exists in public.users table
+            if (user?.id && user?.email) {
+                console.log('🔧 Forcing user profile upsert...');
+
+                const { data: upsertData, error: upsertError } = await supabase
+                    .from('users')
+                    .upsert({
+                        id: user.id,
+                        email: user.email,
+                        full_name: user.full_name || user.email,
+                        role: user.role || 'MEMBER',
+                        avatar_url: user.avatar_url || null,
+                        updated_at: new Date().toISOString()
+                    }, {
+                        onConflict: 'id',
+                        ignoreDuplicates: false
+                    })
+                    .select()
+                    .single();
+
+                if (upsertError) {
+                    console.error('❌ Profile upsert failed:', upsertError);
+                    toast.error('Erro ao sincronizar perfil. Tente fazer logout e login novamente.');
+                    throw upsertError;
+                } else {
+                    console.log('✅ Profile upserted successfully:', upsertData);
+                }
+            } else {
+                console.error('❌ Missing user ID or email, cannot create profile');
+                toast.error('Dados de autenticação incompletos. Faça logout e login novamente.');
+                throw new Error('Missing user authentication data');
+            }
+
             // DEBUG: Log all IDs before submission
             console.log('=== TASK SUBMISSION DEBUG ===');
             console.log('User ID (created_by):', user?.id, 'Type:', typeof user?.id);
@@ -329,7 +371,7 @@ export default function NewTask() {
             // Verify IDs exist in database
             console.log('Verifying IDs in database...');
 
-            // Check if user exists
+            // Check if user exists (should always pass now after upsert)
             const { data: userData, error: userError } = await supabase
                 .from('users')
                 .select('id, full_name')
