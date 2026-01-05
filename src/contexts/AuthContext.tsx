@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, [loading]);
 
     useEffect(() => {
-        console.log("%c AuthProvider: Mounting...", "color: #13ec5b; font-weight: bold;");
+        console.log("%c AuthProvider v5.0 (Locked Loading Fix): Mounting...", "color: #13ec5b; font-weight: bold; font-size: 14px;");
         let mounted = true;
 
         // Failsafe timeout
