@@ -37,15 +37,43 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Redirect handler for Root path to catch Supabase fallbacks
+function RootHandler() {
+  const { session } = useAuth();
+  const location = useLocation();
+
+  useEffect(() => {
+    console.log("RootHandler: Visiting root with hash:", location.hash);
+    if (location.hash.includes('type=recovery') || location.hash.includes('access_token') || location.hash.includes('error=')) {
+      console.log("RootHandler: Auth hash detected at root! Forwarding to AuthCallback.");
+      // We use window.location.replace to preserve the hash which navigate might mess up or if we want to be explicit
+      // But internal navigate is better for SPA.
+      // Force navigate to AuthCallback WITH the hash
+      // Using replace to not break history
+      // We need to re-append the hash because navigate might strip it if not explicit
+      // Actually navigate({ hash: location.hash }) works
+    }
+  }, [location]);
+
+  if (location.hash.includes('type=recovery') || location.hash.includes('access_token') || location.hash.includes('error=')) {
+    return <Navigate to="/auth/callback" replace state={{ from: location }} />;
+  }
+
+  if (session) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <Navigate to="/login" replace />;
+}
+
 function App() {
   return (
     <Router>
       <AuthProvider>
         <SettingsProvider>
           <Routes>
+            <Route path="/" element={<RootHandler />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<SignUp />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/signup" element={<SignUp />} />            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
 
             {/* Protected Routes with Layout */}
@@ -54,7 +82,7 @@ function App() {
                 <Layout />
               </ProtectedRoute>
             }>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              {/* <Route path="/" element={<Navigate to="/dashboard" replace />} />  <-- Removed */}
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="queue" element={<MyQueue />} /> {/* Corrected Component Name */}
               <Route path="kanban" element={<Projects />} />
