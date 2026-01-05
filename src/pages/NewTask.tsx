@@ -26,7 +26,7 @@ type User = {
 
 export default function NewTask() {
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, userProfile } = useAuth();
     const { id } = useParams(); // 'id' here is task_number based on routes
     const [searchParams] = useSearchParams();
     const cloneFrom = searchParams.get('clone_from');
@@ -322,8 +322,8 @@ export default function NewTask() {
             console.log('Full user object:', user);
             console.log('User ID:', user?.id);
             console.log('User Email:', user?.email);
-            console.log('User Full Name:', user?.full_name);
-            console.log('User Role:', user?.role);
+            console.log('Profile Full Name:', userProfile?.full_name);
+            console.log('Profile Role:', userProfile?.role);
 
             // CRITICAL: Force create/update user profile BEFORE task creation
             // This ensures the user exists in public.users table
@@ -335,9 +335,9 @@ export default function NewTask() {
                     .upsert({
                         id: user.id,
                         email: user.email,
-                        full_name: user.full_name || user.email,
-                        role: user.role || 'MEMBER',
-                        avatar_url: user.avatar_url || null,
+                        full_name: userProfile?.full_name || user.email,
+                        role: userProfile?.role || 'MEMBER',
+                        avatar_url: userProfile?.avatar_url || null,
                         updated_at: new Date().toISOString()
                     }, {
                         onConflict: 'id',
