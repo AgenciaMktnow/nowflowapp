@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
 
 export default function AuthCallback() {
@@ -9,6 +10,18 @@ export default function AuthCallback() {
         // Handle the redirect logic
         const handleAuthRedirect = async () => {
             console.log("AuthCallback: Processing auth callback...");
+
+            const hash = window.location.hash;
+
+            // Check for errors in hash (e.g., expired link)
+            if (hash && hash.includes('error=')) {
+                console.error("AuthCallback: Error detected in hash:", hash);
+                const params = new URLSearchParams(hash.substring(1)); // remove #
+                const errorDescription = params.get('error_description') || 'Erro desconhecido na autenticação.';
+                toast.error(errorDescription.replace(/\+/g, ' '));
+                navigate('/login'); // Redirect back to login so they can try again
+                return;
+            }
 
             // Check session explicity
             const { data: { session }, error } = await supabase.auth.getSession();
@@ -21,7 +34,7 @@ export default function AuthCallback() {
 
             // Check specifically for password recovery flow in URL
             // This is the most reliable way as onAuthStateChange might trigger SIGNED_IN first
-            const hash = window.location.hash;
+            // hash check for recovery
             if (hash && hash.includes('type=recovery')) {
                 console.log("AuthCallback: Recovery type detected in hash. Redirecting to reset password.");
                 navigate('/reset-password');
