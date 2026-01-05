@@ -74,7 +74,9 @@ export default function Login() {
         e.preventDefault();
         setResetLoading(true);
         try {
-            const { error } = await authService.resetPasswordForEmail(resetEmail, 'https://www.nowflow.it/auth/callback');
+            const redirectUrl = 'https://www.nowflow.it/auth/callback';
+            console.log('Sending recovery email with redirect:', redirectUrl);
+            const { error } = await authService.resetPasswordForEmail(resetEmail, redirectUrl);
             if (error) throw error;
             toast.success('Email de recuperação enviado! Verifique sua caixa de entrada.');
             setShowForgotPassword(false);
