@@ -349,17 +349,15 @@ export default function NewTask() {
                     if (upsertError.code === '23505' || upsertError.message?.toLowerCase().includes('duplicate')) {
                         console.log('✅ User already exists in database (duplicate key), continuing...');
                     } else {
-                        console.error('❌ Profile upsert failed:', upsertError);
-                        toast.error('Erro ao sincronizar perfil. Tente fazer logout e login novamente.');
-                        throw upsertError;
+                        console.warn('⚠️ Profile upsert failed (non-critical):', upsertError);
+                        // Don't throw - let task creation proceed anyway
                     }
                 } else {
                     console.log('✅ Profile upserted successfully:', upsertData);
                 }
             } else {
-                console.error('❌ Missing user ID or email, cannot create profile');
-                toast.error('Dados de autenticação incompletos. Faça logout e login novamente.');
-                throw new Error('Missing user authentication data');
+                console.warn('⚠️ Missing user ID or email, skipping profile upsert');
+                // Don't throw - let task creation proceed anyway
             }
 
             // DEBUG: Log all IDs before submission
