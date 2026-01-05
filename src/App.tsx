@@ -57,7 +57,7 @@ function RootHandler() {
   }, [location]);
 
   if (location.hash.includes('type=recovery') || location.hash.includes('access_token') || location.hash.includes('error=')) {
-    return <Navigate to="/auth/callback" replace state={{ from: location }} />;
+    return <Navigate to={`/auth/callback${location.hash}`} replace state={{ from: location }} />;
   }
 
   if (session) {
