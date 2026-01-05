@@ -66,15 +66,15 @@ export default function Login() {
                 <div className="absolute top-0 left-0 w-full h-1 bg-primary/20 shadow-[0_0_20px_rgba(19,236,91,0.2)]"></div>
             </div>
 
-            <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-12 pb-16 sm:px-6 lg:px-8">
-                <div className="w-[90vw] sm:w-full sm:max-w-md space-y-8">
+            <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-6 sm:py-8 lg:px-8">
+                <div className="w-[90vw] sm:w-full sm:max-w-md space-y-4">
                     {/* Branding Header */}
                     <div className="flex flex-col items-center text-center">
                         {settings.logo_dark_url ? (
                             <img
                                 src={settings.logo_dark_url}
                                 alt="Logo"
-                                className="max-h-12 w-auto mb-8 object-contain"
+                                className="max-h-12 w-auto mb-4 object-contain"
                             />
                         ) : (
                             <>
@@ -92,12 +92,12 @@ export default function Login() {
                     </div>
 
                     {/* Login Card */}
-                    <div className="bg-surface-card backdrop-blur-sm rounded-xl border border-white/5 shadow-2xl p-8 sm:p-10">
-                        <h2 className="mb-6 text-center text-2xl font-bold leading-tight tracking-tight text-white">
+                    <div className="bg-surface-card backdrop-blur-sm rounded-xl border border-white/5 shadow-2xl p-6 sm:p-8">
+                        <h2 className="mb-4 text-center text-2xl font-bold leading-tight tracking-tight text-white">
                             Acesse sua conta
                         </h2>
 
-                        <form className="space-y-6" onSubmit={handleLogin}>
+                        <form className="space-y-4" onSubmit={handleLogin}>
 
                             {/* Email Field */}
                             <div>
@@ -166,7 +166,7 @@ export default function Login() {
                             </div>
                         </form>
 
-                        <div className="relative mt-8 mb-6">
+                        <div className="relative mt-4 mb-4">
                             <div aria-hidden="true" className="absolute inset-0 flex items-center">
                                 <div className="w-full border-t border-white/5"></div>
                             </div>
@@ -204,7 +204,7 @@ export default function Login() {
                         </button>
 
                         {/* Divider */}
-                        <div className="relative mt-8">
+                        <div className="relative mt-4">
                             <div aria-hidden="true" className="absolute inset-0 flex items-center">
                                 <div className="w-full border-t border-white/5"></div>
                             </div>
@@ -216,7 +216,7 @@ export default function Login() {
                         </div>
 
                         {/* Create Account Link */}
-                        <div className="mt-6">
+                        <div className="mt-4">
                             <Link to="/signup" className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary/5 hover:bg-primary/10 px-3 py-3 text-sm font-semibold text-white shadow-sm border border-primary/20 hover:border-primary/40 transition-all duration-300">
                                 Criar uma conta
                             </Link>

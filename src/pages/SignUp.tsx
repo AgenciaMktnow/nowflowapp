@@ -78,7 +78,7 @@ export default function SignUp() {
 
     return (
         <div className="flex min-h-screen w-full bg-background-dark text-white font-display overflow-hidden relative flex-col antialiased selection:bg-primary selection:text-background-dark">
-            <div className="relative flex min-h-screen w-full flex-col justify-center overflow-hidden py-6 sm:py-12">
+            <div className="relative flex min-h-screen w-full flex-col justify-center overflow-hidden py-4 sm:py-6">
                 {/* Background Pattern - Subtle Neon Glow */}
                 <div className="absolute inset-0 z-0">
                     <div className="absolute inset-0 bg-gradient-to-t from-background-dark via-background-dark/95 to-background-dark/90"></div>
@@ -88,12 +88,12 @@ export default function SignUp() {
                 <div className="relative w-[90vw] sm:w-full sm:max-w-[520px] mx-auto px-4 sm:px-6">
 
                     {/* Logo Area */}
-                    <div className="flex flex-col items-center justify-center text-center mb-8">
+                    <div className="flex flex-col items-center justify-center text-center mb-4">
                         {settings.logo_dark_url ? (
                             <img
                                 src={settings.logo_dark_url}
                                 alt="Logo"
-                                className="max-h-12 w-auto mb-8 object-contain"
+                                className="max-h-12 w-auto mb-4 object-contain"
                             />
                         ) : (
                             <>
@@ -113,7 +113,7 @@ export default function SignUp() {
                     {/* Card Container */}
                     <div className="bg-surface-card backdrop-blur-sm rounded-2xl shadow-2xl border border-white/5 overflow-hidden">
                         {/* Header */}
-                        <div className="px-8 pt-8 pb-4 text-center">
+                        <div className="px-8 pt-4 pb-2 text-center">
                             <h2 className="text-2xl font-bold text-white mb-2">Crie sua conta</h2>
                             <p className="text-text-secondary text-sm">
                                 Junte-se a nós para gerenciar seus projetos com eficiência.
@@ -121,14 +121,14 @@ export default function SignUp() {
                         </div>
 
                         {/* Form */}
-                        <form className="px-8 flex flex-col gap-5 pt-2 pb-6" onSubmit={handleSignUp}>
+                        <form className="px-8 flex flex-col gap-3 pt-2 pb-4" onSubmit={handleSignUp}>
 
                             {/* Nome */}
                             <label className="flex flex-col gap-2">
                                 <span className="text-text-secondary text-sm font-medium">Nome Completo</span>
                                 <div className="relative">
                                     <input
-                                        className="form-input w-full rounded-lg bg-background-dark/50 border border-white/10 text-white placeholder:text-text-secondary/40 focus:ring-2 focus:ring-primary h-12 px-4 transition-all duration-300 text-base sm:text-sm focus:outline-none"
+                                        className="form-input w-full rounded-lg bg-background-dark/50 border border-white/10 text-white placeholder:text-text-secondary/40 focus:ring-2 focus:ring-primary h-10 px-4 transition-all duration-300 text-base sm:text-sm focus:outline-none"
                                         placeholder="Digite seu nome"
                                         type="text"
                                         required
@@ -145,7 +145,7 @@ export default function SignUp() {
                                 <span className="text-text-secondary text-sm font-medium">E-mail</span>
                                 <div className="relative">
                                     <input
-                                        className="form-input w-full rounded-lg bg-background-dark/50 border border-white/10 text-white placeholder:text-text-secondary/40 focus:ring-2 focus:ring-primary h-12 px-4 transition-all duration-300 text-base sm:text-sm focus:outline-none"
+                                        className="form-input w-full rounded-lg bg-background-dark/50 border border-white/10 text-white placeholder:text-text-secondary/40 focus:ring-2 focus:ring-primary h-10 px-4 transition-all duration-300 text-base sm:text-sm focus:outline-none"
                                         placeholder="exemplo@nowflow.com"
                                         type="email"
                                         required
@@ -156,12 +156,12 @@ export default function SignUp() {
                             </label>
 
                             {/* Senha */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <label className="flex flex-col gap-2">
                                     <span className="text-text-secondary text-sm font-medium">Senha</span>
                                     <div className="relative flex items-center">
                                         <input
-                                            className="form-input w-full rounded-lg bg-background-dark/50 border border-white/10 text-white placeholder:text-text-secondary/40 focus:ring-2 focus:ring-primary h-12 pl-4 pr-10 transition-all duration-300 text-base sm:text-sm focus:outline-none"
+                                            className="form-input w-full rounded-lg bg-background-dark/50 border border-white/10 text-white placeholder:text-text-secondary/40 focus:ring-2 focus:ring-primary h-10 pl-4 pr-10 transition-all duration-300 text-base sm:text-sm focus:outline-none"
                                             placeholder="••••••••"
                                             type={showPassword ? "text" : "password"}
                                             required
@@ -185,7 +185,7 @@ export default function SignUp() {
                                     <span className="text-text-secondary text-sm font-medium">Confirmar Senha</span>
                                     <div className="relative flex items-center">
                                         <input
-                                            className="form-input w-full rounded-lg bg-background-dark/50 border border-white/10 text-white placeholder:text-text-secondary/40 focus:ring-2 focus:ring-primary h-12 pl-4 pr-10 transition-all duration-300 text-base sm:text-sm focus:outline-none"
+                                            className="form-input w-full rounded-lg bg-background-dark/50 border border-white/10 text-white placeholder:text-text-secondary/40 focus:ring-2 focus:ring-primary h-10 pl-4 pr-10 transition-all duration-300 text-base sm:text-sm focus:outline-none"
                                             placeholder="••••••••"
                                             type={showConfirmPassword ? "text" : "password"}
                                             required
@@ -207,7 +207,7 @@ export default function SignUp() {
 
                             {/* Botão Criar Conta */}
                             <button
-                                className="mt-4 w-full h-12 bg-primary hover:bg-primary/90 text-background-dark font-bold text-base rounded-lg shadow-[0_0_20px_rgba(19,236,91,0.2)] hover:shadow-[0_0_25px_rgba(19,236,91,0.3)] transition-all duration-300 flex items-center justify-center gap-2 transform active:scale-[0.98] disabled:opacity-50 uppercase tracking-wider"
+                                className="mt-4 w-full h-10 bg-primary hover:bg-primary/90 text-background-dark font-bold text-base rounded-lg shadow-[0_0_20px_rgba(19,236,91,0.2)] hover:shadow-[0_0_25px_rgba(19,236,91,0.3)] transition-all duration-300 flex items-center justify-center gap-2 transform active:scale-[0.98] disabled:opacity-50 uppercase tracking-wider"
                                 type="submit"
                                 disabled={loading}
                             >
@@ -216,7 +216,7 @@ export default function SignUp() {
                             </button>
 
                             {/* Google Login Section */}
-                            <div className="relative mt-6 mb-4">
+                            <div className="relative mt-4 mb-2">
                                 <div aria-hidden="true" className="absolute inset-0 flex items-center">
                                     <div className="w-full border-t border-white/5"></div>
                                 </div>
@@ -230,7 +230,7 @@ export default function SignUp() {
                             <button
                                 type="button"
                                 onClick={handleGoogleLogin}
-                                className="flex w-full items-center justify-center gap-3 rounded-lg border border-white/10 bg-background-dark/50 px-3 h-[50px] text-sm font-semibold text-white shadow-sm hover:bg-background-dark transition-all duration-300"
+                                className="flex w-full items-center justify-center gap-3 rounded-lg border border-white/10 bg-background-dark/50 px-3 h-[40px] text-sm font-semibold text-white shadow-sm hover:bg-background-dark transition-all duration-300"
                             >
                                 <svg className="h-5 w-5" viewBox="0 0 24 24">
                                     <path
@@ -264,7 +264,7 @@ export default function SignUp() {
                     </div>
 
                     {/* Footer Links */}
-                    <p className="text-center text-xs text-text-secondary/60 mt-8 mb-8">
+                    <p className="text-center text-xs text-text-secondary/60 mt-4 mb-2">
                         © {new Date().getFullYear()} NowFlow Inc. Todos os direitos reservados.
                         <br />
                         <a href="#" className="hover:text-primary transition-colors underline decoration-dotted underline-offset-4">Privacidade</a> · <a href="#" className="hover:text-primary transition-colors underline decoration-dotted underline-offset-4">Termos</a>
