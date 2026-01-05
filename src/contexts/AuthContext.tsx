@@ -94,12 +94,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     console.log("AuthProvider: Fetching user profile...");
                     await fetchUserProfile(session.user.id);
                 } else {
-                    console.log("AuthProvider: No session found. Finishing load.");
-                    setLoading(false);
+                    const hash = window.location.hash;
+                    // Strict Check: If hash contains auth params, DO NOT set loading to false.
+                    // Wait for the onAuthStateChange event to fire.
+                    if (hash && (hash.includes('access_token') || hash.includes('type=recovery'))) {
+                        console.log("AuthProvider: Auth hash detected. Keeping loading=true for Supabase processing.");
+                    } else {
+                        console.log("AuthProvider: No session found. Finishing load.");
+                        setLoading(false);
+                    }
                 }
             } catch (err) {
                 console.error("AuthProvider: Unexpected crash:", err);
-                if (mounted) setLoading(false);
+                if (mounted) {
+                    // Same check for crash
+                    const hash = window.location.hash;
+                    if (hash && (hash.includes('access_token') || hash.includes('type=recovery'))) {
+                        console.log("AuthProvider: Crash but Hash detected. Keeping loading=true.");
+                    } else {
+                        setLoading(false);
+                    }
+                }
             }
         };
 
