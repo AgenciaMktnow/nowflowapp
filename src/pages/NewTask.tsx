@@ -345,9 +345,14 @@ export default function NewTask() {
                     .single();
 
                 if (upsertError) {
-                    console.error('❌ Profile upsert failed:', upsertError);
-                    toast.error('Erro ao sincronizar perfil. Tente fazer logout e login novamente.');
-                    throw upsertError;
+                    // Ignore duplicate key errors - user already exists, which is fine
+                    if (upsertError.code === '23505' || upsertError.message?.toLowerCase().includes('duplicate')) {
+                        console.log('✅ User already exists in database (duplicate key), continuing...');
+                    } else {
+                        console.error('❌ Profile upsert failed:', upsertError);
+                        toast.error('Erro ao sincronizar perfil. Tente fazer logout e login novamente.');
+                        throw upsertError;
+                    }
                 } else {
                     console.log('✅ Profile upserted successfully:', upsertData);
                 }
