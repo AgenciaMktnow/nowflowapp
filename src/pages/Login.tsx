@@ -263,6 +263,8 @@ export default function Login() {
                         © {new Date().getFullYear()} NowFlow Inc. Todos os direitos reservados.
                         <br />
                         <a href="#" className="hover:text-primary transition-colors underline decoration-dotted underline-offset-4">Privacidade</a> · <a href="#" className="hover:text-primary transition-colors underline decoration-dotted underline-offset-4">Termos</a>
+                        <br />
+                        <span className="text-[10px] text-primary mt-2 block font-mono bg-primary/10 py-1 px-2 rounded-full inline-block border border-primary/20">v5.0 (Deploy Confirmado)</span>
                     </p>
                 </div>
             </div>
