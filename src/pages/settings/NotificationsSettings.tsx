@@ -144,6 +144,41 @@ export default function NotificationsSettings() {
                     As notificações internas (sino no topo do app) continuarão ativas mesmo que o envio de e-mail esteja desligado.
                 </p>
             </div>
+            {/* Test Email Section */}
+            <div className="mt-8 pt-8 border-t border-[#23482f]/50">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-xl bg-[#14261d]/50 border border-[#23482f]">
+                    <div className="space-y-1">
+                        <h4 className="text-white font-bold text-sm">Validar Configuração</h4>
+                        <p className="text-[#92c9a4] text-xs">Envie um e-mail de teste para garantir que sua conta está recebendo notificações.</p>
+                    </div>
+                    <button
+                        onClick={async () => {
+                            try {
+                                const toastId = toast.loading('Enviando e-mail de teste...');
+                                const { data: { user } } = await supabase.auth.getUser();
+                                if (!user) throw new Error('Usuário não autenticado');
+
+                                const { error } = await supabase.functions.invoke('send-notification', {
+                                    body: {
+                                        type: 'test_email',
+                                        data: { user_id: user.id }
+                                    }
+                                });
+
+                                if (error) throw error;
+                                toast.success('E-mail de teste enviado!', { id: toastId });
+                            } catch (error: any) {
+                                console.error('Error sending test email:', error);
+                                toast.error('Erro ao enviar teste: ' + error.message);
+                            }
+                        }}
+                        className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#23482f] hover:bg-[#2c5a3b] text-white text-xs font-bold rounded-lg transition-all border border-primary/20 hover:border-primary/50"
+                    >
+                        <span className="material-symbols-outlined text-sm">send</span>
+                        Enviar E-mail de Teste
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }

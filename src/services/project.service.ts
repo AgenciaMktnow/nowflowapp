@@ -57,10 +57,32 @@ export const projectService = {
         return { data: data as any, error: mapProjectError(error) };
     },
 
-    async createProject(name: string, teamId: string, boardId?: string): Promise<{ data: Project | null; error: Error | null }> {
+    async createProject(project: {
+        name: string;
+        client_id?: string;
+        team_id: string;
+        board_id?: string;
+        description?: string;
+        start_date?: string;
+        end_date?: string;
+        status?: string;
+        priority?: string;
+        manager_id?: string;
+    }): Promise<{ data: Project | null; error: Error | null }> {
         const { data, error } = await supabase
             .from('projects')
-            .insert({ name, team_id: teamId, board_id: boardId })
+            .insert({
+                name: project.name,
+                client_id: project.client_id,
+                team_id: project.team_id,
+                board_id: project.board_id,
+                description: project.description,
+                start_date: project.start_date,
+                end_date: project.end_date,
+                status: project.status?.toUpperCase() || 'PLANNING',
+                priority: project.priority?.toUpperCase() || 'MEDIUM',
+                manager_id: project.manager_id
+            })
             .select()
             .single();
 

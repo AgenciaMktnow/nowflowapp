@@ -8,6 +8,7 @@ type Client = {
     name: string;
     status: 'ACTIVE' | 'INACTIVE';
     default_board_id?: string;
+    default_team_id?: string;
     created_at: string;
 };
 
@@ -121,12 +122,15 @@ export default function ClientManagement() {
     // Editor
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
     const [selectedBoardId, setSelectedBoardId] = useState<string>('');
+    const [selectedTeamId, setSelectedTeamId] = useState<string>('');
     const [clientProjectNames, setClientProjectNames] = useState<Set<string>>(new Set());
+    const [teams, setTeams] = useState<{ id: string, name: string }[]>([]);
 
     // --- EFFECTS ---
     useEffect(() => {
         fetchClients();
         fetchBoards();
+        fetchTeams();
         fetchCatalogTemplates();
     }, []);
 
@@ -152,6 +156,15 @@ export default function ClientManagement() {
             if (data) setBoards(data);
         } catch (error) {
             console.error('Error fetching boards:', error);
+        }
+    };
+
+    const fetchTeams = async () => {
+        try {
+            const { data } = await supabase.from('teams').select('id, name').order('name');
+            if (data) setTeams(data || []);
+        } catch (error) {
+            console.error('Error fetching teams:', error);
         }
     };
 
@@ -187,6 +200,7 @@ export default function ClientManagement() {
     const openClient = async (client: Client) => {
         setSelectedClient(client);
         setSelectedBoardId(client.default_board_id || '');
+        setSelectedTeamId(client.default_team_id || '');
 
         if (client.id !== 'new') {
             const { data } = await supabase
@@ -244,7 +258,8 @@ export default function ClientManagement() {
             const clientData = {
                 name: selectedClient.name,
                 status: selectedClient.status,
-                default_board_id: selectedBoardId
+                default_board_id: selectedBoardId,
+                default_team_id: selectedTeamId
             };
 
             if (clientId === 'new') {
@@ -279,15 +294,19 @@ export default function ClientManagement() {
                 await supabase.from('projects').insert(toAdd.map(name => ({
                     name,
                     client_id: clientId,
-                    board_id: selectedBoardId // <-- Strict Link
+                    board_id: selectedBoardId, // <-- Strict Link
+                    team_id: selectedTeamId // <-- Inherit Team
                 })));
             }
 
-            // Update existing (switch board if changed)
+            // Update existing (switch board/team if changed)
             if (toUpdateBoard.length > 0) {
                 await supabase
                     .from('projects')
-                    .update({ board_id: selectedBoardId })
+                    .update({
+                        board_id: selectedBoardId,
+                        team_id: selectedTeamId
+                    })
                     .eq('client_id', clientId)
                     .in('id', toUpdateBoard.map(p => p.id));
             }
@@ -422,6 +441,17 @@ export default function ClientManagement() {
                                     value={selectedBoardId}
                                     onChange={setSelectedBoardId}
                                     placeholder="Selecione o Quadro..."
+                                />
+                            </div>
+
+                            {/* CUSTOM STATUS SELECT */}
+                            <div>
+                                <CustomSelect
+                                    label={<><span className="material-symbols-outlined text-[16px]">groups</span> Equipe Responsável</>}
+                                    options={teams.map(t => ({ value: t.id, label: t.name }))}
+                                    value={selectedTeamId}
+                                    onChange={setSelectedTeamId}
+                                    placeholder="Selecione a Equipe..."
                                 />
                             </div>
 

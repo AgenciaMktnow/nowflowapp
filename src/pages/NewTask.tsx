@@ -11,6 +11,7 @@ import ActivityFeed from '../components/ActivityFeed';
 type SelectOption = {
     id: string;
     name: string;
+    default_team_id?: string;
 };
 
 type User = {
@@ -64,6 +65,7 @@ export default function NewTask() {
     const [projects, setProjects] = useState<SelectOption[]>([]);
     const [workflows, setWorkflows] = useState<SelectOption[]>([]);
     const [users, setUsers] = useState<User[]>([]);
+    const [teamMemberIds, setTeamMemberIds] = useState<Set<string>>(new Set());
 
     const [loading, setLoading] = useState(false);
 
@@ -94,11 +96,22 @@ export default function NewTask() {
         } else {
             setProjects([]);
             setProjectId('');
+            setTeamMemberIds(new Set());
         }
     }, [clientId]);
 
+    useEffect(() => {
+        if (projectId) {
+            fetchTeamByProject(projectId);
+        } else if (clientId) {
+            fetchTeamFromClient(clientId);
+        } else {
+            setTeamMemberIds(new Set());
+        }
+    }, [projectId, clientId]);
+
     const fetchClients = async () => {
-        const { data } = await supabase.from('clients').select('id, name').eq('status', 'ACTIVE').order('name');
+        const { data } = await supabase.from('clients').select('id, name, default_team_id').eq('status', 'ACTIVE').order('name');
         if (data) setClients(data);
     };
     const fetchWorkflows = async () => {
@@ -109,6 +122,50 @@ export default function NewTask() {
         const { data } = await supabase.from('users').select('id, full_name, avatar_url').order('full_name');
         if (data) setUsers(data);
     };
+    const fetchTeamFromClient = async (cliId: string) => {
+        const client = clients.find(c => c.id === cliId);
+        if (client?.default_team_id) {
+            const { data: members } = await supabase
+                .from('user_teams')
+                .select('user_id')
+                .eq('team_id', client.default_team_id);
+
+            if (members) {
+                setTeamMemberIds(new Set(members.map((m: any) => m.user_id)));
+            } else {
+                setTeamMemberIds(new Set());
+            }
+        } else {
+            setTeamMemberIds(new Set());
+        }
+    };
+
+    const fetchTeamByProject = async (projId: string) => {
+        const { data: project } = await supabase
+            .from('projects')
+            .select('team_id')
+            .eq('id', projId)
+            .single();
+
+        if (project?.team_id) {
+            const { data: members } = await supabase
+                .from('user_teams')
+                .select('user_id')
+                .eq('team_id', project.team_id);
+
+            if (members) {
+                setTeamMemberIds(new Set(members.map((m: any) => m.user_id)));
+            } else {
+                setTeamMemberIds(new Set());
+            }
+        } else if (clientId) {
+            // Fallback to client team if project has no team
+            fetchTeamFromClient(clientId);
+        } else {
+            setTeamMemberIds(new Set());
+        }
+    };
+
     const fetchProjectsByClient = async (clientId: string) => {
         const clientProjectsPromise = supabase.from('projects').select('id, name').eq('client_id', clientId).order('name');
         const globalProjectsPromise = supabase.from('projects').select('id, name').is('client_id', null).order('name');
@@ -246,13 +303,23 @@ export default function NewTask() {
         }
     };
 
-    const selectedUsers = users.filter(u => assigneeIds.includes(u.id));
+    const sortedUsers = [...users].sort((a, b) => {
+        const aIsTeam = teamMemberIds.has(a.id);
+        const bIsTeam = teamMemberIds.has(b.id);
+        if (aIsTeam && !bIsTeam) return -1;
+        if (!aIsTeam && bIsTeam) return 1;
+        return a.full_name.localeCompare(b.full_name);
+    });
+
+    const selectedUsers = sortedUsers.filter(u => assigneeIds.includes(u.id));
     const filteredUsers = assigneeSearch
-        ? users.filter(u =>
+        ? sortedUsers.filter(u =>
             u.full_name.toLowerCase().includes(assigneeSearch.toLowerCase()) &&
             !assigneeIds.includes(u.id)
         )
-        : [];
+        : sortedUsers.filter(u => !assigneeIds.includes(u.id)); // Show all if search is empty? Or maybe just team members?
+    // Let's show filtered candidates if there is a search, or a subset if not.
+    // Actually, the current UI likely shows a dropdown when focused.
 
     // Independent editor upload logic (could be service, but simple enough here)
     const handleEditorImageUpload = async (file: File): Promise<string> => {
@@ -428,7 +495,12 @@ export default function NewTask() {
                                             className="px-4 py-2 hover:bg-gray-800 cursor-pointer flex items-center gap-2"
                                         >
                                             <div className="size-6 rounded-full bg-gray-300"></div>
-                                            <span className="text-sm text-white">{u.full_name}</span>
+                                            <div className="flex flex-col flex-1">
+                                                <span className="text-sm text-white">{u.full_name}</span>
+                                            </div>
+                                            {teamMemberIds.has(u.id) && (
+                                                <span className="text-[9px] font-black text-primary px-1.5 py-0.5 rounded bg-primary/10 border border-primary/20">TIME</span>
+                                            )}
                                         </div>
                                     )) : (
                                         <div className="px-4 py-2 text-sm text-gray-400">Nenhum usuário encontrado</div>

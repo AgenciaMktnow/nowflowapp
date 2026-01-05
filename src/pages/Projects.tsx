@@ -26,6 +26,7 @@ export default function Projects() {
     const [selectedProject, setSelectedProject] = useState<string>('');
     const [selectedClient, setSelectedClient] = useState<string>('');
     const [selectedTeam, setSelectedTeam] = useState<string>('');
+    const [selectedUser, setSelectedUser] = useState<string>('');
 
     const [filterMine, setFilterMine] = useState(false);
     const [filterUrgent, setFilterUrgent] = useState(false);
@@ -36,6 +37,8 @@ export default function Projects() {
     const [projects, setProjects] = useState<Project[]>([]);
     const [clients, setClients] = useState<Client[]>([]);
     const [teams, setTeams] = useState<Team[]>([]);
+    const [allUsers, setAllUsers] = useState<{ id: string, full_name: string, team_ids: string[] }[]>([]);
+    const [availableUsers, setAvailableUsers] = useState<{ id: string, full_name: string }[]>([]);
 
     const [availableProjects, setAvailableProjects] = useState<Project[]>([]);
     const [availableClients, setAvailableClients] = useState<Client[]>([]);
@@ -56,6 +59,7 @@ export default function Projects() {
         loadProjects();
         loadClients();
         loadTeams();
+        loadUsers();
         checkActiveTeamLogs();
         const interval = setInterval(checkActiveTeamLogs, 5000);
         return () => clearInterval(interval);
@@ -127,12 +131,25 @@ export default function Projects() {
         const validTeamIds = new Set(projectsForTeamCheck.map(p => p.team_id).filter(Boolean));
         setAvailableTeams(teams.filter(t => validTeamIds.has(t.id)));
 
+        // 5. Update Available Users based on Team (Priority)
+        let sortedUsers = [...allUsers];
+        if (selectedTeam) {
+            sortedUsers.sort((a, b) => {
+                const aIsTeam = a.team_ids.includes(selectedTeam);
+                const bIsTeam = b.team_ids.includes(selectedTeam);
+                if (aIsTeam && !bIsTeam) return -1;
+                if (!aIsTeam && bIsTeam) return 1;
+                return a.full_name.localeCompare(b.full_name);
+            });
+        }
+        setAvailableUsers(sortedUsers.map(u => ({ id: u.id, full_name: u.full_name })));
+
         // Validation: Clear downstream if invalid
         if (selectedProject && !projectsForDropdown.find(p => p.id === selectedProject)) {
             setSelectedProject('');
         }
 
-    }, [selectedBoard, selectedTeam, selectedClient, projects, clients, teams]);
+    }, [selectedBoard, selectedTeam, selectedClient, projects, clients, teams, allUsers, selectedProject]);
 
     // Trigger Fetch on Filter Change
     useEffect(() => {
@@ -184,9 +201,23 @@ export default function Projects() {
         if (data) setTeams(data);
     }
 
+    const loadUsers = async () => {
+        const { data: usersData } = await supabase.from('users').select('id, full_name');
+        const { data: userTeamsData } = await supabase.from('user_teams').select('user_id, team_id');
+
+        if (usersData && userTeamsData) {
+            const usersWithTeams = usersData.map((u: any) => ({
+                id: u.id,
+                full_name: u.full_name,
+                team_ids: userTeamsData.filter((ut: any) => ut.user_id === u.id).map((ut: any) => ut.team_id)
+            }));
+            setAllUsers(usersWithTeams);
+        }
+    };
+
     useEffect(() => {
         fetchTasks();
-    }, [user, selectedProject, selectedBoard, selectedClient, selectedTeam]); // Re-fetch on any filter change
+    }, [user, selectedProject, selectedBoard, selectedClient, selectedTeam, selectedUser]); // Re-fetch on any filter change
 
     const fetchTasks = async () => {
         const filters: any = {};
@@ -195,6 +226,7 @@ export default function Projects() {
         if (selectedBoard) filters.boardId = selectedBoard; // Now supported by service
         if (selectedClient) filters.clientId = selectedClient; // Now supported by service
         if (selectedTeam) filters.teamId = selectedTeam; // Now supported by service
+        if (selectedUser) filters.assigneeId = selectedUser;
 
         const { data, error } = await taskService.getTasks(filters);
 
@@ -432,6 +464,18 @@ export default function Projects() {
                         ]}
                         placeholder="Todos os Clientes"
                         icon="business"
+                        className="min-w-[180px] flex-shrink-0"
+                    />
+
+                    <SelectDropdown
+                        value={selectedUser}
+                        onChange={setSelectedUser}
+                        options={[
+                            { label: 'Todos os Responsáveis', value: '' },
+                            ...availableUsers.map(u => ({ label: u.full_name, value: u.id }))
+                        ]}
+                        placeholder="Responsável"
+                        icon="person"
                         className="min-w-[180px] flex-shrink-0"
                     />
 

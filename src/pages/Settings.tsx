@@ -8,8 +8,10 @@ import IntegrationsSettings from './settings/IntegrationsSettings';
 import WorkflowsSettings from './settings/WorkflowsSettings';
 import ProjectSettings from './settings/ProjectSettings';
 import NotificationsSettings from './settings/NotificationsSettings';
+import BoardsSettings from './settings/BoardsSettings';
+import TeamsSettings from './settings/TeamsSettings';
 
-type Tab = 'general' | 'clients' | 'projects' | 'workflows' | 'team' | 'integrations' | 'notifications';
+type Tab = 'general' | 'clients' | 'projects' | 'boards' | 'workflows' | 'team' | 'users' | 'integrations' | 'notifications';
 
 export default function Settings() {
     const navigate = useNavigate();
@@ -21,8 +23,10 @@ export default function Settings() {
         const path = location.pathname;
         if (path.includes('/settings/clients')) setActiveTab('clients');
         else if (path.includes('/settings/projects')) setActiveTab('projects');
+        else if (path.includes('/settings/boards')) setActiveTab('boards');
         else if (path.includes('/settings/workflows')) setActiveTab('workflows');
         else if (path.includes('/settings/team')) setActiveTab('team');
+        else if (path.includes('/settings/users')) setActiveTab('users');
         else if (path.includes('/settings/integrations')) setActiveTab('integrations');
         else if (path.includes('/settings/notifications')) setActiveTab('notifications');
         else setActiveTab('general');
@@ -33,8 +37,10 @@ export default function Settings() {
         let route = '/settings';
         if (tab === 'clients') route = '/settings/clients';
         else if (tab === 'projects') route = '/settings/projects';
+        else if (tab === 'boards') route = '/settings/boards';
         else if (tab === 'workflows') route = '/settings/workflows';
         else if (tab === 'team') route = '/settings/team';
+        else if (tab === 'users') route = '/settings/users';
         else if (tab === 'integrations') route = '/settings/integrations';
         else if (tab === 'notifications') route = '/settings/notifications';
 
@@ -75,6 +81,14 @@ export default function Settings() {
                             {activeTab === 'projects' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full shadow-neon"></span>}
                         </button>
                         <button
+                            onClick={() => handleTabChange('boards')}
+                            className={`pb-4 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === 'boards' ? 'text-primary' : 'text-text-muted hover:text-white'}`}
+                        >
+                            Quadros
+                            {activeTab === 'boards' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full shadow-neon"></span>}
+                        </button>
+
+                        <button
                             onClick={() => handleTabChange('workflows')}
                             className={`pb-4 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === 'workflows' ? 'text-primary' : 'text-text-muted hover:text-white'}`}
                         >
@@ -86,8 +100,16 @@ export default function Settings() {
                             onClick={() => handleTabChange('team')}
                             className={`pb-4 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === 'team' ? 'text-primary' : 'text-text-muted hover:text-white'}`}
                         >
-                            Usuários
+                            Equipes
                             {activeTab === 'team' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full shadow-neon"></span>}
+                        </button>
+
+                        <button
+                            onClick={() => handleTabChange('users')}
+                            className={`pb-4 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === 'users' ? 'text-primary' : 'text-text-muted hover:text-white'}`}
+                        >
+                            Usuários
+                            {activeTab === 'users' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full shadow-neon"></span>}
                         </button>
                         <button
                             onClick={() => handleTabChange('notifications')}
@@ -104,8 +126,10 @@ export default function Settings() {
                     {activeTab === 'general' && <GeneralSettings />}
                     {activeTab === 'clients' && <ClientManagement />}
                     {activeTab === 'projects' && <ProjectSettings />}
+                    {activeTab === 'boards' && <BoardsSettings />}
                     {activeTab === 'workflows' && <WorkflowsSettings />}
-                    {activeTab === 'team' && <TeamManagement />}
+                    {activeTab === 'team' && <TeamsSettings />}
+                    {activeTab === 'users' && <TeamManagement />}
                     {activeTab === 'integrations' && <IntegrationsSettings />}
                     {activeTab === 'notifications' && <NotificationsSettings />}
                 </div>

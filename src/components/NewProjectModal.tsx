@@ -75,7 +75,11 @@ export default function NewProjectModal({ isOpen, onClose, onSuccess, initialDat
                 toast.success('Projeto atualizado com sucesso!');
             } else {
                 // Create new project
-                const { error } = await projectService.createProject(name, teamId, boardId);
+                const { error } = await projectService.createProject({
+                    name,
+                    team_id: teamId,
+                    board_id: boardId
+                });
                 if (error) throw error;
                 toast.success('Projeto criado com sucesso!');
             }

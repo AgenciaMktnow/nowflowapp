@@ -446,16 +446,7 @@ export default function TaskDetail() {
             setComments([...comments, data]);
             setNewComment('');
 
-            // Send notification
-            await supabase.functions.invoke('send-notification', {
-                body: {
-                    type: 'task_commented',
-                    data: {
-                        task_id: task.id,
-                        comment_id: data.id
-                    }
-                }
-            });
+            // Notification is now handled by database triggers automatically
         } catch (error: any) {
             console.error('Error adding comment:', error);
             alert(`Erro ao adicionar comentário: ${error?.message}`);
