@@ -6,6 +6,7 @@ import ModernDropdown from '../components/ModernDropdown';
 import { useAuth } from '../contexts/AuthContext';
 import { taskService, type Task } from '../services/task.service';
 import { toast } from 'sonner';
+import { useTaskActions } from '../hooks/useTaskActions';
 
 import { MultiBoardSelector } from '../components/MultiBoardSelector';
 import type { Board } from '../types/database.types';
@@ -24,10 +25,18 @@ type User = {
 
 
 
-export default function NewTask() {
+interface NewTaskProps {
+    isDrawer?: boolean;
+    taskNumber?: string;
+    onClose?: () => void;
+    onSuccess?: () => void;
+}
+
+export default function NewTask({ isDrawer = false, taskNumber: propTaskNumber, onClose, onSuccess }: NewTaskProps = {}) {
     const navigate = useNavigate();
     const { user, userProfile } = useAuth();
-    const { id } = useParams(); // 'id' here is task_number based on routes
+    const { id: paramId } = useParams();
+    const id = propTaskNumber || paramId;
     const [searchParams] = useSearchParams();
     const cloneFrom = searchParams.get('clone_from');
 
@@ -59,6 +68,9 @@ export default function NewTask() {
     // UI States
     const [assigneeSearch, setAssigneeSearch] = useState('');
     const [files, setFiles] = useState<File[]>([]);
+
+    // Actions Hook
+    const { deleteTask, loading: deleting } = useTaskActions();
 
 
     // Multi-Board State
@@ -602,10 +614,15 @@ export default function NewTask() {
             }
 
             toast.success(taskId ? 'Tarefa atualizada com sucesso!' : 'Tarefa criada com sucesso!');
-            if (taskId) {
-                navigate(`/tasks/${id}`);
+
+            if (onSuccess) {
+                onSuccess();
             } else {
-                navigate('/dashboard');
+                if (taskId) {
+                    navigate(`/tasks/${id}`);
+                } else {
+                    navigate('/dashboard');
+                }
             }
 
         } catch (error: any) {
@@ -656,28 +673,17 @@ export default function NewTask() {
 
     const handleDeleteTask = async () => {
         if (!taskId) return;
-
-        try {
-            setLoading(true);
-            const { error } = await supabase.from('tasks').delete().eq('id', taskId);
-
-            if (error) throw error;
-
-            toast.success('Tarefa excluída com sucesso');
-            navigate('/dashboard');
-        } catch (error: any) {
-            console.error('Error deleting task:', error);
-            toast.error(error.message || 'Erro ao excluir tarefa');
-        } finally {
-            setLoading(false);
+        await deleteTask(taskId, () => {
             setShowDeleteModal(false);
-        }
+            if (onSuccess) onSuccess();
+            else navigate('/dashboard');
+        });
     };
 
 
 
     return (
-        <div className="flex-1 w-full max-w-5xl mx-auto p-6 md:p-10 flex flex-col gap-6 animate-fade-in pb-0 overflow-hidden h-[90vh] max-h-[90vh]">
+        <div className={`flex-1 w-full flex flex-col gap-6 animate-fade-in pb-0 overflow-hidden ${isDrawer ? 'h-full p-4' : 'max-w-5xl mx-auto p-6 md:p-10 h-[90vh] max-h-[90vh]'}`}>
             <div className="flex items-center justify-between pb-4 border-b border-gray-800 shrink-0">
                 <div className="flex-1">
                     <input
@@ -688,11 +694,13 @@ export default function NewTask() {
                         className="text-3xl font-bold text-white tracking-tight bg-transparent border-none outline-none placeholder-gray-600 w-full focus:ring-0 p-0"
                     />
                 </div>
-                <div className="flex items-center gap-3">
-                    <button onClick={() => navigate('/dashboard')} className="text-gray-400 hover:text-white transition-colors p-2 rounded-full hover:bg-surface-border">
-                        <span className="material-symbols-outlined">close</span>
-                    </button>
-                </div>
+                {!isDrawer && (
+                    <div className="flex items-center gap-3">
+                        <button onClick={() => navigate('/dashboard')} className="text-gray-400 hover:text-white transition-colors p-2 rounded-full hover:bg-surface-border">
+                            <span className="material-symbols-outlined">close</span>
+                        </button>
+                    </div>
+                )}
             </div>
 
             <form className="flex-1 flex flex-col gap-6 px-1 overflow-hidden" onSubmit={handleSubmit}>
@@ -934,7 +942,7 @@ export default function NewTask() {
                 </div>
 
                 {/* Footer: Locked to Bottom (Sticky/Fixed behavior) */}
-                <div className="flex flex-col md:flex-row items-center justify-between gap-6 border-t border-white/5 pt-5 mt-auto bg-transparent backdrop-blur-xl shrink-0 sticky bottom-0 z-10 w-full px-6 md:px-10 -mx-6 md:-mx-10 mb-[-24px] pb-8 flex-wrap md:flex-nowrap">
+                <div className={`flex flex-col md:flex-row items-center justify-between gap-6 border-t border-white/5 pt-5 mt-auto bg-transparent backdrop-blur-xl shrink-0 sticky bottom-0 z-10 w-full flex-wrap md:flex-nowrap ${isDrawer ? 'px-4 -mx-4 mb-0 pb-4' : 'px-6 md:px-10 -mx-6 md:-mx-10 mb-[-24px] pb-8'}`}>
                     {/* Left: Metadata */}
                     <div className="flex items-center gap-4 flex-1 w-full md:w-auto">
                         <div className="relative group shrink-0">
@@ -973,7 +981,7 @@ export default function NewTask() {
                                 Excluir
                             </button>
                         )}
-                        <button type="button" onClick={() => navigate('/dashboard')} className="px-6 py-3 rounded-xl text-gray-400 text-xs font-bold hover:text-white hover:bg-white/5 transition-colors uppercase tracking-wider">
+                        <button type="button" onClick={() => onClose ? onClose() : navigate('/dashboard')} className="px-6 py-3 rounded-xl text-gray-400 text-xs font-bold hover:text-white hover:bg-white/5 transition-colors uppercase tracking-wider">
                             Cancelar
                         </button>
                         <button type="submit" disabled={loading} className="flex items-center gap-3 px-10 py-3 bg-primary hover:bg-[#0fd650] text-[#112217] font-bold text-sm uppercase tracking-wider rounded-xl shadow-[0_0_25px_rgba(19,236,91,0.4)] hover:shadow-[0_0_35px_rgba(19,236,91,0.6)] transition-all transform hover:-translate-y-0.5 disabled:opacity-50">
@@ -1004,14 +1012,17 @@ export default function NewTask() {
                                     type="button"
                                     onClick={() => setShowDeleteModal(false)}
                                     className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                                    disabled={deleting}
                                 >
                                     Não, Cancelar
                                 </button>
                                 <button
                                     type="button"
                                     onClick={handleDeleteTask}
-                                    className="px-4 py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg shadow-lg shadow-red-600/20 transition-all"
+                                    className="px-4 py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg shadow-lg shadow-red-600/20 transition-all flex items-center gap-2"
+                                    disabled={deleting}
                                 >
+                                    {deleting && <span className="material-symbols-outlined animate-spin text-[16px]">progress_activity</span>}
                                     Sim, Excluir
                                 </button>
                             </div>

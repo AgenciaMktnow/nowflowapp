@@ -5,6 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../components/layout/Header/Header';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import Dropdown from '../components/common/Dropdown';
+import TaskActionMenu from '../components/TaskActionMenu';
+import TaskEditDrawer from '../components/TaskEditDrawer';
 
 type Task = {
     id: string;
@@ -45,6 +47,33 @@ export default function MyQueue() {
     const [activeTimerTask, setActiveTimerTask] = useState<any>(null);
     const [timerElapsedTime, setTimerElapsedTime] = useState(0);
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+
+    // Quick Actions State
+    const [editTaskNumber, setEditTaskNumber] = useState<string | null>(null);
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+    const handleEdit = (task: Task) => {
+        setEditTaskNumber(String(task.task_number));
+        setIsDrawerOpen(true);
+    };
+
+    const handleDrawerSuccess = () => {
+        setIsDrawerOpen(false);
+        setEditTaskNumber(null);
+        fetchTasks(); // Refresh list to show changes
+    };
+
+    const handleCloneSuccess = (newTask: any) => {
+        fetchTasks();
+        if (newTask?.task_number) {
+            setEditTaskNumber(String(newTask.task_number));
+            setIsDrawerOpen(true);
+        }
+    };
+
+    const handleUpdateList = () => {
+        fetchTasks();
+    };
 
 
 
@@ -319,6 +348,16 @@ export default function MyQueue() {
                                                             <span className="material-symbols-outlined text-lg">drag_indicator</span>
                                                         </div>
 
+                                                        {/* Quick Actions Menu */}
+                                                        <div className="absolute top-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <TaskActionMenu
+                                                                task={task}
+                                                                onEdit={() => handleEdit(task)}
+                                                                onClone={handleCloneSuccess}
+                                                                onUpdate={handleUpdateList}
+                                                            />
+                                                        </div>
+
                                                         {/* Content */}
                                                         <div className="flex-1 min-w-0">
                                                             <div className="flex items-center gap-2 mb-2">
@@ -478,6 +517,13 @@ export default function MyQueue() {
                     </DragDropContext>
                 </div>
             </div>
+
+            <TaskEditDrawer
+                isOpen={isDrawerOpen}
+                onClose={() => setIsDrawerOpen(false)}
+                taskNumber={editTaskNumber || undefined}
+                onSuccess={handleDrawerSuccess}
+            />
         </div>
     );
 }
