@@ -304,12 +304,20 @@ export default function NewTask() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!title.trim()) {
-            toast.warning('Por favor, digite um título para a tarefa.');
-            return;
-        }
+        // 1. Validate Form (Green Asterisks *)
+        const missingMandatory =
+            !title.trim() ||
+            selectedBoardIds.length === 0 ||
+            !clientId ||
+            !projectId ||
+            assigneeIds.length === 0;
 
-        if (!clientId || !projectId || (!isOngoing && !dueDate) || assigneeIds.length === 0 || !description) {
+        // 2. Validate Business Logic (Description/Date are not marked * but logic requires them currently)
+        const missingLogic =
+            (!isOngoing && !dueDate) ||
+            !description;
+
+        if (missingMandatory || missingLogic) {
             toast.warning('Por favor, preencha todos os campos obrigatórios (*)');
             return;
         }
@@ -605,7 +613,7 @@ export default function NewTask() {
                             <div className="flex items-center justify-between pl-1">
                                 <label className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
                                     <span className="material-symbols-outlined text-[16px]">calendar_today</span>
-                                    Prazo
+                                    Prazo <span className="text-primary">*</span>
                                 </label>
                                 {/* Modern Toggle Switch */}
                                 <div className="flex items-center gap-2">
@@ -740,7 +748,7 @@ export default function NewTask() {
                     <div className="flex-1 flex flex-col gap-2 min-h-0 overflow-hidden pb-0">
                         <label className="text-xs font-bold text-gray-400 uppercase tracking-wider pl-1 flex items-center gap-2">
                             <span className="material-symbols-outlined text-[16px]">description</span>
-                            Descrição
+                            Descrição <span className="text-primary">*</span>
                         </label>
                         <div className="flex-1 rounded-xl overflow-hidden focus-within:border-primary/50 transition-colors flex flex-col h-full">
                             <SimpleEditor
