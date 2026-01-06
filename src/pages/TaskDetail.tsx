@@ -307,7 +307,7 @@ export default function TaskDetail() {
 
             if (!historyError && historyData) {
                 const total = historyData.reduce((acc, curr) => acc + (curr.duration_seconds || 0), 0);
-                setHistoricTime(total);
+                setHistoricTime(Math.max(0, total)); // Ensure no negative total in UI state
             }
         } catch (e) {
             console.error('Error fetching time history:', e);
@@ -463,6 +463,7 @@ export default function TaskDetail() {
     };
 
     const [showManualTimeModal, setShowManualTimeModal] = useState(false);
+    const [manualOperation, setManualOperation] = useState<'ADD' | 'SUBTRACT'>('ADD');
     const [manualHours, setManualHours] = useState('');
     const [manualMinutes, setManualMinutes] = useState('');
     const [manualDescription, setManualDescription] = useState('');
@@ -496,11 +497,24 @@ export default function TaskDetail() {
         if (!manualHours && !manualMinutes) return;
         const h = parseInt(manualHours || '0');
         const m = parseInt(manualMinutes || '0');
-        const totalSeconds = (h * 3600) + (m * 60);
+        let totalSeconds = (h * 3600) + (m * 60);
 
         if (totalSeconds <= 0) {
             alert('Por favor, informe um tempo válido.');
             return;
+        }
+
+        let finalDescription = manualDescription;
+
+        // Validation for Subtraction
+        if (manualOperation === 'SUBTRACT') {
+            const currentTotal = historicTime + elapsedTime;
+            if (totalSeconds > currentTotal) {
+                alert(`Não é possível remover mais tempo do que o registrado (Total: ${formatTime(currentTotal).hours}h ${formatTime(currentTotal).minutes}m).`);
+                return;
+            }
+            totalSeconds = -totalSeconds; // Negative value
+            finalDescription = `[AJUSTE NEGATIVO]: ${manualDescription}`;
         }
 
         try {
@@ -513,19 +527,25 @@ export default function TaskDetail() {
                     end_time: new Date().toISOString(),
                     duration_seconds: totalSeconds,
                     is_manual: true,
-                    description: manualDescription // Save the reason
+                    entry_category: 'MANUAL_ADJUSTMENT',
+                    description: finalDescription
                 }]);
 
             if (error) throw error;
 
-            setHistoricTime(prev => prev + totalSeconds);
+            // Safe update for historic time, preventing UI negative drift if something weird happens, 
+            // though validation above should catch it.
+            setHistoricTime(prev => Math.max(0, prev + totalSeconds));
+
             setShowManualTimeModal(false);
             setManualHours('');
             setManualMinutes('');
             setManualDescription('');
+            setManualOperation('ADD'); // Reset default
 
-            if (user && task) await logActivity(task.id, user.id, 'MANUAL_TIME', `lançou manualmente ${h}h ${m}m`);
-            alert('Horas lançadas com sucesso!');
+            const actionText = manualOperation === 'ADD' ? `lançou manualmente` : `pagou/removeu manualmente`;
+            if (user && task) await logActivity(task.id, user.id, 'MANUAL_TIME', `${actionText} ${h}h ${m}m`);
+            alert('Horas ajustadas com sucesso!');
 
         } catch (error: any) {
             console.error('Error adding manual time:', error);
@@ -1600,7 +1620,15 @@ export default function TaskDetail() {
                             </div>
                             <div className="flex justify-center items-baseline gap-1 mb-8 font-mono tabular-nums select-none">
                                 <div className="flex flex-col items-center">
-                                    <span className="text-5xl md:text-6xl font-black text-white tracking-tighter">{time.hours}</span>
+                                    <div className="relative">
+                                        <span className="text-5xl md:text-6xl font-black text-white tracking-tighter">{time.hours}</span>
+                                        {(historicTime + elapsedTime) > 43200 && (
+                                            <div className="absolute -top-3 -right-3 md:-right-6 bg-yellow-500/20 text-yellow-500 border border-yellow-500/50 text-[10px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider animate-pulse flex items-center gap-1">
+                                                <span className="material-symbols-outlined text-[12px]">warning</span>
+                                                12h+
+                                            </div>
+                                        )}
+                                    </div>
                                     <span className="text-text-muted text-xs mt-1">h</span>
                                 </div>
                                 <span className="text-5xl md:text-6xl font-black text-primary/50 pb-2">:</span>
@@ -1644,63 +1672,90 @@ export default function TaskDetail() {
 
                             {/* Manual Time Modal */}
                             {showManualTimeModal && (
-                                <div className="absolute inset-0 bg-surface-dark/95 backdrop-blur-sm z-20 flex flex-col items-center justify-center p-6 animate-in fade-in">
-                                    <h4 className="text-white font-bold mb-4">Lançar Horas Manualmente</h4>
-                                    <div className="flex items-center gap-2 mb-6">
-                                        <div className="flex flex-col gap-1">
-                                            <label className="text-xs text-text-muted">Horas</label>
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                value={manualHours}
-                                                onChange={(e) => setManualHours(e.target.value)}
-                                                className="w-16 bg-background-dark border border-gray-700 rounded-lg p-2 text-center text-white font-mono"
-                                                placeholder="00"
+                                <div className="absolute inset-0 bg-surface-dark/95 backdrop-blur-sm z-20 flex flex-col items-center justify-center p-6 overflow-hidden animate-in fade-in">
+                                    <div className="w-full max-w-[300px] flex flex-col items-center">
+                                        <h4 className="text-white font-bold mb-4">Lançar Horas Manualmente</h4>
+
+                                        {/* Operation Selector */}
+                                        <div className="flex bg-background-dark/50 p-1 rounded-lg mb-4 w-full gap-1">
+                                            <button
+                                                onClick={() => setManualOperation('ADD')}
+                                                className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${manualOperation === 'ADD'
+                                                    ? 'bg-primary text-background-dark shadow-sm'
+                                                    : 'text-text-muted hover:text-white'
+                                                    }`}
+                                            >
+                                                Adicionar (+)
+                                            </button>
+                                            <button
+                                                onClick={() => setManualOperation('SUBTRACT')}
+                                                className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${manualOperation === 'SUBTRACT'
+                                                    ? 'bg-red-500 text-white shadow-sm'
+                                                    : 'text-text-muted hover:text-white'
+                                                    }`}
+                                            >
+                                                Remover (-)
+                                            </button>
+                                        </div>
+
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <div className="flex flex-col gap-0.5">
+                                                <label className="text-[10px] text-text-muted">Horas</label>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    value={manualHours}
+                                                    onChange={(e) => setManualHours(e.target.value)}
+                                                    className="w-14 bg-background-dark border border-gray-700 rounded-lg p-1.5 text-center text-white font-mono text-sm"
+                                                    placeholder="00"
+                                                />
+                                            </div>
+                                            <span className="text-gray-500 pt-3">:</span>
+                                            <div className="flex flex-col gap-0.5">
+                                                <label className="text-[10px] text-text-muted">Minutos</label>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    max="59"
+                                                    value={manualMinutes}
+                                                    onChange={(e) => setManualMinutes(e.target.value)}
+                                                    className="w-14 bg-background-dark border border-gray-700 rounded-lg p-1.5 text-center text-white font-mono text-sm"
+                                                    placeholder="00"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="w-full mb-4">
+                                            <label className="text-[10px] text-text-muted mb-1 block">Motivo / Descrição</label>
+                                            <textarea
+                                                value={manualDescription}
+                                                onChange={(e) => setManualDescription(e.target.value)}
+                                                className="w-full bg-background-dark border border-gray-700 rounded-lg p-2.5 text-white text-xs resize-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 outline-none transition-all placeholder:text-gray-600"
+                                                placeholder="Ex: Esqueci de iniciar o timer..."
+                                                rows={2}
                                             />
                                         </div>
-                                        <span className="text-gray-500 pt-5">:</span>
-                                        <div className="flex flex-col gap-1">
-                                            <label className="text-xs text-text-muted">Minutos</label>
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                max="59"
-                                                value={manualMinutes}
-                                                onChange={(e) => setManualMinutes(e.target.value)}
-                                                className="w-16 bg-background-dark border border-gray-700 rounded-lg p-2 text-center text-white font-mono"
-                                                placeholder="00"
-                                            />
+
+                                        <div className="flex gap-2 w-full">
+                                            <button
+                                                onClick={() => setShowManualTimeModal(false)}
+                                                className="flex-1 py-2 text-xs font-bold text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg transition-all"
+                                            >
+                                                Cancelar
+                                            </button>
+                                            <button
+                                                onClick={handleSubmitManualTime}
+                                                disabled={!manualDescription.trim()}
+                                                className={`flex-1 py-2 text-xs font-bold text-white rounded-lg transition-all shadow-lg ${!manualDescription.trim()
+                                                    ? 'bg-gray-600 cursor-not-allowed opacity-50 shadow-none text-gray-300'
+                                                    : manualOperation === 'ADD'
+                                                        ? 'bg-primary text-background-dark hover:bg-primary-dark shadow-[0_0_20px_-5px_rgba(19,236,91,0.3)]'
+                                                        : 'bg-red-600 hover:bg-red-700 shadow-[0_0_20px_-5px_rgba(220,38,38,0.3)]'
+                                                    }`}
+                                            >
+                                                {manualOperation === 'ADD' ? 'Adicionar Tempo' : 'Remover Tempo'}
+                                            </button>
                                         </div>
-                                    </div>
-
-                                    <div className="w-full mb-6">
-                                        <label className="text-xs text-text-muted mb-1 block">Motivo / Descrição</label>
-                                        <textarea
-                                            value={manualDescription}
-                                            onChange={(e) => setManualDescription(e.target.value)}
-                                            className="w-full bg-background-dark border border-gray-700 rounded-lg p-3 text-white text-sm resize-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 outline-none transition-all placeholder:text-gray-600"
-                                            placeholder="Ex: Esqueci de iniciar o timer, reunião externa..."
-                                            rows={2}
-                                        />
-                                    </div>
-
-                                    <div className="flex gap-2 w-full">
-                                        <button
-                                            onClick={() => setShowManualTimeModal(false)}
-                                            className="flex-1 py-3 text-sm font-bold text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg transition-all"
-                                        >
-                                            Cancelar
-                                        </button>
-                                        <button
-                                            onClick={handleSubmitManualTime}
-                                            disabled={!manualDescription.trim()}
-                                            className={`flex-1 py-3 text-sm font-bold text-background-dark rounded-lg transition-all shadow-[0_0_20px_-5px_rgba(19,236,91,0.3)] ${!manualDescription.trim()
-                                                ? 'bg-gray-600 cursor-not-allowed opacity-50 shadow-none'
-                                                : 'bg-primary hover:bg-primary-dark'
-                                                }`}
-                                        >
-                                            Confirmar
-                                        </button>
                                     </div>
                                 </div>
                             )}

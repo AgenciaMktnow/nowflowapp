@@ -31,7 +31,7 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function runMigration() {
-    const migrationPath = path.resolve(process.cwd(), 'supabase/migrations/20251230_add_client_default_board.sql');
+    const migrationPath = path.resolve(process.cwd(), 'supabase/migrations/add_entry_category_to_time_logs.sql');
     let sql = fs.readFileSync(migrationPath, 'utf8');
 
     console.log('--- EXECUTING MIGRATION ---');
