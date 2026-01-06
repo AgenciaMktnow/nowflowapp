@@ -358,7 +358,7 @@ export default function MyQueue() {
                                                                 {task.due_date && (
                                                                     <div className="flex items-center gap-1">
                                                                         <span className="material-symbols-outlined text-base">calendar_today</span>
-                                                                        <span>{new Date(task.due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
+                                                                        <span>{new Date(task.due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' })}</span>
                                                                     </div>
                                                                 )}
                                                                 {task.assignee && (
@@ -422,7 +422,7 @@ export default function MyQueue() {
                                                                 {/* Due Date - Always render for alignment */}
                                                                 <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium min-w-[90px] justify-center ${task.due_date ? (new Date(task.due_date).getTime() < new Date().setHours(0, 0, 0, 0) ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-white/5 text-text-secondary border border-white/5') : 'bg-white/5 text-text-muted border border-white/5'}`}>
                                                                     <span className="material-symbols-outlined text-sm">{task.due_date ? 'calendar_today' : 'all_inclusive'}</span>
-                                                                    <span>{task.due_date ? new Date(task.due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : 'Contínua'}</span>
+                                                                    <span>{task.due_date ? new Date(task.due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' }) : 'Contínua'}</span>
                                                                 </div>
 
                                                                 {/* Assignee Avatar - Always render for alignment */}
