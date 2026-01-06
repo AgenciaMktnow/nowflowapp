@@ -5,6 +5,8 @@ import { toast } from 'sonner';
 import NewColumnModal from '../components/NewColumnModal';
 import ColumnMenu from '../components/ColumnMenu';
 import SelectDropdown from '../components/SelectDropdown';
+import TaskActionMenu from '../components/TaskActionMenu'; // <--- NEW
+import TaskEditDrawer from '../components/TaskEditDrawer'; // <--- NEW
 import Header from '../components/layout/Header/Header';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -49,6 +51,11 @@ export default function Projects() {
     const [columns, setColumns] = useState<Column[]>([]);
 
     const [isNewColumnModalOpen, setIsNewColumnModalOpen] = useState(false);
+
+    // Edit Drawer State
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+    const [editTaskNumber, setEditTaskNumber] = useState<string | undefined>(undefined);
+
     const [activeTeamLogs, setActiveTeamLogs] = useState<Record<string, { user_name: string }>>({});
 
     const [searchParams] = useSearchParams();
@@ -277,6 +284,26 @@ export default function Projects() {
     useEffect(() => {
         fetchTasks();
     }, [user, selectedProject, selectedBoard, selectedClient, selectedTeam, selectedUser]); // Re-fetch on any filter change
+
+    // --- QUICK ACTIONS HANDLERS ---
+    const handleEdit = (task: any) => {
+        setEditTaskNumber(String(task.task_number));
+        setIsDrawerOpen(true);
+    };
+
+    const handleCloneSuccess = (newTask: any) => {
+        fetchTasks(); // Refresh board
+        // Auto-open new task
+        if (newTask?.task_number) {
+            setEditTaskNumber(String(newTask.task_number));
+            setIsDrawerOpen(true);
+        }
+    };
+
+    const handleUpdateList = () => {
+        fetchTasks();
+    };
+    // ------------------------------
 
     const fetchTasks = async () => {
         setLoadingTasks(true);
@@ -768,9 +795,19 @@ export default function Projects() {
                                                                                             style={{ backgroundColor: getPriorityColor(task.priority) }}
                                                                                         ></div>
 
-                                                                                        <div className="pl-3 flex flex-col gap-2">
+                                                                                        <div className="pl-3 flex flex-col gap-2 relative">
+                                                                                            {/* Task Action Menu (Absolute Right) */}
+                                                                                            <div className="absolute top-0 right-0 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                                                <TaskActionMenu
+                                                                                                    task={task}
+                                                                                                    onEdit={() => handleEdit(task)}
+                                                                                                    onClone={handleCloneSuccess}
+                                                                                                    onUpdate={handleUpdateList}
+                                                                                                />
+                                                                                            </div>
+
                                                                                             {/* Header: ID & Client/Project */}
-                                                                                            <div className="flex items-center justify-between mb-0.5">
+                                                                                            <div className="flex items-center justify-between mb-0.5 pr-6">
                                                                                                 <div className="flex items-center gap-2 overflow-hidden">
                                                                                                     <span className="text-[10px] font-mono text-text-muted">#{task.task_number}</span>
                                                                                                     {/* Client Name Lookup */}
@@ -911,6 +948,17 @@ export default function Projects() {
                 isOpen={isNewColumnModalOpen}
                 onClose={() => setIsNewColumnModalOpen(false)}
                 onAdd={handleAddColumn}
+            />
+
+            {/* Edit Drawer Modal */}
+            <TaskEditDrawer
+                isOpen={isDrawerOpen}
+                onClose={() => {
+                    setIsDrawerOpen(false);
+                    setEditTaskNumber(undefined);
+                }}
+                taskNumber={editTaskNumber || undefined}
+                onSuccess={handleUpdateList}
             />
         </div>
     );

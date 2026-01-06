@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { ProductivityWidget } from '../components/ProductivityWidget';
+import TaskActionMenu from '../components/TaskActionMenu'; // <--- NEW
+import TaskEditDrawer from '../components/TaskEditDrawer'; // <--- NEW
 import { extractChecklistFromHtml } from '../utils/checklist';
 import Header from '../components/layout/Header/Header';
 import { useClickOutside } from '../hooks/useClickOutside';
@@ -69,6 +71,10 @@ export default function Dashboard() {
 
     // Active Team Logs (Manager View)
     const [activeTeamLogs, setActiveTeamLogs] = useState<Record<string, { user_name: string }>>({});
+
+    // Edit Drawer State
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+    const [editTaskNumber, setEditTaskNumber] = useState<string | undefined>(undefined);
 
 
     // Click-outside handler for filter dropdown
@@ -337,6 +343,26 @@ export default function Dashboard() {
         const firstDayOfWeek = new Date(today.setDate(today.getDate() - today.getDay())); // Sunday
         return taskDate >= firstDayOfWeek;
     }).length;
+
+    // --- QUICK ACTIONS HANDLERS ---
+    const handleEdit = (task: any) => {
+        setEditTaskNumber(String(task.task_number));
+        setIsDrawerOpen(true);
+    };
+
+    const handleCloneSuccess = (newTask: any) => {
+        fetchTasks(); // Refresh board
+        // Auto-open new task
+        if (newTask?.task_number) {
+            setEditTaskNumber(String(newTask.task_number));
+            setIsDrawerOpen(true);
+        }
+    };
+
+    const handleUpdateList = () => {
+        fetchTasks();
+    };
+    // ------------------------------
 
 
     const handleStartTask = async (e: React.MouseEvent, task: Task) => {
@@ -617,9 +643,17 @@ export default function Dashboard() {
                                         >
                                             <span className="material-symbols-outlined text-lg">check</span>
                                         </button>
+                                        <div className="size-8 flex items-center justify-center">
+                                            <TaskActionMenu
+                                                task={task}
+                                                onEdit={() => handleEdit(task)}
+                                                onClone={handleCloneSuccess}
+                                                onUpdate={handleUpdateList}
+                                            />
+                                        </div>
                                     </div>
 
-                                    <div className="flex justify-between items-start mb-3 pr-16">
+                                    <div className="flex justify-between items-start mb-3 pr-24">
                                         <div className="flex flex-wrap gap-2 items-center">
                                             {(() => {
                                                 const taskClientName = (task as any).client?.name;
@@ -646,7 +680,6 @@ export default function Dashboard() {
                                                 </div>
                                             )}
                                         </div>
-                                        <span className="material-symbols-outlined text-text-secondary text-sm opacity-0 group-hover:opacity-100 transition-opacity">more_horiz</span>
                                     </div>
                                     <h4 className="text-white font-medium mb-3 group-hover:text-primary transition-colors">{task.title}</h4>
                                     <div className="flex items-center justify-between mt-auto">
@@ -730,8 +763,16 @@ export default function Dashboard() {
                             </div>
 
                             {pausedTasks.map(task => (
-                                <div key={task.id} onClick={() => navigate(`/tasks/${task.task_number}`)} className="bg-surface-highlight/50 p-4 rounded-xl border border-dashed border-white/10 opacity-75 hover:opacity-100 transition-opacity cursor-pointer">
-                                    <div className="flex justify-between items-start mb-3">
+                                <div key={task.id} onClick={() => navigate(`/tasks/${task.task_number}`)} className="bg-surface-highlight/50 p-4 rounded-xl border border-dashed border-white/10 opacity-75 hover:opacity-100 transition-opacity cursor-pointer relative group">
+                                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                        <TaskActionMenu
+                                            task={task}
+                                            onEdit={() => handleEdit(task)}
+                                            onClone={handleCloneSuccess}
+                                            onUpdate={handleUpdateList}
+                                        />
+                                    </div>
+                                    <div className="flex justify-between items-start mb-3 pr-8">
                                         {(() => {
                                             const taskClientName = (task as any).client?.name;
                                             const projectClientName = (task.project as any)?.client?.name;
@@ -794,8 +835,16 @@ export default function Dashboard() {
                             </div>
 
                             {doneTasks.map(task => (
-                                <div key={task.id} onClick={() => navigate(`/tasks/${task.task_number}`)} className="bg-surface-highlight p-4 rounded-xl border-l-[6px] border-primary/20 hover:border-primary opacity-60 hover:opacity-100 transition-all cursor-pointer">
-                                    <div className="flex justify-between items-start mb-2">
+                                <div key={task.id} onClick={() => navigate(`/tasks/${task.task_number}`)} className="bg-surface-highlight p-4 rounded-xl border-l-[6px] border-primary/20 hover:border-primary opacity-60 hover:opacity-100 transition-all cursor-pointer relative group">
+                                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                        <TaskActionMenu
+                                            task={task}
+                                            onEdit={() => handleEdit(task)}
+                                            onClone={handleCloneSuccess}
+                                            onUpdate={handleUpdateList}
+                                        />
+                                    </div>
+                                    <div className="flex justify-between items-start mb-2 pr-8">
                                         {(() => {
                                             const taskClientName = (task as any).client?.name;
                                             const projectClientName = (task.project as any)?.client?.name;
@@ -823,6 +872,17 @@ export default function Dashboard() {
                     </section>
                 </div>
             </div >
+
+            {/* Edit Drawer Modal */}
+            <TaskEditDrawer
+                isOpen={isDrawerOpen}
+                onClose={() => {
+                    setIsDrawerOpen(false);
+                    setEditTaskNumber(undefined);
+                }}
+                taskNumber={editTaskNumber}
+                onSuccess={handleUpdateList}
+            />
         </div >
     );
 }
