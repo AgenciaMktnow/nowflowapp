@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import SelectDropdown from '../SelectDropdown';
 
 
 interface User {
@@ -24,6 +25,12 @@ export default function UserDeleteModal({ isOpen, onClose, onConfirm, userToDele
 
     // Filter out the user being deleted from the potential owners list
     const potentialOwners = allUsers.filter(u => u.id !== userToDelete.id);
+
+    // Map to options for SelectDropdown
+    const ownerOptions = potentialOwners.map(u => ({
+        label: u.full_name,
+        value: u.id
+    }));
 
     useEffect(() => {
         if (isOpen && userToDelete.id) {
@@ -101,23 +108,14 @@ export default function UserDeleteModal({ isOpen, onClose, onConfirm, userToDele
                             <label className="text-sm font-medium text-slate-300 block">
                                 Para quem deseja transferi-las?
                             </label>
-                            <div className="relative">
-                                <select
-                                    value={selectedOwnerId}
-                                    onChange={(e) => setSelectedOwnerId(e.target.value)}
-                                    className="w-full appearance-none bg-[#0d1811] border border-[#23482f] rounded-lg px-4 py-3 text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                                >
-                                    <option value="">-- Selecione um novo responsável --</option>
-                                    {potentialOwners.map(user => (
-                                        <option key={user.id} value={user.id}>
-                                            {user.full_name}
-                                        </option>
-                                    ))}
-                                </select>
-                                <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-slate-500">
-                                    <span className="material-symbols-outlined">expand_more</span>
-                                </div>
-                            </div>
+                            <SelectDropdown
+                                options={ownerOptions}
+                                value={selectedOwnerId}
+                                onChange={setSelectedOwnerId}
+                                placeholder="Selecione um novo responsável"
+                                className="w-full"
+                                icon="person"
+                            />
                             {!selectedOwnerId && (
                                 <p className="text-xs text-amber-500/80 flex items-center gap-1 mt-1">
                                     <span className="material-symbols-outlined text-[14px]">info</span>
