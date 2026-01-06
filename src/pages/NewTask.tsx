@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import SimpleEditor from '../components/SimpleEditor';
 import ModernDropdown from '../components/ModernDropdown';
@@ -32,6 +32,11 @@ export default function NewTask() {
     const cloneFrom = searchParams.get('clone_from');
 
     const [taskId, setTaskId] = useState<string | null>(null); // Real UUID
+    const location = useLocation();
+
+    // Clone State
+    const [clonedAttachments, setClonedAttachments] = useState<any[]>([]);
+    const [cloneSourceId, setCloneSourceId] = useState<string | null>(null);
 
     // Form state
     const [title, setTitle] = useState('');
@@ -101,10 +106,50 @@ export default function NewTask() {
     useEffect(() => {
         if (id) {
             fetchTaskDetails(id);
+        } else if (location.state?.cloneData) {
+            // Priority: Handle Clone Data passed via State (Granular)
+            const data = location.state.cloneData;
+            setTitle(data.title);
+            setDescription(data.description || '');
+            setPriority(data.priority || 'MEDIUM');
+
+            if (data.status) setStatus(data.status);
+            if (data.client_id) setClientId(data.client_id);
+            if (data.project_id) setProjectId(data.project_id);
+            if (data.workflow_id) setWorkflowId(data.workflow_id);
+
+            if (data.due_date) {
+                setDueDate(data.due_date.split('T')[0]);
+                setIsOngoing(false);
+            } else {
+                setIsOngoing(true);
+            }
+
+            if (data.assignee_ids) setAssigneeIds(data.assignee_ids);
+            if (data.board_ids) setSelectedBoardIds(data.board_ids);
+            if (data.tags) {
+                // Handle tags if we have a state for it (not in NewTask currently?)
+                // NewTask doesn't seem to have tags input yet based on file view. Ignoring or adding later.
+            }
+
+            if (data.existing_attachments) {
+                // Transform to ensure new IDs or keep logic
+                // If we want to duplicate references:
+                setClonedAttachments(data.existing_attachments.map((att: any) => ({
+                    ...att,
+                    id: crypto.randomUUID(), // New ID to avoid conflicts
+                    uploaded_at: new Date().toISOString()
+                })));
+            }
+
+            if (data.clone_comments_from_task_id) {
+                setCloneSourceId(data.clone_comments_from_task_id);
+            }
+
         } else if (cloneFrom) {
             fetchTaskDetails(cloneFrom, true);
         }
-    }, [id, cloneFrom]);
+    }, [id, cloneFrom, location.state]);
 
     useEffect(() => {
         if (clientId) {
@@ -425,7 +470,8 @@ export default function NewTask() {
                 workflow_id: workflowId || null,
                 assignee_id: assigneeIds[0], // Legacy/Primary assignee
                 created_by: !taskId ? user?.id : undefined, // Only on create
-                board_ids: selectedBoardIds // Multi-Board Link
+                board_ids: selectedBoardIds, // Multi-Board Link
+                attachments: clonedAttachments.length > 0 ? clonedAttachments : undefined
             };
 
             console.log('Final payload:', JSON.stringify(payload, null, 2));
@@ -460,6 +506,28 @@ export default function NewTask() {
                 for (const file of files) {
                     const { error: uploadError } = await taskService.uploadAttachment(savedTask.id, file);
                     if (uploadError) toast.error(`Erro ao enviar anexo ${file.name}: ${uploadError.message}`);
+                }
+            }
+
+            // Clone Comments Logic
+            if (!taskId && cloneSourceId && savedTask) {
+                const { data: originalComments } = await supabase
+                    .from('task_comments')
+                    .select('*')
+                    .eq('task_id', cloneSourceId)
+                    .order('created_at', { ascending: true });
+
+                if (originalComments && originalComments.length > 0) {
+                    const commentRows = originalComments.map(c => ({
+                        task_id: savedTask!.id, // Non-null assertion safe here
+                        user_id: c.user_id,
+                        content: c.content,
+                        created_at: c.created_at,
+                        updated_at: new Date().toISOString()
+                    }));
+
+                    const { error: commentError } = await supabase.from('task_comments').insert(commentRows);
+                    if (commentError) toast.error(`Erro ao clonar comentários: ${commentError.message}`);
                 }
             }
 

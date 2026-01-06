@@ -62,6 +62,7 @@ type Task = {
             avatar_url?: string;
         }
     }[];
+    board_ids?: string[];
 };
 
 type Attachment = {
@@ -164,6 +165,20 @@ export default function TaskDetail() {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [uploading, setUploading] = useState(false);
+
+    // Clone Task State
+    const [showCloneModal, setShowCloneModal] = useState(false);
+    const [cloneOptions, setCloneOptions] = useState({
+        description: true,
+        assignees: false,
+        attachments: false,
+        comments: false,
+        client: true,
+        project: true,
+        flow: true,
+        date: true
+    });
+    const [cloning, setCloning] = useState(false);
 
     // Time tracking
     const [isTracking, setIsTracking] = useState(false);
@@ -348,13 +363,21 @@ export default function TaskDetail() {
                     workflow:workflows(id, name),
                     task_assignees(
                         user:users(id, full_name, email, avatar_url)
-                    )
+                    ),
+                    task_boards(board_id)
                 `)
                 .eq('task_number', id) // Query by task_number using the URL param
                 .single();
 
             if (error) throw error;
-            setTask(data);
+
+            // Map task_boards to board_ids for compatibility
+            const taskWithBoards = {
+                ...data,
+                board_ids: data.task_boards?.map((tb: any) => tb.board_id) || []
+            };
+
+            setTask(taskWithBoards);
         } catch (error) {
             console.error('Error fetching task:', error);
             alert('Erro ao carregar tarefa');
@@ -912,8 +935,142 @@ export default function TaskDetail() {
 
     const handleCloneTask = async () => {
         if (!task) return;
-        navigate(`/tasks/new?clone_from=${task.task_number}`);
+        setShowCloneModal(true);
     };
+
+    const handleCloneConfirm = async () => {
+        if (!task) return;
+        setCloning(true);
+
+        try {
+            // 1. Prepare Base Data
+            const cloneData: any = {
+                title: `${task.title} (Cópia)`,
+                priority: task.priority,
+                created_by: user?.id,
+                tags: task.tags
+                // updated_at removed to let DB handle defaults and avoid schema cache errors
+            };
+
+            // Handle Granular Options
+            if (cloneOptions.description) {
+                cloneData.description = task.description;
+            }
+
+            if (cloneOptions.client) {
+                cloneData.client_id = task.client?.id;
+            }
+
+            if (cloneOptions.project) {
+                cloneData.project_id = task.project?.id;
+            }
+
+            if (cloneOptions.flow) {
+                cloneData.workflow_id = task.workflow?.id;
+                cloneData.status = task.status;
+            } else {
+                cloneData.status = 'BACKLOG';
+            }
+
+            if (cloneOptions.date && task.due_date) {
+                cloneData.due_date = task.due_date;
+            } else {
+                cloneData.due_date = null;
+            }
+
+            // Assignees
+            if (cloneOptions.assignees && task.assignee?.id) {
+                cloneData.assignee_id = task.assignee.id;
+            }
+
+            // Attachments (Copy array refs)
+            if (cloneOptions.attachments && task.attachments && task.attachments.length > 0) {
+                cloneData.attachments = task.attachments.map((att: any) => ({
+                    ...att,
+                    id: crypto.randomUUID(), // New Meta ID
+                    uploaded_at: new Date().toISOString()
+                }));
+            }
+
+            // 2. Insert New Task
+            const { data: newTask, error } = await supabase
+                .from('tasks')
+                .insert([cloneData])
+                .select()
+                .single();
+
+            if (error) throw error;
+            if (!newTask) throw new Error('Falha ao criar tarefa.');
+
+            // 3. Insert Relations
+
+            // 3a. Boards
+            const boardsToLink = task.board_ids || (task.project?.board_id ? [task.project.board_id] : []);
+            if (boardsToLink.length > 0) {
+                const boardRows = boardsToLink.map((bid: string) => ({
+                    task_id: newTask.id,
+                    board_id: bid
+                }));
+                await supabase.from('task_boards').insert(boardRows);
+            }
+
+            // 3b. Assignees (Many-to-Many)
+            if (cloneOptions.assignees && task.task_assignees && task.task_assignees.length > 0) {
+                // Map based on inspected structure: usually ta.user_id if nested from select(..., task_assignees(user_id))
+                // or ta.user.id if nested select(..., task_assignees(user:users(id)))
+                // TaskDetail uses assignees.map(a => a.user.full_name) so structure is likely { user: { id, ... } }.
+                // We need just user_id for insert.
+                const realAssigneeRows = task.task_assignees.map((ta: any) => ({
+                    task_id: newTask.id,
+                    user_id: ta.user?.id || ta.user_id // safe fallback
+                })).filter((row: any) => row.user_id);
+
+                if (realAssigneeRows.length > 0) {
+                    await supabase.from('task_assignees').insert(realAssigneeRows);
+                }
+            }
+
+            // 3c. Comments (If selected)
+            if (cloneOptions.comments) {
+                const { data: originalComments } = await supabase
+                    .from('task_comments')
+                    .select('*')
+                    .eq('task_id', task.id)
+                    .order('created_at', { ascending: true });
+
+                if (originalComments && originalComments.length > 0) {
+                    const commentRows = originalComments.map(c => ({
+                        task_id: newTask.id,
+                        user_id: c.user_id,
+                        content: c.content,
+                        created_at: c.created_at, // Preserve history
+                        updated_at: new Date().toISOString()
+                    }));
+                    await supabase.from('task_comments').insert(commentRows);
+                }
+            }
+
+            // 4. System Comment
+            await supabase.from('task_comments').insert([{
+                task_id: newTask.id,
+                user_id: user?.id,
+                content: `🔄 **Tarefa Clonada**\n\nEsta tarefa foi originada a partir da tarefa #${task.task_number}.`
+            }]);
+
+            toast.success('Tarefa clonada com sucesso!');
+            setShowCloneModal(false);
+
+            // 5. Navigate to EDIT (Edit route is /tasks/:task_number/edit based on handleEditTask)
+            navigate(`/tasks/${newTask.task_number}/edit`);
+
+        } catch (error: any) {
+            console.error('Error cloning task:', error);
+            toast.error(`Erro ao clonar: ${error.message}`);
+        } finally {
+            setCloning(false);
+        }
+    };
+
 
 
 
@@ -1610,6 +1767,15 @@ export default function TaskDetail() {
                                 </div>
                             </div>
 
+                            {/* Clone Button */}
+                            <button
+                                onClick={handleCloneTask}
+                                className="w-full h-12 text-white border border-white/20 hover:bg-white/5 hover:border-white/40 font-bold rounded-lg flex items-center justify-center gap-2 transition-all group backdrop-blur-sm"
+                            >
+                                <span className="material-symbols-outlined text-[20px] group-hover:scale-110 transition-transform">content_copy</span>
+                                Clonar Tarefa
+                            </button>
+
                             <div className="relative py-2">
                                 <div aria-hidden="true" className="absolute inset-0 flex items-center">
                                     <div className="w-full border-t border-border-dark"></div>
@@ -1674,6 +1840,86 @@ export default function TaskDetail() {
                                         {column.statuses.includes(task.status) && <span className="material-symbols-outlined text-primary text-[16px]">check</span>}
                                     </button>
                                 ))}
+                            </div>
+                        </div>
+                    </div>
+                </Portal>
+            )}
+
+            {/* Clone Modal */}
+            {showCloneModal && (
+                <Portal>
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        {/* Overlay */}
+                        <div
+                            className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+                            onClick={() => setShowCloneModal(false)}
+                        ></div>
+
+                        {/* Modal Content */}
+                        <div className="relative bg-surface-dark border border-border-dark rounded-xl shadow-2xl w-full max-w-sm overflow-hidden animate-scale-in">
+                            <div className="p-6">
+                                <h3 className="text-white text-lg font-bold mb-1 flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-primary">content_copy</span>
+                                    Clonar Tarefa
+                                </h3>
+                                <p className="text-text-muted text-sm mb-6">Selecione o que deseja copiar para a nova tarefa:</p>
+
+                                <div className="flex flex-col gap-3">
+                                    {[
+                                        { id: 'description', label: 'Descrição' },
+                                        { id: 'client', label: 'Cliente' },
+                                        { id: 'project', label: 'Projeto' },
+                                        { id: 'flow', label: 'Fluxo/Etapa' },
+                                        { id: 'date', label: 'Prazo' },
+                                        { id: 'assignees', label: 'Responsáveis' },
+                                        { id: 'attachments', label: 'Anexos (Arquivos)' },
+                                        { id: 'comments', label: 'Comentários (Histórico)' }
+                                    ].map((opt: any) => (
+                                        <label key={opt.id} className="flex items-center gap-3 p-3 rounded-lg border border-border-dark bg-background-dark/50 cursor-pointer hover:border-primary/50 transition-colors group">
+                                            <div className="relative flex items-center">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={(cloneOptions as any)[opt.id]}
+                                                    disabled={opt.disabled}
+                                                    onChange={(e) => setCloneOptions(prev => ({ ...prev, [opt.id]: e.target.checked }))}
+                                                    className="peer h-5 w-5 cursor-pointer appearance-none rounded border border-text-muted bg-transparent checked:border-primary checked:bg-primary transition-all disabled:opacity-50"
+                                                />
+                                                <span className="material-symbols-outlined absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-background-dark text-[16px] opacity-0 peer-checked:opacity-100 pointer-events-none font-bold">check</span>
+                                            </div>
+                                            <span className={`text-sm font-medium transition-colors ${opt.disabled ? 'text-gray-500' : 'text-gray-200 group-hover:text-white'}`}>
+                                                {opt.label}
+                                            </span>
+                                        </label>
+                                    ))
+                                    }
+                                </div>
+                            </div>
+
+                            <div className="p-4 bg-background-dark/50 border-t border-border-dark flex gap-3">
+                                <button
+                                    onClick={() => setShowCloneModal(false)}
+                                    className="flex-1 py-2.5 text-sm font-bold text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={handleCloneConfirm}
+                                    disabled={cloning}
+                                    className="flex-1 py-2.5 text-sm font-bold text-background-dark bg-primary hover:bg-primary-dark rounded-lg shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2"
+                                >
+                                    {cloning ? (
+                                        <>
+                                            <div className="size-4 border-2 border-background-dark/30 border-t-background-dark rounded-full animate-spin"></div>
+                                            Clonando...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span className="material-symbols-outlined text-[18px]">content_copy</span>
+                                            Confirmar Clonagem
+                                        </>
+                                    )}
+                                </button>
                             </div>
                         </div>
                     </div>
