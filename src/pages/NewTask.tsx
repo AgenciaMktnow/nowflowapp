@@ -64,6 +64,7 @@ export default function NewTask() {
     const [boards, setBoards] = useState<Board[]>([]);
     const [selectedBoardIds, setSelectedBoardIds] = useState<string[]>([]);
     const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     // Close dropdown on click outside
@@ -584,6 +585,26 @@ export default function NewTask() {
         return data.publicUrl;
     };
 
+    const handleDeleteTask = async () => {
+        if (!taskId) return;
+
+        try {
+            setLoading(true);
+            const { error } = await supabase.from('tasks').delete().eq('id', taskId);
+
+            if (error) throw error;
+
+            toast.success('Tarefa excluída com sucesso');
+            navigate('/dashboard');
+        } catch (error: any) {
+            console.error('Error deleting task:', error);
+            toast.error(error.message || 'Erro ao excluir tarefa');
+        } finally {
+            setLoading(false);
+            setShowDeleteModal(false);
+        }
+    };
+
 
 
     return (
@@ -844,14 +865,14 @@ export default function NewTask() {
                 </div>
 
                 {/* Footer: Locked to Bottom (Sticky/Fixed behavior) */}
-                <div className="flex flex-col md:flex-row items-center justify-between gap-6 border-t border-white/5 pt-5 mt-auto bg-transparent backdrop-blur-xl shrink-0 sticky bottom-0 z-10 w-full px-6 md:px-10 -mx-6 md:-mx-10 mb-[-24px] pb-8">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-6 border-t border-white/5 pt-5 mt-auto bg-transparent backdrop-blur-xl shrink-0 sticky bottom-0 z-10 w-full px-6 md:px-10 -mx-6 md:-mx-10 mb-[-24px] pb-8 flex-wrap md:flex-nowrap">
                     {/* Left: Metadata */}
                     <div className="flex items-center gap-4 flex-1 w-full md:w-auto">
                         <div className="relative group shrink-0">
                             <input type="file" multiple className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" onChange={(e) => e.target.files && setFiles([...files, ...Array.from(e.target.files)])} />
-                            <div className={`flex items-center gap-2 px-5 py-3 rounded-xl border transition-all cursor-pointer ${files.length > 0 ? 'bg-primary/10 border-primary/30 text-primary shadow-[0_0_15px_rgba(0,255,0,0.1)]' : 'bg-surface-dark border-gray-700/50 text-gray-400 hover:border-gray-500 hover:text-gray-200'}`}>
+                            <div className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all cursor-pointer ${files.length > 0 ? 'bg-primary/10 border-primary/30 text-primary shadow-[0_0_15px_rgba(0,255,0,0.1)]' : 'bg-surface-dark border-gray-700/50 text-gray-400 hover:border-gray-500 hover:text-gray-200'}`}>
                                 <span className="material-symbols-outlined text-[20px]">attach_file</span>
-                                <span className="text-xs font-bold uppercase tracking-wider">{files.length > 0 ? `${files.length} Anexos` : 'Anexar Arquivos'}</span>
+                                <span className="text-xs font-bold uppercase tracking-wider">{files.length > 0 ? `${files.length} Anexos` : 'Anexar'}</span>
                             </div>
                         </div>
 
@@ -861,7 +882,7 @@ export default function NewTask() {
                                     key={p}
                                     type="button"
                                     onClick={() => setPriority(p.toUpperCase() as any)}
-                                    className={`px-5 py-2 rounded-lg text-[10px] font-bold uppercase transition-all ${priority === p.toUpperCase()
+                                    className={`px-3 py-2 rounded-lg text-[10px] font-bold uppercase transition-all ${priority === p.toUpperCase()
                                         ? (p === 'low' ? 'bg-blue-500/10 text-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.2)]' : p === 'medium' ? 'bg-yellow-500/10 text-yellow-400 shadow-[0_0_10px_rgba(234,179,8,0.2)]' : 'bg-red-500/10 text-red-400 shadow-[0_0_10px_rgba(239,68,68,0.2)]')
                                         : 'text-gray-500 hover:text-white hover:bg-white/5'
                                         }`}
@@ -873,11 +894,20 @@ export default function NewTask() {
                     </div>
 
                     {/* Right: Actions */}
-                    <div className="flex items-center gap-4 shrink-0 w-full md:w-auto justify-end">
+                    <div className="flex items-center gap-3">
+                        {taskId && userProfile?.role === 'ADMIN' && (
+                            <button
+                                type="button"
+                                onClick={() => setShowDeleteModal(true)}
+                                className="px-6 py-3 rounded-xl text-red-500 hover:bg-red-500/10 text-xs font-bold transition-colors uppercase tracking-wider border border-red-500/20 hover:border-red-500/50"
+                            >
+                                Excluir
+                            </button>
+                        )}
                         <button type="button" onClick={() => navigate('/dashboard')} className="px-6 py-3 rounded-xl text-gray-400 text-xs font-bold hover:text-white hover:bg-white/5 transition-colors uppercase tracking-wider">
                             Cancelar
                         </button>
-                        <button type="submit" disabled={loading} className="flex items-center gap-3 px-10 py-3.5 bg-primary hover:bg-[#0fd650] text-[#112217] font-bold text-sm uppercase tracking-wider rounded-xl shadow-[0_0_25px_rgba(19,236,91,0.4)] hover:shadow-[0_0_35px_rgba(19,236,91,0.6)] transition-all transform hover:-translate-y-0.5 disabled:opacity-50">
+                        <button type="submit" disabled={loading} className="flex items-center gap-3 px-10 py-3 bg-primary hover:bg-[#0fd650] text-[#112217] font-bold text-sm uppercase tracking-wider rounded-xl shadow-[0_0_25px_rgba(19,236,91,0.4)] hover:shadow-[0_0_35px_rgba(19,236,91,0.6)] transition-all transform hover:-translate-y-0.5 disabled:opacity-50">
                             <span>{taskId ? 'Salvar Edição' : 'Criar Tarefa'}</span>
                             <span className="material-symbols-outlined text-[20px] font-bold">arrow_forward</span>
                         </button>
@@ -888,6 +918,38 @@ export default function NewTask() {
             <div className="absolute bottom-6 left-10 text-gray-500 text-[10px] hidden lg:block opacity-30 pointer-events-none">
                 Pressione <kbd className="font-sans px-1.5 py-0.5 bg-gray-800 rounded border border-gray-700 text-gray-300">Ctrl</kbd> + <kbd className="font-sans px-1.5 py-0.5 bg-gray-800 rounded border border-gray-700 text-gray-300">Enter</kbd> para enviar rápido
             </div>
+
+
+            {/* Delete Confirmation Modal */}
+            {
+                showDeleteModal && (
+                    <div className="fixed inset-0 bg-background-dark/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+                        <div className="bg-surface-dark border border-gray-700 rounded-xl p-6 max-w-md w-full shadow-2xl">
+                            <h3 className="text-xl font-bold text-white mb-2">Excluir Tarefa?</h3>
+                            <p className="text-gray-400 mb-6">
+                                Tem certeza que deseja excluir esta tarefa? Esta ação não poderá ser desfeita e removerá todos os dados associados.
+                            </p>
+
+                            <div className="flex items-center justify-end gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowDeleteModal(false)}
+                                    className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                                >
+                                    Não, Cancelar
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleDeleteTask}
+                                    className="px-4 py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg shadow-lg shadow-red-600/20 transition-all"
+                                >
+                                    Sim, Excluir
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
         </div>
     );
 
