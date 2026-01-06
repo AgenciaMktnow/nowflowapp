@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import MultiSelectDropdown from '../components/MultiSelectDropdown';
+import UserDeleteModal from '../components/modals/UserDeleteModal';
 import { toast } from 'sonner';
 
 type User = {
@@ -247,35 +248,53 @@ export default function TeamManagement() {
         }
     };
 
-    const handleDeleteUser = async () => {
-        if (!selectedUser || selectedUser.id === 'new') return;
 
-        const confirmDelete = window.confirm(`Tem certeza que deseja excluir o usuário "${selectedUser.full_name}"? Esta ação removerá permanentemente o acesso e todos os dados associados.`);
-        if (!confirmDelete) return;
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
+    const checkDeleteUser = (user: User) => {
+        if (user.id === 'new') return;
+        setUserToDelete(user);
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleConfirmDelete = async (targetUserId: string, newOwnerId: string | null) => {
         try {
-            const toastId = toast.loading('Excluindo usuário...');
+            const toastId = toast.loading('Processando exclusão...');
 
             // Call the secure RPC
             const { error } = await supabase.rpc('delete_user_complete', {
-                target_user_id: selectedUser.id
+                target_user_id: targetUserId,
+                new_owner_id: newOwnerId
             });
 
             if (error) throw error;
 
             toast.success('Usuário excluído com sucesso!', { id: toastId });
 
-            setUsers(users.filter(u => u.id !== selectedUser.id));
-            setSelectedUser(null);
+            setUsers(users.filter(u => u.id !== targetUserId));
+            if (selectedUser?.id === targetUserId) {
+                setSelectedUser(null);
+            }
         } catch (error: any) {
             console.error('Error deleting user:', error);
             toast.error(`Erro ao excluir usuário: ${error?.message || 'Verifique suas permissões.'}`);
+            throw error; // Re-throw to let modal handle loading state if sophisticated, though here modal closes on success via parent state update usually, but wait, modal calls this.
         }
     };
 
-
     return (
         <div className="flex flex-col h-full relative overflow-hidden">
+            {isDeleteModalOpen && userToDelete && (
+                <UserDeleteModal
+                    isOpen={isDeleteModalOpen}
+                    onClose={() => setIsDeleteModalOpen(false)}
+                    onConfirm={handleConfirmDelete}
+                    userToDelete={userToDelete}
+                    allUsers={users}
+                />
+            )}
+
             {/* Header */}
             <header className="flex-none pb-6">
                 <div className="flex flex-wrap justify-between items-end gap-4">
@@ -615,7 +634,7 @@ export default function TeamManagement() {
                         <div className="p-5 border-t border-[#23482f] bg-[#14261d] rounded-b-xl flex items-center justify-between gap-3">
                             {selectedUser.id !== 'new' && (
                                 <button
-                                    onClick={handleDeleteUser}
+                                    onClick={() => checkDeleteUser(selectedUser)}
                                     className="px-4 py-2 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 hover:border-red-500 transition-colors text-sm font-medium flex items-center gap-2"
                                 >
                                     <span className="material-symbols-outlined text-[18px]">delete</span>
@@ -633,3 +652,5 @@ export default function TeamManagement() {
         </div>
     );
 }
+
+
