@@ -38,7 +38,7 @@ export default function UserDeleteModal({ isOpen, onClose, onConfirm, userToDele
             const { count, error } = await supabase
                 .from('tasks')
                 .select('*', { count: 'exact', head: true })
-                .eq('user_id', userToDelete.id);
+                .eq('assignee_id', userToDelete.id);
 
             if (error) throw error;
             setTaskCount(count || 0);
