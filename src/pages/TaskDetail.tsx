@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -9,8 +10,13 @@ import { logActivity } from '../services/activityLogger';
 import { boardService, type Column } from '../services/board.service';
 import { toast } from 'sonner';
 import Header from '../components/layout/Header/Header';
-import { MultiBoardSelector } from '../components/MultiBoardSelector';
+
+
 import type { Board } from '../types/database.types';
+
+const Portal = ({ children }: { children: React.ReactNode }) => {
+    return createPortal(children, document.body);
+};
 
 type Task = {
     id: string;
@@ -91,8 +97,49 @@ export default function TaskDetail() {
     const { user } = useAuth();
     const timerInterval = useRef<number | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const triggerRef = useRef<HTMLButtonElement>(null);
+    const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
     const [showStageDropdown, setShowStageDropdown] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+    useEffect(() => {
+        if (showStageDropdown && triggerRef.current) {
+            console.log('Colunas encontradas:', boardColumns);
+            const rect = triggerRef.current.getBoundingClientRect();
+            setDropdownPosition({
+                top: rect.bottom,
+                left: rect.left,
+                width: rect.width
+            });
+
+            // Close on scroll/resize logic
+            const handleScroll = (e: Event) => {
+                // Ignore scroll events originating from within the dropdown itself
+                const target = e.target as HTMLElement;
+                if (target?.closest?.('.stage-dropdown-content')) return;
+
+                setShowStageDropdown(false);
+            };
+
+            // Close on click outside
+            const handleClickOutside = (e: MouseEvent) => {
+                const target = e.target as HTMLElement;
+                if (triggerRef.current && triggerRef.current.contains(target)) return;
+                if (target?.closest?.('.stage-dropdown-content')) return;
+                setShowStageDropdown(false);
+            };
+
+            window.addEventListener('scroll', handleScroll, true);
+            window.addEventListener('resize', handleScroll);
+            window.addEventListener('mousedown', handleClickOutside);
+            return () => {
+                window.removeEventListener('scroll', handleScroll, true);
+                window.removeEventListener('resize', handleScroll);
+                window.removeEventListener('mousedown', handleClickOutside);
+            };
+        }
+    }, [showStageDropdown]);
+
 
     // Mentions
 
@@ -163,6 +210,14 @@ export default function TaskDetail() {
         };
         fetchBoards();
     }, []);
+
+    // Fix: Trigger fetchBoardColumns when boards are identified
+    useEffect(() => {
+        if (selectedBoardIds.length > 0) {
+            // Fetch columns for the first linked board to populate the dropdown
+            fetchBoardColumns(selectedBoardIds[0]);
+        }
+    }, [selectedBoardIds]);
 
     useEffect(() => {
         if (isTracking) {
@@ -250,11 +305,7 @@ export default function TaskDetail() {
     // Dynamic Columns
     const [boardColumns, setBoardColumns] = useState<Column[]>([]);
 
-    useEffect(() => {
-        if (task && task.project && task.project.board_id) {
-            fetchBoardColumns(task.project.board_id);
-        }
-    }, [task?.project?.board_id]);
+
 
     const fetchBoardColumns = async (boardId: string) => {
         try {
@@ -282,35 +333,7 @@ export default function TaskDetail() {
         }
     };
 
-    const handleBoardChange = async (newBoardIds: string[]) => {
-        if (!task) return;
 
-        // Optimistic Update
-        setSelectedBoardIds(newBoardIds);
-
-        try {
-            // 1. Get current DB state to minimize writes? Or just nuke and replace (easier but careful with RLS)
-            // Safer: Delete all for this task, Insert new.
-
-            // Delete old
-            const { error: deleteError } = await supabase.from('task_boards').delete().eq('task_id', task.id);
-            if (deleteError) throw deleteError;
-
-            // Insert new
-            if (newBoardIds.length > 0) {
-                const inserts = newBoardIds.map(bid => ({ task_id: task.id, board_id: bid }));
-                const { error: insertError } = await supabase.from('task_boards').insert(inserts);
-                if (insertError) throw insertError;
-            }
-
-            toast.success('Quadros atualizados com sucesso!');
-        } catch (error: any) {
-            console.error('Error updating boards:', error);
-            toast.error('Erro ao atualizar quadros');
-            // Revert state?
-            fetchTaskBoards(task.id);
-        }
-    };
 
     const fetchTask = async () => {
         try {
@@ -1345,17 +1368,33 @@ export default function TaskDetail() {
                     </div>
 
                     <div className="lg:col-span-4 flex flex-col gap-4 sticky top-24">
-                        {/* Multi-Board Selector */}
+                        {/* Boards (Read-Only) */}
                         <div className="bg-surface-dark rounded-xl border border-border-dark p-4 shadow-lg flex flex-col gap-2">
                             <div className="flex items-center gap-2 mb-1">
                                 <span className="material-symbols-outlined text-primary text-[18px]">dashboard</span>
                                 <span className="text-white text-xs font-bold uppercase tracking-wider">Quadros</span>
                             </div>
-                            <MultiBoardSelector
-                                boards={boards}
-                                selectedBoardIds={selectedBoardIds}
-                                onChange={handleBoardChange}
-                            />
+                            <div className="flex flex-wrap gap-2">
+                                {selectedBoardIds.length > 0 ? (
+                                    selectedBoardIds.map(boardId => {
+                                        const board = boards.find(b => b.id === boardId);
+                                        if (!board) return null;
+                                        return (
+                                            <div key={boardId} className="flex items-center gap-1.5 bg-background-dark border border-border-dark rounded-full pl-2 pr-3 py-1 transition-colors hover:border-primary/50 group cursor-default">
+                                                <span className="material-symbols-outlined text-[16px] text-primary">view_kanban</span>
+                                                <span className="text-[10px] font-bold text-gray-200 group-hover:text-white transition-colors max-w-[150px] truncate">
+                                                    {board.name}
+                                                </span>
+                                            </div>
+                                        );
+                                    })
+                                ) : (
+                                    <div className="text-text-muted text-xs italic flex items-center gap-1">
+                                        <span className="material-symbols-outlined text-[14px]">visibility_off</span>
+                                        Nenhum
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         {/* Assignees */}
@@ -1531,39 +1570,21 @@ export default function TaskDetail() {
                                     <label className="text-xs font-bold text-text-muted uppercase tracking-wider">Definir Próxima Etapa</label>
                                     <span className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20 cursor-help" title="Configuração do Kanban">Fluxo Ágil</span>
                                 </div>
-                                <div className="relative group">
-                                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                                        <span className="material-symbols-outlined text-text-muted group-focus-within:text-primary transition-colors text-[20px]">view_week</span>
-                                    </div>
-
-                                    {/* Custom Dropdown Trigger */}
+                                {/* Simplified Dropdown Trigger Structure */}
+                                <div className="">
                                     <button
+                                        ref={triggerRef}
                                         onClick={() => setShowStageDropdown(!showStageDropdown)}
-                                        className="w-full bg-background-dark border border-border-dark text-white text-sm font-medium rounded-lg pl-10 pr-8 py-3 text-left flex items-center justify-between hover:border-text-muted transition-colors focus:ring-1 focus:ring-primary focus:border-primary"
+                                        className="w-full bg-background-dark border border-border-dark text-white text-sm font-medium rounded-lg px-4 py-3 text-left flex items-center justify-between hover:border-text-muted transition-colors focus:ring-1 focus:ring-primary focus:border-primary gap-3"
                                     >
-                                        <span>
-                                            {boardColumns.find(col => col.statuses.includes(task.status))?.title || 'Selecione...'}
-                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-text-muted text-[20px]">view_week</span>
+                                            <span>
+                                                {boardColumns.find(col => col.statuses.includes(task.status))?.title || 'Selecione...'}
+                                            </span>
+                                        </div>
                                         <span className={`material-symbols-outlined text-[20px] text-text-muted transition-transform ${showStageDropdown ? 'rotate-180' : ''}`}>expand_more</span>
                                     </button>
-
-                                    {/* Dropdown Menu */}
-                                    {showStageDropdown && (
-                                        <div className="absolute top-full left-0 mt-2 w-full bg-surface-dark border border-white/10 rounded-xl shadow-xl z-50 overflow-hidden animate-scale-in">
-                                            <div className="p-1">
-                                                {boardColumns.map((column) => (
-                                                    <button
-                                                        key={column.id}
-                                                        onClick={() => handleUpdateStatus(column.statuses[0])}
-                                                        className="w-full text-left px-3 py-2.5 text-sm text-white hover:bg-white/5 rounded-lg transition-colors flex items-center justify-between group"
-                                                    >
-                                                        <span className={column.countColor?.replace('bg-', 'text-').split(' ')[1] || 'text-white'}>{column.title}</span>
-                                                        {column.statuses.includes(task.status) && <span className="material-symbols-outlined text-primary text-[16px]">check</span>}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
                             </div>
 
@@ -1628,6 +1649,36 @@ export default function TaskDetail() {
                     </div>
                 </div>
             </main>
+
+            {/* Global Portals */}
+            {showStageDropdown && (
+                <Portal>
+                    {/* Container with pointer-events-none to let scroll pass through */}
+                    <div className="fixed inset-0 z-[100] pointer-events-none">
+                        <div
+                            className="absolute bg-surface-dark backdrop-blur-md border border-border-dark rounded-xl shadow-2xl pointer-events-auto animate-scale-in flex flex-col max-h-[300px]"
+                            style={{
+                                top: dropdownPosition.top + 8,
+                                left: dropdownPosition.left,
+                                width: dropdownPosition.width
+                            }}
+                        >
+                            <div className="p-1 overflow-y-auto stage-dropdown-content custom-scrollbar">
+                                {boardColumns.map((column) => (
+                                    <button
+                                        key={column.id}
+                                        onClick={() => handleUpdateStatus(column.statuses[0])}
+                                        className="w-full text-left px-3 py-2.5 text-sm text-white hover:bg-white/5 rounded-lg transition-colors flex items-center justify-between group"
+                                    >
+                                        <span className={column.countColor?.replace('bg-', 'text-').split(' ')[1] || 'text-white'}>{column.title}</span>
+                                        {column.statuses.includes(task.status) && <span className="material-symbols-outlined text-primary text-[16px]">check</span>}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </Portal>
+            )}
         </div>
     );
 };
