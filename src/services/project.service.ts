@@ -69,11 +69,25 @@ export const projectService = {
         priority?: string;
         manager_id?: string;
     }): Promise<{ data: Project | null; error: Error | null }> {
+        // 1. Check if Project Name already exists (Service Catalog logic)
+        const { data: existing } = await supabase
+            .from('projects')
+            .select('*')
+            .eq('name', project.name)
+            .single();
+
+        if (existing) {
+            // "Upsert" logic: If redundant creation attempted for same name, just link/return existing.
+            // Note: We are ignoring different client_id here because projects are now Global Service Types.
+            return { data: existing as unknown as Project, error: null };
+        }
+
+        // 2. Insert new if distinct
         const { data, error } = await supabase
             .from('projects')
             .insert({
                 name: project.name,
-                client_id: project.client_id,
+                client_id: project.client_id, // Might be null for global services
                 team_id: project.team_id,
                 board_id: project.board_id,
                 description: project.description,
