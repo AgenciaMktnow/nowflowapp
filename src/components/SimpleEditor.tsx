@@ -219,14 +219,14 @@ const SimpleEditor = ({ value, onChange, placeholder, onImageUpload, hideToolbar
         <div
             className={`
                 w-full h-full bg-input-bg border border-input-border rounded-xl overflow-hidden focus-within:ring-1 focus-within:ring-primary transition-all flex flex-col shadow-sm
-                ${isFullscreen ? 'fixed inset-0 z-50 rounded-none m-0 h-screen border-none bg-input-bg' : ''}
+                ${isFullscreen ? 'fixed inset-0 z-[9999] rounded-none m-0 h-screen border-none bg-[#102216]' : ''}
             `}
             onDrop={handleDrop}
             onDragOver={(e) => e.preventDefault()}
         >
             {/* Toolbar */}
             {!hideToolbar && (
-                <div className={`flex flex-wrap items-center gap-1 w-full p-2 transition-all ${isFullscreen ? 'max-w-7xl mx-auto justify-center' : 'px-4'}`}>
+                <div className={`flex flex-wrap items-center gap-1 w-full p-2 transition-all ${isFullscreen ? 'sticky top-0 z-50 bg-[#102216] border-b border-border-main justify-center shadow-lg relative gap-3' : 'px-4'}`}>
 
                     {/* Font Family Selector */}
                     <select
@@ -443,13 +443,13 @@ const SimpleEditor = ({ value, onChange, placeholder, onImageUpload, hideToolbar
                         <span className="material-symbols-outlined text-[20px]">description</span>
                     </button>
 
-                    <div className="flex-1"></div>
+                    <div className={isFullscreen ? 'hidden' : 'flex-1'}></div>
 
                     <button
                         type="button"
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => setIsFullscreen(!isFullscreen)}
-                        className={`size-8 flex items-center justify-center rounded hover:bg-surface-highlight text-text-main transition-colors ${isFullscreen ? 'bg-primary/20 text-primary' : ''}`}
+                        className={`size-8 flex items-center justify-center rounded hover:bg-surface-highlight text-text-main transition-colors ${isFullscreen ? 'bg-primary/20 text-primary absolute right-4 top-1/2 -translate-y-1/2' : ''}`}
                         title={isFullscreen ? "Sair da Tela Cheia" : "Tela Cheia"}
                     >
                         <span className="material-symbols-outlined text-[20px]">{isFullscreen ? 'close_fullscreen' : 'open_in_full'}</span>
@@ -458,7 +458,7 @@ const SimpleEditor = ({ value, onChange, placeholder, onImageUpload, hideToolbar
             )}
 
             {/* Editor Content */}
-            <div className={`flex-1 overflow-y-auto ${isFullscreen ? 'p-8 max-w-7xl mx-auto w-full' : ''}`}>
+            <div className={`flex-1 overflow-y-auto ${isFullscreen ? 'p-10 max-w-4xl mx-auto w-full' : ''}`}>
                 <EditorContent editor={editor} className="h-full" />
             </div>
 
