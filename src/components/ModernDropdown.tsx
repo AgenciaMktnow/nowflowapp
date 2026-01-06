@@ -84,7 +84,7 @@ export default function ModernDropdown({
                 onClick={() => !disabled && setIsOpen(!isOpen)}
                 disabled={disabled}
                 className={`w-full flex items-center justify-between gap-2 px-3 h-12 rounded-xl border hover:border-primary/50 text-sm font-medium transition-all appearance-none
-                    ${disabled ? 'opacity-50 cursor-not-allowed bg-black/20 border-white/5' : 'cursor-pointer'}
+                    ${disabled ? 'opacity-50 cursor-not-allowed bg-input-bg border-input-border text-text-secondary' : 'cursor-pointer'}
                     ${value && !disabled
                         ? 'bg-transparent border-primary/50 text-text-main'
                         : (!disabled ? 'bg-input-bg border-input-border text-text-secondary hover:text-text-main hover:border-text-secondary/50' : '')

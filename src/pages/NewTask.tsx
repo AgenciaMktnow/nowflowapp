@@ -636,7 +636,15 @@ export default function NewTask() {
                                 value={dueDate}
                                 disabled={isOngoing}
                                 onChange={(e) => setDueDate(e.target.value)}
-                                className={`w-full h-12 bg-surface-dark border border-gray-700 rounded-xl px-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-medium [color-scheme:dark] ${isOngoing ? 'opacity-50 cursor-not-allowed text-gray-500' : ''}`}
+                                className={`w-full h-12 rounded-xl px-3 text-sm font-medium transition-all outline-none appearance-none [color-scheme:dark]
+                                    ${isOngoing
+                                        ? 'opacity-50 cursor-not-allowed bg-input-bg border border-input-border text-text-secondary'
+                                        : `cursor-pointer ${dueDate
+                                            ? 'bg-transparent border border-primary/50 text-text-main'
+                                            : 'bg-input-bg border border-input-border text-text-secondary hover:border-text-secondary/50 focus:border-primary/50'
+                                        } focus:ring-2 focus:ring-primary focus:bg-transparent`
+                                    }
+                                `}
                             />
                         </div>
 
@@ -657,18 +665,24 @@ export default function NewTask() {
                                             setTimeout(() => document.getElementById('assignee-search-input')?.focus(), 50);
                                         }
                                     }}
-                                    className={`w-full h-12 bg-surface-dark border border-gray-700 rounded-xl px-3 flex items-center justify-between gap-2 text-white transition-all hover:border-gray-500 ${showAssigneeDropdown ? 'ring-2 ring-primary border-transparent' : ''}`}
+                                    className={`w-full flex items-center justify-between gap-2 px-3 h-12 rounded-xl border transition-all
+                                        ${selectedUsers.length > 0
+                                            ? 'bg-transparent border-primary/50 text-text-main'
+                                            : 'bg-input-bg border-input-border text-text-secondary hover:text-text-main hover:border-text-secondary/50'
+                                        }
+                                        ${showAssigneeDropdown ? 'ring-2 ring-primary border-transparent' : ''}
+                                    `}
                                 >
                                     <div className="flex items-center gap-2 overflow-hidden flex-1">
                                         <div className="flex items-center justify-center size-5 rounded-full border border-gray-600 bg-gray-800 shrink-0">
                                             {selectedUsers.length > 0 && selectedUsers[0].avatar_url ? (
                                                 <div className="size-full rounded-full bg-cover bg-center" style={{ backgroundImage: `url('${selectedUsers[0].avatar_url}')` }}></div>
                                             ) : (
-                                                <span className="material-symbols-outlined text-[16px] text-gray-400">group</span>
+                                                <span className="material-symbols-outlined text-[16px]">group</span>
                                             )}
                                         </div>
 
-                                        <span className={`text-sm font-medium truncate ${selectedUsers.length > 0 ? 'text-white' : 'text-gray-500'}`}>
+                                        <span className={`text-sm font-medium truncate ${selectedUsers.length > 0 ? 'text-text-main' : ''}`}>
                                             {selectedUsers.length === 0
                                                 ? "Selecionar responsáveis..."
                                                 : selectedUsers.length <= 2
@@ -677,7 +691,7 @@ export default function NewTask() {
                                             }
                                         </span>
                                     </div>
-                                    <span className={`material-symbols-outlined text-gray-500 transition-transform duration-200 ${showAssigneeDropdown ? 'rotate-180 text-primary' : ''}`}>expand_more</span>
+                                    <span className={`material-symbols-outlined text-[20px] transition-transform duration-200 ${showAssigneeDropdown ? 'rotate-180 text-primary' : 'text-text-secondary'}`}>expand_more</span>
                                 </button>
 
                                 {showAssigneeDropdown && (

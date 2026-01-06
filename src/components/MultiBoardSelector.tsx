@@ -61,15 +61,21 @@ export const MultiBoardSelector: React.FC<MultiBoardSelectorProps> = ({ boards, 
             <button
                 type="button"
                 onClick={handleOpen}
-                className={`w-full flex items-center justify-between gap-2 px-4 h-12 bg-surface-dark border border-gray-700/50 rounded-xl hover:border-gray-500 transition-all text-left group ${isOpen ? 'ring-2 ring-primary border-transparent' : ''}`}
+                className={`w-full flex items-center justify-between gap-2 px-3 h-12 rounded-xl border transition-all text-left group
+                    ${selectedBoardIds.length > 0
+                        ? 'bg-transparent border-primary/50 text-text-main'
+                        : 'bg-input-bg border-input-border text-text-secondary hover:text-text-main hover:border-text-secondary/50'
+                    }
+                    ${isOpen ? 'ring-2 ring-primary border-transparent' : ''}
+                `}
             >
                 <div className="flex items-center gap-2 overflow-hidden">
-                    <span className={`material-symbols-outlined text-[20px] transition-colors ${selectedBoardIds.length > 0 ? 'text-primary' : 'text-gray-400 group-hover:text-primary'}`}>view_kanban</span>
-                    <span className={`text-sm truncate font-medium ${selectedBoardIds.length > 0 ? 'text-white' : 'text-gray-400'}`}>
+                    <span className="material-symbols-outlined text-[20px]">view_kanban</span>
+                    <span className={`text-sm truncate font-medium ${selectedBoardIds.length > 0 ? 'text-text-main' : ''}`}>
                         {displayText}
                     </span>
                 </div>
-                <span className={`material-symbols-outlined text-gray-500 transition-transform duration-200 ${isOpen ? 'rotate-180 text-primary' : ''}`}>
+                <span className={`material-symbols-outlined text-[20px] transition-transform duration-200 ${isOpen ? 'rotate-180 text-primary' : 'text-text-secondary'}`}>
                     expand_more
                 </span>
             </button>
