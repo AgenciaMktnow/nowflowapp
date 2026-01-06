@@ -88,6 +88,7 @@ export default function MyQueue() {
                     assignee:users!tasks_assignee_id_fkey(full_name, avatar_url),
                     creator:users!tasks_created_by_fkey(id, full_name)
                 `)
+                .or(`assignee_id.eq.${user.id},created_by.eq.${user.id}`)
                 .neq('status', 'DONE')
                 .order('queue_position', { ascending: true })
                 .order('priority', { ascending: false })
