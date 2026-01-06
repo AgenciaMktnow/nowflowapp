@@ -107,29 +107,40 @@ export default function Projects() {
 
     // Cascade Logic: Update available Filters (Dependent Dropdowns)
     useEffect(() => {
-        let boardProjects = projects;
-        if (selectedBoard) {
-            boardProjects = boardProjects.filter(p => p.board_id === selectedBoard);
-        }
+        // Global Projects: They don't have board_id anymore.
+        // So we don't filter 'projects' by board_id strictly at the source.
+        // Instead, we determine availability via Relations.
 
-        // 1. Available Clients (Filtered by Board tasks + Projects)
+        // 1. Available Clients (Filtered by Board Association)
         const validClientIdsForBoard = new Set<string>();
 
-        // Strategy A: From Linked Projects
-        clients.forEach(c => {
-            if (c.project_ids?.some(pid => boardProjects.some(p => p.id === pid))) {
-                validClientIdsForBoard.add(c.id);
-            }
-        });
-
-        // Strategy B: From Actual Tasks (Hydration Fallback)
-        // If tasks are loaded and belong to this board, trust their client_ids
-        if (tasks.length > 0) {
-            tasks.forEach(t => {
-                if (t.client_id) validClientIdsForBoard.add(t.client_id);
-                // Also check project if available (double safety)
-                if (t.project?.client_id) validClientIdsForBoard.add(t.project.client_id);
+        if (selectedBoard) {
+            // Strategy A: From Board-Specific Links (Service Catalog)
+            clients.forEach(c => {
+                if (c.client_projects?.some(cp => cp.board_id === selectedBoard)) {
+                    validClientIdsForBoard.add(c.id);
+                }
+                // Legacy Fallback: Check if client has projects physically on this board
+                // (Useful during migration or mixed state)
+                if (c.project_ids?.some(pid => projects.find(p => p.id === pid && p.board_id === selectedBoard))) {
+                    validClientIdsForBoard.add(c.id);
+                }
             });
+
+            // Strategy B: From Actual Tasks (Hydration Fallback)
+            if (tasks.length > 0) {
+                tasks.forEach(t => {
+                    // Filter tasks that belong to this board (via column or direct board_id logic)
+                    // We assume tasks are currently fetched filtering by boardId (which service does)
+                    // But here 'tasks' state might contain mixed data if not careful? 
+                    // No, fetchTasks filters. So 'tasks' are relevant.
+                    if (t.client_id) validClientIdsForBoard.add(t.client_id);
+                    if (t.project?.client_id) validClientIdsForBoard.add(t.project.client_id);
+                });
+            }
+        } else {
+            // No board selected, all clients valid
+            clients.forEach(c => validClientIdsForBoard.add(c.id));
         }
 
         // Strategy C: If no board selected, show all
@@ -143,7 +154,7 @@ export default function Projects() {
             // User requested "Filtered", so we stick to validClientIds IF populated.
             if (validClientIdsForBoard.size > 0) {
                 setAvailableClients(clients.filter(c => validClientIdsForBoard.has(c.id)));
-            } else if (boardProjects.length === 0 && tasks.length === 0) {
+            } else if (projects.length === 0 && tasks.length === 0) {
                 // Nothing loaded for this board, empty list
                 setAvailableClients([]);
             } else {
@@ -153,11 +164,30 @@ export default function Projects() {
             }
         }
 
-        // 2. Available Projects (Filtered by Board AND Client)
-        let filteredProjects = boardProjects;
-        if (selectedClient) {
-            filteredProjects = filteredProjects.filter(p => p.client_id === selectedClient);
+        // 2. Available Projects (Dynamic Catalog Filter)
+        let filteredProjects = projects;
+
+        const currentClient = selectedClient ? clients.find(c => c.id === selectedClient) : null;
+
+        if (currentClient && selectedBoard) {
+            // Strict: Logic "Service X active on Board Y for Client Z"
+            if (currentClient.client_projects) {
+                const activeProjectIds = new Set(
+                    currentClient.client_projects
+                        .filter(cp => cp.board_id === selectedBoard)
+                        .map(cp => cp.project_id)
+                );
+                filteredProjects = filteredProjects.filter(p => activeProjectIds.has(p.id));
+            }
+        } else if (currentClient) {
+            // Relaxed: All services for this client
+            if (currentClient.client_projects) {
+                const activeProjectIds = new Set(currentClient.client_projects.map(cp => cp.project_id));
+                filteredProjects = filteredProjects.filter(p => activeProjectIds.has(p.id));
+            }
         }
+
+        // Final set
         setAvailableProjects(filteredProjects);
 
         // 3. Available Teams (ALWAYS ALL - Requested by User)

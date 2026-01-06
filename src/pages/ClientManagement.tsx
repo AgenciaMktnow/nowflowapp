@@ -149,22 +149,22 @@ export default function ClientManagement() {
 
             if (clientsError) throw clientsError;
 
-            // 2. Fetch Project-Board Map (Avoid Join issues)
-            const { data: projectsData, error: projectsError } = await supabase
-                .from('projects')
+            // 2. Fetch Board Associations (Source of Truth: client_projects)
+            const { data: linksData, error: linksError } = await supabase
+                .from('client_projects')
                 .select('client_id, board_id');
 
-            if (projectsError) throw projectsError;
+            if (linksError) throw linksError;
 
             // 3. Map Active Boards
             const clientBoardMap = new Map<string, Set<string>>();
 
-            projectsData?.forEach(p => {
-                if (p.client_id && p.board_id) {
-                    if (!clientBoardMap.has(p.client_id)) {
-                        clientBoardMap.set(p.client_id, new Set());
+            linksData?.forEach((link: any) => {
+                if (link.client_id && link.board_id) {
+                    if (!clientBoardMap.has(link.client_id)) {
+                        clientBoardMap.set(link.client_id, new Set());
                     }
-                    clientBoardMap.get(p.client_id)?.add(p.board_id);
+                    clientBoardMap.get(link.client_id)?.add(link.board_id);
                 }
             });
 
@@ -239,15 +239,21 @@ export default function ClientManagement() {
                 return;
             }
 
+            // Source of Truth: client_projects link table
             const { data } = await supabase
-                .from('projects')
-                .select('name, board_id')
+                .from('client_projects')
+                .select('board_id, project:projects(name)')
                 .eq('client_id', selectedClient.id);
 
             const newMap: ClientProjectMap = new Map();
-            data?.forEach(p => {
-                if (!newMap.has(p.name)) newMap.set(p.name, new Set());
-                if (p.board_id) newMap.get(p.name)?.add(p.board_id);
+            data?.forEach((item: any) => {
+                const name = item.project?.name;
+                const boardId = item.board_id;
+
+                if (name && boardId) {
+                    if (!newMap.has(name)) newMap.set(name, new Set());
+                    newMap.get(name)?.add(boardId);
+                }
             });
             setClientProjectMap(newMap);
         };
@@ -351,12 +357,12 @@ export default function ClientManagement() {
         try {
             let clientId = selectedClient.id;
 
-            // 1. Upsert Client (Update Default Board to first selected, or keep existing)
+            // 1. Upsert Client
             const firstBoard = Array.from(selectedContextBoardIds)[0];
             const clientData = {
                 name: selectedClient.name,
                 status: selectedClient.status,
-                default_board_id: firstBoard // Fallback
+                default_board_id: firstBoard
             };
 
             if (clientId === 'new') {
@@ -368,53 +374,73 @@ export default function ClientManagement() {
                 if (error) throw error;
             }
 
-            // 2. Sync Projects (SCOPED BY SELECTED BOARDS)
-            // We fetch existing projects for this client across ALL boards to be safe, 
-            // but we really only care about diffing against the boards in 'clientProjectMap'.
-
-            // Actually, simpler strategy:
-            // Wipe & Recreate? No, ID persistence is good.
-            // Upsert / Delete Strategy per Board.
-
+            // 2. Service Catalog Synchronization (Global Projects + Links)
             const allSelectedBoards = Array.from(selectedContextBoardIds);
+            const allServiceNames = Array.from(clientProjectMap.keys());
 
-            // Fetch existing to know IDs
-            const { data: existingProjects } = await supabase
-                .from('projects')
-                .select('id, name, board_id')
-                .eq('client_id', clientId);
+            // A. Resolve Global Project IDs (Get or Create)
+            const nameToIdMap = new Map<string, string>();
 
-            // PROCESS EACH SELECTED BOARD
+            if (allServiceNames.length > 0) {
+                // Fetch existing global projects
+                const { data: globalProjects } = await supabase
+                    .from('projects')
+                    .select('id, name')
+                    .in('name', allServiceNames);
+
+                globalProjects?.forEach(p => nameToIdMap.set(p.name, p.id));
+
+                // Create missing globals
+                for (const name of allServiceNames) {
+                    if (!nameToIdMap.has(name)) {
+                        const { data: newProj, error: createError } = await supabase
+                            .from('projects')
+                            .insert({ name, status: 'PLANNING' }) // Global Service Defaults
+                            .select()
+                            .single();
+
+                        if (newProj) nameToIdMap.set(name, newProj.id);
+                        if (createError) console.error('Error creating global service:', createError);
+                    }
+                }
+            }
+
+            // B. Sync Links per Board
             for (const boardId of allSelectedBoards) {
-                // What projects SHOULD be in this board?
-                const projectsForBoard = new Set<string>();
+                // Identify Desired IDs for this specific board
+                const desiredProjectIds = new Set<string>();
                 clientProjectMap.forEach((boardsSet, serviceName) => {
-                    if (boardsSet.has(boardId)) projectsForBoard.add(serviceName);
+                    if (boardsSet.has(boardId)) {
+                        const pid = nameToIdMap.get(serviceName);
+                        if (pid) desiredProjectIds.add(pid);
+                    }
                 });
 
-                // What projects ARE in this board?
-                const existingForBoard = existingProjects?.filter(p => p.board_id === boardId) || [];
-                const existingNames = new Set(existingForBoard.map(p => p.name));
+                // Fetch Existing Links
+                const { data: existingLinks } = await supabase
+                    .from('client_projects')
+                    .select('project_id')
+                    .eq('client_id', clientId)
+                    .eq('board_id', boardId);
 
-                // Diff
-                const toAdd = [...projectsForBoard].filter(name => !existingNames.has(name));
-                const toRemove = [...existingNames].filter(name => !projectsForBoard.has(name));
+                const existingIds = new Set(existingLinks?.map(l => l.project_id) || []);
 
-                // Execute
+                // Diff: Add new links
+                const toAdd = [...desiredProjectIds].filter(id => !existingIds.has(id));
+                if (toAdd.length > 0) {
+                    await supabase.from('client_projects').insert(
+                        toAdd.map(pid => ({ client_id: clientId, project_id: pid, board_id: boardId }))
+                    );
+                }
+
+                // Diff: Remove obsolete links
+                const toRemove = [...existingIds].filter(id => !desiredProjectIds.has(id));
                 if (toRemove.length > 0) {
-                    await supabase.from('projects')
+                    await supabase.from('client_projects')
                         .delete()
                         .eq('client_id', clientId)
                         .eq('board_id', boardId)
-                        .in('name', toRemove);
-                }
-
-                if (toAdd.length > 0) {
-                    await supabase.from('projects').insert(toAdd.map(name => ({
-                        name,
-                        client_id: clientId,
-                        board_id: boardId
-                    })));
+                        .in('project_id', toRemove);
                 }
             }
 

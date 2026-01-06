@@ -84,21 +84,16 @@ export const reportService = {
                         title, 
                         estimated_time, 
                         category, 
-                        client_id, 
-                        client:clients(name)
+                        client_id
                     )
                 `)
                 .gte('start_time', startIso)
                 .lte('start_time', endIso);
 
-            // Apply Team Filter (requires joined table logic, or client-side filter if not relational)
-            // 'users' relation above fetches user details. 
-            // If filtering by team, we might need a separate filter or join on user_teams.
-            // For simplicity/performance, let's fetch all (or filtered by user list passed in?)
-            // The UI usually filters users first.
-            // Let's assume we fetch broadly and filter in memory for complex team logic, 
-            // OR use !inner join if possible. 
-            // Given Supabase usage so far, filtering in memory for small teams is safer than complex PostgREST syntax guessing.
+            // Fetch Clients for Names (Avoid nested join 406)
+            const { data: clientsData } = await supabase.from('clients').select('id, name');
+            const clientNameMap = new Map<string, string>();
+            clientsData?.forEach((c: any) => clientNameMap.set(c.id, c.name));
 
             const { data: logs, error } = await query;
 
@@ -164,7 +159,7 @@ export const reportService = {
                 // Client Grouping
                 // Fallback for missing task/client
                 const clientId = log.task?.client_id || 'no-client';
-                const clientName = log.task?.client?.name || (log.task ? 'Sem Cliente' : 'Item Removido/Desconhecido');
+                const clientName = clientNameMap.get(clientId) || (log.task ? 'Sem Cliente' : 'Item Removido/Desconhecido');
 
                 if (!userNode.clients.has(clientId)) {
                     userNode.clients.set(clientId, {

@@ -90,7 +90,7 @@ export const taskService = {
             .select(`
                 *,
                 client_id,
-                project:projects!inner(name, client_id, team_id, board_id),
+                project:projects!inner(name, team_id),
                 assignee:users!tasks_assignee_id_fkey(full_name, email, avatar_url),
                 task_boards(board_id)
             `)
@@ -105,7 +105,7 @@ export const taskService = {
                 .select(`
                     *,
                     client_id,
-                    project:projects(name, client_id, team_id, board_id),
+                    project:projects(name, team_id),
                     assignee:users!tasks_assignee_id_fkey(full_name, email, avatar_url),
                     task_boards!inner(board_id) 
                 `)
@@ -172,7 +172,7 @@ export const taskService = {
             .insert(taskData as any)
             .select(`
                 *,
-                project:projects(name, client_id),
+                project:projects(name),
                 assignee:users!tasks_assignee_id_fkey(full_name, email),
                 task_assignees(user_id)
             `)
@@ -200,7 +200,7 @@ export const taskService = {
             .eq('id', id)
             .select(`
                 *,
-                project:projects(name, client_id),
+                project:projects(name),
                 assignee:users!tasks_assignee_id_fkey(full_name, email),
                 task_assignees(user_id)
             `)
@@ -260,7 +260,7 @@ export const taskService = {
             .from('tasks')
             .select(`
                 *,
-                project:projects(name, client_id),
+                project:projects(name),
                 assignee:users!tasks_assignee_id_fkey(full_name, email),
                 task_assignees(user_id)
             `)
@@ -286,7 +286,7 @@ export const taskService = {
             .from('tasks')
             .select(`
                 *,
-                project:projects(name, client_id),
+                project:projects(name),
                 assignee:users!tasks_assignee_id_fkey(full_name, email),
                 task_assignees(user_id)
             `)

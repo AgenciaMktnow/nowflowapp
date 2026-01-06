@@ -7,6 +7,7 @@ export interface Client {
     status: 'ACTIVE' | 'INACTIVE';
     created_at: string;
     project_ids?: string[];
+    client_projects?: { project_id: string; board_id?: string }[];
 }
 
 function mapClientError(error: Error | null): Error | null {
@@ -20,14 +21,15 @@ export const clientService = {
             .from('clients')
             .select(`
                 *,
-                client_projects!client_projects_client_id_fkey (project_id)
+                client_projects (project_id, board_id)
             `)
             .eq('status', 'ACTIVE')
             .order('name');
 
         const mappedData = data?.map((c: any) => ({
             ...c,
-            project_ids: c.client_projects?.map((cp: any) => cp.project_id) || []
+            project_ids: c.client_projects?.map((cp: any) => cp.project_id) || [],
+            client_projects: c.client_projects || []
         }));
 
         return { data: mappedData as any, error: mapClientError(error) };
