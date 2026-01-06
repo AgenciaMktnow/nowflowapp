@@ -3,10 +3,13 @@ import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import SimpleEditor from '../components/SimpleEditor';
+import { Editor } from '@tiptap/react';
 import ActivityFeed from '../components/ActivityFeed';
 import { logActivity } from '../services/activityLogger';
 
 
+import { compressImage } from '../utils/imageCompression';
 import { boardService, type Column } from '../services/board.service';
 import { toast } from 'sonner';
 import Header from '../components/layout/Header/Header';
@@ -141,24 +144,12 @@ export default function TaskDetail() {
         }
     }, [showStageDropdown]);
 
-
-    // Mentions
-
-    const [showMentionDropdown, setShowMentionDropdown] = useState(false);
-    const [availableUsers, setAvailableUsers] = useState<{ id: string, full_name: string, email: string }[]>([]);
-    const [filteredUsers, setFilteredUsers] = useState<{ id: string, full_name: string, email: string }[]>([]);
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
-
     const [task, setTask] = useState<Task | null>(null);
+    const [editor, setEditor] = useState<Editor | null>(null);
 
-    useEffect(() => {
-        // Fetch users for mentions
-        const fetchUsers = async () => {
-            const { data } = await supabase.from('users').select('id, full_name, email');
-            if (data) setAvailableUsers(data);
-        };
-        fetchUsers();
-    }, []);
+
+
+
     const [comments, setComments] = useState<Comment[]>([]);
     const [newComment, setNewComment] = useState('');
     const [returnReason, setReturnReason] = useState('');
@@ -575,6 +566,63 @@ export default function TaskDetail() {
         }
     };
 
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file && editor) {
+            try {
+                toast.loading('Otimizando e enviando imagem...');
+                const url = await handleCommentImageUpload(file);
+                editor.chain().focus().setImage({ src: url }).run();
+                toast.dismiss();
+                toast.success('Imagem otimizada e anexada!');
+            } catch (error: any) {
+                toast.dismiss();
+                console.error('Erro no handleFileChange:', error);
+                toast.error(`Erro ao enviar imagem: ${error.message || 'Erro desconhecido'}`);
+            }
+        }
+        // Reset input
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    const handleCommentImageUpload = async (file: File): Promise<string> => {
+        try {
+            console.log('Original File:', file.name, file.size);
+
+            // Compress Image
+            const compressedFile = await compressImage(file);
+            console.log('Compressed File:', compressedFile.name, compressedFile.size);
+
+            const fileExt = compressedFile.name.split('.').pop();
+            const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+            const filePath = `comment_images/${fileName}`;
+
+            console.log('Destino do upload:', filePath);
+
+            const { error: uploadError } = await supabase.storage
+                .from('task-attachments')
+                .upload(filePath, compressedFile);
+
+            if (uploadError) {
+                console.error('Supabase Upload Error:', uploadError);
+                throw uploadError;
+            }
+
+            console.log('Upload concluído, buscando URL pública...');
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('task-attachments')
+                .getPublicUrl(filePath);
+
+            console.log('URL Pública:', publicUrl);
+            return publicUrl;
+        } catch (error: any) {
+            console.error('Erro detalhado no handleCommentImageUpload:', error);
+            throw error;
+        }
+    };
+
+
     const handleAddComment = async () => {
         if (!newComment.trim() || !task) return;
 
@@ -678,34 +726,9 @@ export default function TaskDetail() {
         }
     };
 
-    const handleCommentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        const val = e.target.value;
-        setNewComment(val);
 
-        // Simple Mentions Logic: Check if last word starts with @
-        const lastWord = val.split(' ').pop();
-        if (lastWord && lastWord.startsWith('@') && lastWord.length > 1) {
-            const query = lastWord.slice(1).toLowerCase();
-            const matches = availableUsers.filter(u =>
-                u.full_name?.toLowerCase().includes(query) ||
-                u.email.toLowerCase().includes(query)
-            );
-            setFilteredUsers(matches);
-            setShowMentionDropdown(matches.length > 0);
 
-        } else {
-            setShowMentionDropdown(false);
-        }
-    };
 
-    const handleMentionSelect = (user: { full_name: string, email: string }) => {
-        const words = newComment.split(' ');
-        words.pop(); // Remove the partial mention
-        const mention = `@${user.full_name || user.email.split('@')[0]} `;
-        setNewComment(words.join(' ') + (words.length > 0 ? ' ' : '') + mention);
-        setShowMentionDropdown(false);
-        if (textareaRef.current) textareaRef.current.focus();
-    };
 
     const handleCompleteTask = async () => {
         if (!task) return;
@@ -1480,7 +1503,7 @@ export default function TaskDetail() {
                                                     ? 'bg-[#1c4d32] rounded-tr-none border-primary/20 text-white text-right shadow-md'
                                                     : 'bg-background-dark rounded-tl-none border-border-dark text-gray-300'
                                                     }`}>
-                                                    <p>{comment.content}</p>
+                                                    <div className="prose prose-invert prose-sm max-w-none text-gray-300 [&_img]:rounded-lg [&_img]:max-w-full [&_img]:h-auto" dangerouslySetInnerHTML={{ __html: comment.content }} />
                                                 </div>
                                             </div>
                                         </div>
@@ -1494,33 +1517,25 @@ export default function TaskDetail() {
                                 <div className="hidden sm:block size-10 rounded-full bg-cover bg-center shrink-0" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuD0j0lEspGG79bejLev2TcmdFsrfIeiQ9Pv18Ow0OfMD3Rn47uH6P84XFEZ6VCDqOF__vKddpeFF-j2mVGMvwieIwbIY3N68MPSOfr_X5-jLcpynlKbrhJAIHUZ9CqPbwhMPixK1Y_iKyYiHniwZ-3wgg_WLQIZ9f5VnWa7oa590FgR3CFcVWFoXC5N_l9iV16Pl4HYmT3A2cccTgonqY8ccOXMRfNy5r9M5urxD1kXxu6BtWSeAxBYmQmzIkBByKVwV0YtPSzWeZQ")' }}></div>
                                 <div className="flex-1">
                                     <div className="relative group">
-                                        {showMentionDropdown && filteredUsers.length > 0 && (
-                                            <div className="absolute bottom-full left-0 mb-2 w-64 max-h-48 overflow-y-auto bg-surface-dark border border-border-dark rounded-xl shadow-xl z-50">
-                                                {filteredUsers.map(user => (
-                                                    <button
-                                                        key={user.id}
-                                                        onClick={() => handleMentionSelect(user)}
-                                                        className="w-full text-left px-4 py-3 hover:bg-white/5 flex items-center gap-3 transition-colors border-b border-border-dark last:border-0"
-                                                    >
-                                                        <div className="size-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">
-                                                            {user.full_name?.charAt(0).toUpperCase() || user.email.charAt(0).toUpperCase()}
-                                                        </div>
-                                                        <div className="flex flex-col">
-                                                            <span className="text-white text-sm font-bold">{user.full_name || 'Usuário'}</span>
-                                                            <span className="text-text-muted text-xs">{user.email}</span>
-                                                        </div>
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
-                                        <textarea
-                                            ref={textareaRef}
-                                            value={newComment}
-                                            onChange={handleCommentChange}
-                                            onKeyDown={(e) => e.key === 'Enter' && e.ctrlKey && handleAddComment()}
-                                            className="w-full bg-[#162a1e] border border-border-dark rounded-lg p-4 text-sm text-white placeholder-text-muted focus:border-primary focus:ring-1 focus:ring-primary resize-y min-h-[120px] transition-all outline-none shadow-inner"
-                                            placeholder="Escreva um comentário, dúvida ou atualização..."
-                                        />
+
+                                        <div className="h-[200px] bg-[#162a1e] border border-border-dark rounded-lg overflow-hidden focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all shadow-inner relative">
+                                            <SimpleEditor
+                                                value={newComment}
+                                                onChange={setNewComment}
+                                                placeholder="Escreva um comentário, dúvida ou atualização..."
+                                                onImageUpload={handleCommentImageUpload}
+                                                hideToolbar={true}
+                                                onEditorReady={setEditor}
+                                            />
+                                            {/* Hidden File Input for Attachment Button */}
+                                            <input
+                                                type="file"
+                                                ref={fileInputRef}
+                                                className="hidden"
+                                                accept="image/*"
+                                                onChange={handleFileChange}
+                                            />
+                                        </div>
                                         <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
                                             <div className="flex items-center gap-1 relative">
                                                 <button
@@ -1531,12 +1546,7 @@ export default function TaskDetail() {
                                                     <span className="material-symbols-outlined text-[20px]">attach_file</span>
                                                 </button>
                                                 <button
-                                                    onClick={() => {
-                                                        setNewComment(prev => prev + '@');
-                                                        // Trigger manual focus and dropdown check logic if needed
-                                                        // For now simplified to just append
-                                                        if (textareaRef.current) textareaRef.current.focus();
-                                                    }}
+                                                    onClick={() => editor?.chain().focus().insertContent('@').run()}
                                                     className="p-1.5 text-text-muted hover:text-white hover:bg-surface-dark rounded transition-colors"
                                                     title="Mencionar alguém"
                                                 >
@@ -1558,7 +1568,9 @@ export default function TaskDetail() {
                                                             <div className="relative z-50 shadow-2xl rounded-lg overflow-hidden">
                                                                 <EmojiPicker
                                                                     onEmojiClick={(emojiData) => {
-                                                                        setNewComment(prev => prev + emojiData.emoji);
+                                                                        if (editor) {
+                                                                            editor.chain().focus().insertContent(emojiData.emoji).run();
+                                                                        }
                                                                         setShowEmojiPicker(false);
                                                                     }}
                                                                     theme={Theme.DARK}

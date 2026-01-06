@@ -1,7 +1,7 @@
 
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import ImageExtension from '@tiptap/extension-image';
+import { ResizableImageExtension } from './editor/extensions/ResizableImageExtension';
 import Underline from '@tiptap/extension-underline';
 import Placeholder from '@tiptap/extension-placeholder';
 import TaskList from '@tiptap/extension-task-list';
@@ -14,18 +14,25 @@ import CodeBlock from '@tiptap/extension-code-block';
 import FontFamily from '@tiptap/extension-font-family';
 import { FontSize } from './editor/extensions/FontSize';
 import { useEffect, useCallback, useState } from 'react';
+import { toast } from 'sonner';
 
 interface SimpleEditorProps {
     value: string;
     onChange: (value: string) => void;
     placeholder?: string;
     onImageUpload?: (file: File) => Promise<string>;
+    hideToolbar?: boolean;
+    onEditorReady?: (editor: Editor) => void;
 }
 
-const SimpleEditor = ({ value, onChange, placeholder, onImageUpload }: SimpleEditorProps) => {
+const SimpleEditor = ({ value, onChange, placeholder, onImageUpload, hideToolbar = false, onEditorReady }: SimpleEditorProps) => {
     // Force re-render on editor updates to ensure toolbar active states are immediate
     const [, forceUpdate] = useState(0);
     const [isFullscreen, setIsFullscreen] = useState(false);
+
+    useEffect(() => {
+        console.log('SimpleEditor mounted, ready for uploads.');
+    }, []);
 
     const editor = useEditor({
         extensions: [
@@ -42,7 +49,10 @@ const SimpleEditor = ({ value, onChange, placeholder, onImageUpload }: SimpleEdi
                 codeBlock: false,
             }),
             Underline,
-            ImageExtension,
+            ResizableImageExtension.configure({
+                inline: true,
+                allowBase64: true,
+            }),
             TaskList,
             TaskItem.configure({
                 nested: true,
@@ -74,9 +84,40 @@ const SimpleEditor = ({ value, onChange, placeholder, onImageUpload }: SimpleEdi
         onSelectionUpdate: () => {
             forceUpdate((n) => n + 1);
         },
+        onCreate: ({ editor }) => {
+            if (onEditorReady) {
+                onEditorReady(editor);
+            }
+        },
         editorProps: {
             attributes: {
                 class: 'prose prose-invert max-w-none focus:outline-none h-full text-text-main p-4 leading-relaxed [&_ul]:list-disc [&_ul]:ml-4 [&_ol]:list-decimal [&_ol]:ml-4 [&_li]:marker:text-gray-400',
+            },
+            handlePaste: (view, event, _slice) => {
+                const items = Array.from(event.clipboardData?.items || []);
+                const imageItem = items.find(item => item.type.startsWith('image/'));
+
+                if (imageItem && onImageUpload) {
+                    event.preventDefault();
+                    const file = imageItem.getAsFile();
+                    if (file) {
+                        toast.promise(onImageUpload(file), {
+                            loading: 'Fazendo upload da imagem...',
+                            success: (url) => {
+                                view.dispatch(view.state.tr.replaceSelectionWith(
+                                    view.state.schema.nodes.image.create({ src: url })
+                                ));
+                                return 'Imagem inserida com sucesso!';
+                            },
+                            error: (e) => {
+                                console.error('Erro no SimpleEditor paste:', e);
+                                return `Erro ao fazer upload: ${e.message || 'Desconhecido'}`;
+                            }
+                        });
+                    }
+                    return true;
+                }
+                return false;
             },
         },
     });
@@ -183,235 +224,238 @@ const SimpleEditor = ({ value, onChange, placeholder, onImageUpload }: SimpleEdi
             onDrop={handleDrop}
             onDragOver={(e) => e.preventDefault()}
         >
-            <div className={`flex flex-wrap items-center gap-1 w-full p-2 transition-all ${isFullscreen ? 'max-w-7xl mx-auto justify-center' : 'px-4'}`}>
+            {/* Toolbar */}
+            {!hideToolbar && (
+                <div className={`flex flex-wrap items-center gap-1 w-full p-2 transition-all ${isFullscreen ? 'max-w-7xl mx-auto justify-center' : 'px-4'}`}>
 
-                {/* Font Family Selector */}
-                <select
-                    onChange={(e) => {
-                        const value = e.target.value;
-                        if (value === 'default') {
-                            editor.chain().focus().unsetFontFamily().run();
-                        } else {
-                            editor.chain().focus().setFontFamily(value).run();
-                        }
-                    }}
-                    value={editor.getAttributes('textStyle').fontFamily || 'default'}
-                    className="h-8 bg-transparent text-text-muted hover:text-text-main text-xs font-bold border border-transparent hover:bg-surface-highlight rounded px-2 outline-none cursor-pointer appearance-none transition-colors"
-                    style={{ maxWidth: '100px' }}
-                >
-                    <option value="default">Fonte</option>
-                    <option value="Inter, sans-serif">Inter</option>
-                    <option value="serif">Serif</option>
-                    <option value="monospace">Mono</option>
-                    <option value="Comic Sans MS, Comic Sans">Comic Sans</option>
-                </select>
-
-                {/* Font Size Selector */}
-                <select
-                    onChange={(e) => {
-                        const value = e.target.value;
-                        if (value === 'default') {
-                            editor.chain().focus().unsetFontSize().run();
-                        } else {
-                            editor.chain().focus().setFontSize(value).run();
-                        }
-                    }}
-                    value={editor.getAttributes('textStyle').fontSize || 'default'}
-                    className="h-8 bg-transparent text-text-muted hover:text-text-main text-xs font-bold border border-transparent hover:bg-surface-highlight rounded px-2 outline-none cursor-pointer appearance-none transition-colors"
-                >
-                    <option value="default">Size</option>
-                    <option value="12px">12</option>
-                    <option value="14px">14</option>
-                    <option value="16px">16</option>
-                    <option value="18px">18</option>
-                    <option value="20px">20</option>
-                    <option value="24px">24</option>
-                    <option value="30px">30</option>
-                    <option value="36px">36</option>
-                </select>
-
-                <div className="h-5 w-px bg-border-main mx-2"></div>
-
-                {/* Headings Selector */}
-                <button
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => editor.chain().focus().setParagraph().run()}
-                    className={`px-2 h-8 flex items-center justify-center rounded text-xs font-bold transition-colors ${editor.isActive('paragraph') ? 'bg-surface-highlight text-text-main' : 'text-text-muted hover:text-text-main hover:bg-surface-highlight'}`}
-                >
-                    Normal
-                </button>
-                <button
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-                    className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('heading', { level: 1 }) ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
-                    title="Título 1"
-                >
-                    <span className="font-bold text-sm">H1</span>
-                </button>
-
-
-                <div className="h-5 w-px bg-border-main mx-2"></div>
-
-                <button
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => editor.chain().focus().toggleBold().run()}
-                    className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('bold') ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
-                    title="Negrito"
-                >
-                    <span className="material-symbols-outlined text-[20px]">format_bold</span>
-                </button>
-                <button
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => editor.chain().focus().toggleItalic().run()}
-                    className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('italic') ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
-                    title="Itálico"
-                >
-                    <span className="material-symbols-outlined text-[20px]">format_italic</span>
-                </button>
-                <button
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => editor.chain().focus().toggleUnderline().run()}
-                    className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('underline') ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
-                    title="Sublinhado"
-                >
-                    <span className="material-symbols-outlined text-[20px]">format_underlined</span>
-                </button>
-                <button
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => editor.chain().focus().toggleStrike().run()}
-                    className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('strike') ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
-                    title="Tachado"
-                >
-                    <span className="material-symbols-outlined text-[20px]">strikethrough_s</span>
-                </button>
-                <label className="size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors cursor-pointer hover:bg-surface-highlight" title="Cor de Destaque">
-                    <input
-                        type="color"
-                        onInput={(e) => editor.chain().focus().setColor((e.target as HTMLInputElement).value).run()}
-                        value={editor.getAttributes('textStyle').color || '#000000'}
-                        className="sr-only"
-                    />
-                    <span
-                        className="material-symbols-outlined text-[20px]"
-                        style={{ color: editor.getAttributes('textStyle').color }}
+                    {/* Font Family Selector */}
+                    <select
+                        onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === 'default') {
+                                editor.chain().focus().unsetFontFamily().run();
+                            } else {
+                                editor.chain().focus().setFontFamily(value).run();
+                            }
+                        }}
+                        value={editor.getAttributes('textStyle').fontFamily || 'default'}
+                        className="h-8 bg-transparent text-text-muted hover:text-text-main text-xs font-bold border border-transparent hover:bg-surface-highlight rounded px-2 outline-none cursor-pointer appearance-none transition-colors"
+                        style={{ maxWidth: '100px' }}
                     >
-                        format_color_text
-                    </span>
-                </label>
+                        <option value="default">Fonte</option>
+                        <option value="Inter, sans-serif">Inter</option>
+                        <option value="serif">Serif</option>
+                        <option value="monospace">Mono</option>
+                        <option value="Comic Sans MS, Comic Sans">Comic Sans</option>
+                    </select>
+
+                    {/* Font Size Selector */}
+                    <select
+                        onChange={(e) => {
+                            const value = e.target.value;
+                            if (value === 'default') {
+                                editor.chain().focus().unsetFontSize().run();
+                            } else {
+                                editor.chain().focus().setFontSize(value).run();
+                            }
+                        }}
+                        value={editor.getAttributes('textStyle').fontSize || 'default'}
+                        className="h-8 bg-transparent text-text-muted hover:text-text-main text-xs font-bold border border-transparent hover:bg-surface-highlight rounded px-2 outline-none cursor-pointer appearance-none transition-colors"
+                    >
+                        <option value="default">Size</option>
+                        <option value="12px">12</option>
+                        <option value="14px">14</option>
+                        <option value="16px">16</option>
+                        <option value="18px">18</option>
+                        <option value="20px">20</option>
+                        <option value="24px">24</option>
+                        <option value="30px">30</option>
+                        <option value="36px">36</option>
+                    </select>
+
+                    <div className="h-5 w-px bg-border-main mx-2"></div>
+
+                    {/* Headings Selector */}
+                    <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => editor.chain().focus().setParagraph().run()}
+                        className={`px-2 h-8 flex items-center justify-center rounded text-xs font-bold transition-colors ${editor.isActive('paragraph') ? 'bg-surface-highlight text-text-main' : 'text-text-muted hover:text-text-main hover:bg-surface-highlight'}`}
+                    >
+                        Normal
+                    </button>
+                    <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+                        className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('heading', { level: 1 }) ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
+                        title="Título 1"
+                    >
+                        <span className="font-bold text-sm">H1</span>
+                    </button>
 
 
-                <button
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={setLink}
-                    className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('link') ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
-                    title="Link"
-                >
-                    <span className="material-symbols-outlined text-[20px]">link</span>
-                </button>
+                    <div className="h-5 w-px bg-border-main mx-2"></div>
 
-                <div className="h-5 w-px bg-border-main mx-2"></div>
+                    <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => editor.chain().focus().toggleBold().run()}
+                        className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('bold') ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
+                        title="Negrito"
+                    >
+                        <span className="material-symbols-outlined text-[20px]">format_bold</span>
+                    </button>
+                    <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => editor.chain().focus().toggleItalic().run()}
+                        className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('italic') ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
+                        title="Itálico"
+                    >
+                        <span className="material-symbols-outlined text-[20px]">format_italic</span>
+                    </button>
+                    <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => editor.chain().focus().toggleUnderline().run()}
+                        className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('underline') ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
+                        title="Sublinhado"
+                    >
+                        <span className="material-symbols-outlined text-[20px]">format_underlined</span>
+                    </button>
+                    <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => editor.chain().focus().toggleStrike().run()}
+                        className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('strike') ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
+                        title="Tachado"
+                    >
+                        <span className="material-symbols-outlined text-[20px]">strikethrough_s</span>
+                    </button>
+                    <label className="size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors cursor-pointer hover:bg-surface-highlight" title="Cor de Destaque">
+                        <input
+                            type="color"
+                            onInput={(e) => editor.chain().focus().setColor((e.target as HTMLInputElement).value).run()}
+                            value={editor.getAttributes('textStyle').color || '#000000'}
+                            className="sr-only"
+                        />
+                        <span
+                            className="material-symbols-outlined text-[20px]"
+                            style={{ color: editor.getAttributes('textStyle').color }}
+                        >
+                            format_color_text
+                        </span>
+                    </label>
 
-                <button
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => editor.chain().focus().toggleOrderedList().run()}
-                    className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('orderedList') ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
-                    title="Lista Numerada"
-                >
-                    <span className="material-symbols-outlined text-[20px]">format_list_numbered</span>
-                </button>
 
-                <button
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => editor.chain().focus().toggleBulletList().run()}
-                    className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('bulletList') ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
-                    title="Lista com marcadores"
-                >
-                    <span className="material-symbols-outlined text-[20px]">format_list_bulleted</span>
-                </button>
+                    <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={setLink}
+                        className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('link') ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
+                        title="Link"
+                    >
+                        <span className="material-symbols-outlined text-[20px]">link</span>
+                    </button>
 
-                <button
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => editor.chain().focus().setTextAlign('left').run()}
-                    className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive({ textAlign: 'left' }) ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
-                    title="Alinhar Esquerda"
-                >
-                    <span className="material-symbols-outlined text-[20px]">format_align_left</span>
-                </button>
+                    <div className="h-5 w-px bg-border-main mx-2"></div>
 
-                <button
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => editor.chain().focus().toggleTaskList().run()}
-                    className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('taskList') ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
-                    title="Checklist"
-                >
-                    <span className="material-symbols-outlined text-[20px]">check_box</span>
-                </button>
+                    <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+                        className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('orderedList') ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
+                        title="Lista Numerada"
+                    >
+                        <span className="material-symbols-outlined text-[20px]">format_list_numbered</span>
+                    </button>
 
-                <div className="h-5 w-px bg-border-main mx-2"></div>
+                    <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => editor.chain().focus().toggleBulletList().run()}
+                        className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('bulletList') ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
+                        title="Lista com marcadores"
+                    >
+                        <span className="material-symbols-outlined text-[20px]">format_list_bulleted</span>
+                    </button>
 
-                <button
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => editor.chain().focus().toggleBlockquote().run()}
-                    className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('blockquote') ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
-                    title="Citação"
-                >
-                    <span className="material-symbols-outlined text-[20px]">format_quote</span>
-                </button>
+                    <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => editor.chain().focus().setTextAlign('left').run()}
+                        className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive({ textAlign: 'left' }) ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
+                        title="Alinhar Esquerda"
+                    >
+                        <span className="material-symbols-outlined text-[20px]">format_align_left</span>
+                    </button>
 
-                <button
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-                    className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('codeBlock') ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
-                    title="Código"
-                >
-                    <span className="material-symbols-outlined text-[20px]">code</span>
-                </button>
+                    <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => editor.chain().focus().toggleTaskList().run()}
+                        className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('taskList') ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
+                        title="Checklist"
+                    >
+                        <span className="material-symbols-outlined text-[20px]">check_box</span>
+                    </button>
 
-                <button
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={addImage}
-                    className="size-8 flex items-center justify-center rounded hover:bg-surface-highlight text-text-muted hover:text-text-main transition-colors"
-                    title="Inserir Imagem"
-                >
-                    <span className="material-symbols-outlined text-[20px]">image</span>
-                </button>
+                    <div className="h-5 w-px bg-border-main mx-2"></div>
 
-                <button
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => alert('Arraste um arquivo para o editor para anexar.')}
-                    className="size-8 flex items-center justify-center rounded hover:bg-surface-highlight text-text-muted hover:text-text-main transition-colors"
-                    title="Arquivo"
-                >
-                    <span className="material-symbols-outlined text-[20px]">description</span>
-                </button>
+                    <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => editor.chain().focus().toggleBlockquote().run()}
+                        className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('blockquote') ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
+                        title="Citação"
+                    >
+                        <span className="material-symbols-outlined text-[20px]">format_quote</span>
+                    </button>
 
-                <div className="flex-1"></div>
+                    <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+                        className={`size-8 flex items-center justify-center rounded text-text-muted hover:text-text-main transition-colors ${editor.isActive('codeBlock') ? 'bg-primary/10 text-primary' : 'hover:bg-surface-highlight'}`}
+                        title="Código"
+                    >
+                        <span className="material-symbols-outlined text-[20px]">code</span>
+                    </button>
 
-                <button
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => setIsFullscreen(!isFullscreen)}
-                    className={`size-8 flex items-center justify-center rounded hover:bg-surface-highlight text-text-main transition-colors ${isFullscreen ? 'bg-primary/20 text-primary' : ''}`}
-                    title={isFullscreen ? "Sair da Tela Cheia" : "Tela Cheia"}
-                >
-                    <span className="material-symbols-outlined text-[20px]">{isFullscreen ? 'close_fullscreen' : 'open_in_full'}</span>
-                </button>
-            </div>
+                    <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={addImage}
+                        className="size-8 flex items-center justify-center rounded hover:bg-surface-highlight text-text-muted hover:text-text-main transition-colors"
+                        title="Inserir Imagem"
+                    >
+                        <span className="material-symbols-outlined text-[20px]">image</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => alert('Arraste um arquivo para o editor para anexar.')}
+                        className="size-8 flex items-center justify-center rounded hover:bg-surface-highlight text-text-muted hover:text-text-main transition-colors"
+                        title="Arquivo"
+                    >
+                        <span className="material-symbols-outlined text-[20px]">description</span>
+                    </button>
+
+                    <div className="flex-1"></div>
+
+                    <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => setIsFullscreen(!isFullscreen)}
+                        className={`size-8 flex items-center justify-center rounded hover:bg-surface-highlight text-text-main transition-colors ${isFullscreen ? 'bg-primary/20 text-primary' : ''}`}
+                        title={isFullscreen ? "Sair da Tela Cheia" : "Tela Cheia"}
+                    >
+                        <span className="material-symbols-outlined text-[20px]">{isFullscreen ? 'close_fullscreen' : 'open_in_full'}</span>
+                    </button>
+                </div>
+            )}
 
             {/* Editor Content */}
             <div className={`flex-1 overflow-y-auto ${isFullscreen ? 'p-8 max-w-7xl mx-auto w-full' : ''}`}>

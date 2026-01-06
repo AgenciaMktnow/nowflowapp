@@ -113,3 +113,41 @@
         font-family: "Spline Sans", sans-serif !important;
     }
 }
+
+/* Image Resizer Custom Styles */
+.image-component {
+    display: inline-flex !important;
+    position: relative !important;
+    margin: 0.5rem 0;
+}
+
+.image-component img {
+    pointer-events: auto !important;
+    max-width: 100% !important;
+    height: auto !important;
+}
+
+/* Force showing resizers when node is selected */
+.ProseMirror-selectednode .image-resizer,
+.node-image.ProseMirror-selectednode .image-resizer {
+    display: block !important;
+    opacity: 1 !important;
+}
+
+/* Style the handles */
+.image-resizer {
+    background-color: #13ec5b !important;
+    /* Neon Green */
+    border: 2px solid white !important;
+    border-radius: 50% !important;
+    width: 12px !important;
+    height: 12px !important;
+    z-index: 50 !important;
+}
+
+/* Outline for the selected image */
+.ProseMirror-selectednode .image-component,
+.node-image.ProseMirror-selectednode .image-component {
+    outline: 2px solid #13ec5b !important;
+    outline-offset: 2px;
+}
