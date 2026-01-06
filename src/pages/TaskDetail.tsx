@@ -95,7 +95,7 @@ import EmojiPicker, { Theme } from 'emoji-picker-react';
 export default function TaskDetail() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, userProfile } = useAuth();
     const timerInterval = useRef<number | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const triggerRef = useRef<HTMLButtonElement>(null);
@@ -546,6 +546,28 @@ export default function TaskDetail() {
             const actionText = manualOperation === 'ADD' ? `lançou manualmente` : `pagou/removeu manualmente`;
             if (user && task) await logActivity(task.id, user.id, 'MANUAL_TIME', `${actionText} ${h}h ${m}m`);
             alert('Horas ajustadas com sucesso!');
+
+            // --- AUDIT LOG COMMENT ---
+            if (user && task) {
+                const actionVerb = manualOperation === 'ADD' ? 'adicionou' : 'removeu';
+                const actorName = userProfile?.full_name || user?.email || 'Usuário';
+                const auditContent = `[SISTEMA]: **${actorName}** ${actionVerb} manualmente **${h}h ${m}m**. Motivo: *${manualDescription}*`;
+
+                const { data: newAuditComment, error: auditError } = await supabase
+                    .from('task_comments')
+                    .insert([{
+                        task_id: task.id,
+                        user_id: user.id,
+                        content: auditContent
+                    }])
+                    .select('*, user:users(full_name, email, avatar_url)')
+                    .single();
+
+                if (!auditError && newAuditComment) {
+                    setComments(prev => [...prev, newAuditComment]);
+                }
+            }
+            // -------------------------
 
         } catch (error: any) {
             console.error('Error adding manual time:', error);
@@ -1416,6 +1438,27 @@ export default function TaskDetail() {
 
 
                                 {comments.map(comment => {
+                                    const isSystemLog = comment.content.startsWith('[SISTEMA]:');
+
+                                    if (isSystemLog) {
+                                        return (
+                                            <div key={comment.id} className="flex gap-4 items-start py-2 opacity-80 group hover:opacity-100 transition-opacity">
+                                                <div className="size-10 rounded-full bg-white/5 flex items-center justify-center shrink-0 border border-white/10">
+                                                    <span className="material-symbols-outlined text-[18px] text-gray-400">smart_toy</span>
+                                                </div>
+                                                <div className="flex-1 pt-1.5 flex flex-col">
+                                                    <p className="text-sm text-gray-400 leading-relaxed font-mono">
+                                                        {comment.content.replace('[SISTEMA]:', '').trim().replace(/\*\*/g, '')}
+                                                    </p>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <span className="text-[10px] text-gray-600 uppercase font-bold tracking-wider">{formatDateTime(comment.created_at)}</span>
+                                                        <span className="h-px w-8 bg-gray-800"></span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+
                                     const isMe = comment.user.email === user?.email;
                                     const userAvatar = (comment.user as any).avatar_url;
                                     const userInitials = (comment.user.full_name || comment.user.email).charAt(0).toUpperCase();

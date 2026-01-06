@@ -32,6 +32,7 @@ export default function NewTask() {
     const cloneFrom = searchParams.get('clone_from');
 
     const [taskId, setTaskId] = useState<string | null>(null); // Real UUID
+    const [originalData, setOriginalData] = useState<Task | null>(null); // Audit Log Base
     const location = useLocation();
 
     // Clone State
@@ -303,6 +304,7 @@ export default function NewTask() {
         } else if (data) {
             if (!isClone) {
                 setTaskId(data.id);
+                setOriginalData(data);
                 setTitle(data.title);
                 // On edit, update status from fetched data
                 if (data.status) setStatus(data.status);
@@ -495,6 +497,73 @@ export default function NewTask() {
                 throw error;
             }
             if (!savedTask) throw new Error("Task save returned no data");
+
+            // --- AUDIT LOG SYSTEM ---
+            if (taskId && originalData && savedTask && user) {
+                const auditComments: any[] = [];
+                const actorName = userProfile?.full_name || user?.email || 'Usuário';
+
+                // 1. Check Due Date
+                const oldDateRaw = originalData.due_date;
+                const newDateRaw = isOngoing ? null : dueDate;
+
+                // Helper to format Date to DD/MM/YYYY (UTC)
+                const formatDate = (dateStr: string | null | undefined) => {
+                    if (!dateStr) return 'Contínua';
+                    // Parse string to Date and format as pt-BR with UTC calculation
+                    return new Date(dateStr).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+                };
+
+                const oldDate = formatDate(oldDateRaw);
+                const newDate = formatDate(newDateRaw);
+
+                if (oldDate !== newDate) {
+                    auditComments.push({
+                        task_id: savedTask.id,
+                        user_id: user.id,
+                        content: `[SISTEMA]: **${actorName}** alterou **Prazo** de *${oldDate}* para *${newDate}*`
+                    });
+                }
+
+                // 2. Check Assignees
+                // Extract old IDs carefully from potential formats
+                const oldAssigneeIds = new Set(
+                    (originalData.task_assignees?.map((ta: any) => ta.user_id)) ||
+                    (originalData.assignee_id ? [originalData.assignee_id] : [])
+                );
+                const newAssigneeIds = new Set(assigneeIds);
+
+                // Simple set equality check
+                const areAssigneesDifferent =
+                    oldAssigneeIds.size !== newAssigneeIds.size ||
+                    [...oldAssigneeIds].some(id => !newAssigneeIds.has(id));
+
+                if (areAssigneesDifferent) {
+                    const getNames = (ids: string[]) => {
+                        if (ids.length === 0) return 'Ninguém';
+                        return ids.map(id => users.find(u => u.id === id)?.full_name || 'Desconhecido').join(', ');
+                    };
+
+                    const oldNames = getNames(Array.from(oldAssigneeIds));
+                    const newNames = getNames(assigneeIds);
+
+                    auditComments.push({
+                        task_id: savedTask.id,
+                        user_id: user.id,
+                        content: `[SISTEMA]: **${actorName}** alterou **Responsável** de *${oldNames}* para *${newNames}*`
+                    });
+                }
+
+                // Insert Audit Logs
+                if (auditComments.length > 0) {
+                    const { error: auditError } = await supabase.from('task_comments').insert(auditComments);
+
+                    if (auditError) {
+                        console.error('FAILED to insert audit log:', auditError);
+                    }
+                }
+            }
+            // ------------------------
 
             // Assignees
             if (assigneeIds.length > 0) {
