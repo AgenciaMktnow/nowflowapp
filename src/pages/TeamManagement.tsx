@@ -208,14 +208,16 @@ export default function TeamManagement() {
                 if (error) throw error;
 
                 // Update Teams: Delete all and re-insert
-                await supabase.from('user_teams').delete().eq('user_id', selectedUser.id);
+                const { error: deleteTeamsError } = await supabase.from('user_teams').delete().eq('user_id', selectedUser.id);
+                if (deleteTeamsError) throw new Error(`Erro ao limpar equipes: ${deleteTeamsError.message}`);
 
                 if (selectedUser.team_ids && selectedUser.team_ids.length > 0) {
                     const teamInserts = selectedUser.team_ids.map(teamId => ({
                         user_id: selectedUser.id,
                         team_id: teamId
                     }));
-                    await supabase.from('user_teams').insert(teamInserts);
+                    const { error: insertTeamsError } = await supabase.from('user_teams').insert(teamInserts);
+                    if (insertTeamsError) throw new Error(`Erro ao salvar novas equipes: ${insertTeamsError.message}`);
                 }
 
                 // Update local state
@@ -248,22 +250,26 @@ export default function TeamManagement() {
     const handleDeleteUser = async () => {
         if (!selectedUser || selectedUser.id === 'new') return;
 
-        const confirmDelete = window.confirm(`Tem certeza que deseja excluir o usuário "${selectedUser.full_name}"? Esta ação não pode ser desfeita.`);
+        const confirmDelete = window.confirm(`Tem certeza que deseja excluir o usuário "${selectedUser.full_name}"? Esta ação removerá permanentemente o acesso e todos os dados associados.`);
         if (!confirmDelete) return;
 
         try {
-            const { error } = await supabase
-                .from('users')
-                .delete()
-                .eq('id', selectedUser.id);
+            const toastId = toast.loading('Excluindo usuário...');
+
+            // Call the secure RPC
+            const { error } = await supabase.rpc('delete_user_complete', {
+                target_user_id: selectedUser.id
+            });
 
             if (error) throw error;
+
+            toast.success('Usuário excluído com sucesso!', { id: toastId });
 
             setUsers(users.filter(u => u.id !== selectedUser.id));
             setSelectedUser(null);
         } catch (error: any) {
             console.error('Error deleting user:', error);
-            alert(`Erro ao excluir usuário: ${error?.message || 'Tente novamente.'}`);
+            toast.error(`Erro ao excluir usuário: ${error?.message || 'Verifique suas permissões.'}`);
         }
     };
 
