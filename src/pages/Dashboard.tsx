@@ -86,23 +86,10 @@ export default function Dashboard() {
         checkActiveTimer();
         checkActiveTeamLogs();
 
-        // Timer interval
-        let interval: any;
-        if (activeTimerTask) {
-            interval = setInterval(() => {
-                setTimerElapsedTime(prev => prev + 1);
-            }, 1000);
-        }
-
         // Poll for team activity every 5 seconds
         const teamPoll = setInterval(() => {
             checkActiveTeamLogs();
         }, 5000);
-
-        return () => {
-            if (interval) clearInterval(interval);
-            clearInterval(teamPoll);
-        };
 
         const handleClickOutside = (event: MouseEvent) => {
             if (filterDropdownRef.current && !filterDropdownRef.current.contains(event.target as Node)) {
@@ -124,11 +111,27 @@ export default function Dashboard() {
         window.addEventListener('focus', handleVisibilityChange);
 
         return () => {
+            clearInterval(teamPoll);
             document.removeEventListener('mousedown', handleClickOutside);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             window.removeEventListener('focus', handleVisibilityChange);
         };
     }, [user, userProfile]);
+
+    // Separate Effect for Timer Interval
+    useEffect(() => {
+        let interval: any;
+        if (activeTimerTask) {
+            interval = setInterval(() => {
+                setTimerElapsedTime(prev => prev + 1);
+            }, 1000);
+        }
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [activeTimerTask]);
+
+
 
 
 
