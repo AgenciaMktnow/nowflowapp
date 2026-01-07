@@ -336,6 +336,64 @@ export const taskService = {
         }
     },
 
+    async startTimer(taskId: string, userId: string): Promise<{ data: any | null; error: Error | null }> {
+        try {
+            const now = new Date().toISOString();
+
+            // 1. Check/Stop active timer (Atomic-like Auto-Switch)
+            const { data: activeLog } = await supabase
+                .from('time_logs')
+                .select('id')
+                .eq('user_id', userId)
+                .is('end_time', null)
+                .maybeSingle();
+
+            if (activeLog) {
+                const { error: stopError } = await supabase
+                    .from('time_logs')
+                    .update({ end_time: now })
+                    .eq('id', activeLog.id);
+
+                if (stopError) throw stopError;
+            }
+
+            // 2. Start new timer
+            const { data: newLog, error: startError } = await supabase
+                .from('time_logs')
+                .insert({
+                    user_id: userId,
+                    task_id: taskId,
+                    start_time: now
+                })
+                .select()
+                .single();
+
+            if (startError) throw startError;
+
+            // 3. Update task status to IN_PROGRESS
+            await supabase.from('tasks').update({ status: 'IN_PROGRESS' }).eq('id', taskId);
+
+            return { data: newLog, error: null };
+        } catch (error: any) {
+            return { data: null, error: mapTaskError(error) };
+        }
+    },
+
+    async stopTimer(userId: string): Promise<{ error: Error | null }> {
+        try {
+            const now = new Date().toISOString();
+            const { error } = await supabase
+                .from('time_logs')
+                .update({ end_time: now })
+                .eq('user_id', userId)
+                .is('end_time', null);
+
+            return { error: mapTaskError(error) };
+        } catch (error: any) {
+            return { error: mapTaskError(error) };
+        }
+    },
+
     async uploadAttachment(taskId: string, file: File): Promise<{ data: any | null; error: Error | null }> {
         try {
             const fileExt = file.name.split('.').pop();

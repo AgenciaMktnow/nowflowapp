@@ -3,7 +3,8 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { ProductivityWidget } from '../components/ProductivityWidget';
-import TaskActionMenu from '../components/TaskActionMenu'; // <--- NEW
+import TaskActionMenu from '../components/TaskActionMenu';
+import { taskService } from '../services/task.service'; // <--- NEW
 import TaskEditDrawer from '../components/TaskEditDrawer'; // <--- NEW
 import { extractChecklistFromHtml } from '../utils/checklist';
 import Header from '../components/layout/Header/Header';
@@ -400,14 +401,11 @@ export default function Dashboard() {
 
     const handleStartTask = async (e: React.MouseEvent, task: Task) => {
         e.stopPropagation();
-        if (activeTimerTask) return; // Already running logic could be better, but keep simple
+        // Remove activeTimerTask check to allow auto-switch
+        if (!user) return;
+
         try {
-            await supabase.from('time_logs').insert({
-                user_id: user?.id,
-                task_id: task.id,
-                start_time: new Date().toISOString()
-            });
-            await supabase.from('tasks').update({ status: 'IN_PROGRESS' }).eq('id', task.id);
+            await taskService.startTimer(task.id, user.id);
             setActiveTimerTask(task);
             fetchTasks(); checkActiveTimer();
         } catch (error) { console.error(error); }

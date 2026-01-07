@@ -10,6 +10,7 @@ import TaskEditDrawer from '../components/TaskEditDrawer';
 import SelectDropdown from '../components/SelectDropdown';
 import MultiSelectDropdown from '../components/MultiSelectDropdown';
 import WorkloadBoard from '../components/WorkloadBoard';
+import { taskService } from '../services/task.service';
 
 type Task = {
     id: string;
@@ -306,10 +307,12 @@ export default function MyQueue() {
     };
 
     const handleStartTask = async (e: React.MouseEvent, task: Task) => {
-        e.stopPropagation(); if (activeTimerTask) return;
+        e.stopPropagation();
+        // Allow starting even if activeTimerTask exists (Auto-Switch logic in service handles it)
+        if (!user) return;
+
         try {
-            await supabase.from('time_logs').insert({ user_id: user?.id, task_id: task.id, start_time: new Date().toISOString() });
-            await supabase.from('tasks').update({ status: 'IN_PROGRESS' }).eq('id', task.id);
+            await taskService.startTimer(task.id, user.id);
             setActiveTimerTask(task); fetchTasks(); checkActiveTimer();
         } catch (error) { console.error(error); }
     };

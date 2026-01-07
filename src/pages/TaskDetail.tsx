@@ -7,6 +7,7 @@ import SimpleEditor from '../components/SimpleEditor';
 import { Editor } from '@tiptap/react';
 import ActivityFeed from '../components/ActivityFeed';
 import { logActivity } from '../services/activityLogger';
+import { taskService } from '../services/task.service';
 
 
 import { compressImage } from '../utils/imageCompression';
@@ -396,34 +397,22 @@ export default function TaskDetail() {
     };
 
     const handleStartTimer = async () => {
+        if (!user || !task) return;
         try {
-            const { data, error } = await supabase
-                .from('time_logs')
-                .insert([{
-                    task_id: task?.id,
-                    user_id: user?.id,
-                    start_time: new Date().toISOString()
-                }])
-                .select()
-                .single();
+            const { data, error } = await taskService.startTimer(task.id, user.id);
 
             if (error) throw error;
 
-            setCurrentEntryId(data.id);
-            setIsTracking(true);
-            setElapsedTime(0);
-            if (user && task) await logActivity(task.id, user.id, 'TIMER_START', 'iniciou o timer');
+            if (data) {
+                setCurrentEntryId(data.id);
+                setIsTracking(true);
+                setElapsedTime(0);
+                if (user && task) await logActivity(task.id, user.id, 'TIMER_START', 'iniciou o timer');
+            }
 
-            // Auto-update status to IN_PROGRESS if not already
-            if (task && task.status !== 'IN_PROGRESS') {
-                const { error: statusError } = await supabase
-                    .from('tasks')
-                    .update({ status: 'IN_PROGRESS' })
-                    .eq('id', task.id);
-
-                if (!statusError) {
-                    setTask(prev => prev ? { ...prev, status: 'IN_PROGRESS' } : null);
-                }
+            // Auto-update local state since service handles DB
+            if (task.status !== 'IN_PROGRESS') {
+                setTask(prev => prev ? { ...prev, status: 'IN_PROGRESS' } : null);
             }
 
         } catch (error: any) {
