@@ -384,7 +384,7 @@ export default function TeamManagement() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[#23482f]">
-                                {filteredUsers.map((user, index) => (
+                                {filteredUsers.map((user) => (
                                     <tr
                                         key={user.id}
                                         className={`group hover:bg-white/5 transition-colors cursor-pointer border-l-2 border-transparent`}
