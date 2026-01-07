@@ -38,6 +38,7 @@ type Task = {
         full_name: string;
     };
     task_number: number;
+    time_logs?: { duration_seconds: number | null }[];
 };
 
 export default function MyQueue() {
@@ -180,7 +181,8 @@ export default function MyQueue() {
                     client:client_id(name),
                     project:projects(name, client_id, client:client_id(name)),
                     assignee:users!tasks_assignee_id_fkey(full_name, avatar_url),
-                    creator:users!tasks_created_by_fkey(id, full_name)
+                    creator:users!tasks_created_by_fkey(id, full_name),
+                    time_logs(duration_seconds)
                 `)
                 .or(`assignee_id.eq.${user.id},created_by.eq.${user.id}`)
                 .neq('status', 'DONE')
@@ -192,7 +194,8 @@ export default function MyQueue() {
                     client:client_id(name),
                     project:projects(name, client_id, client:client_id(name)),
                     assignee:users!tasks_assignee_id_fkey(full_name, avatar_url),
-                    creator:users!tasks_created_by_fkey(id, full_name)
+                    creator:users!tasks_created_by_fkey(id, full_name),
+                    time_logs(duration_seconds)
                 `).neq('status', 'DONE').order('position', { ascending: true });
                 setTasks(fb.data || []);
             } else {
@@ -574,9 +577,23 @@ export default function MyQueue() {
                                                                 </div>
                                                             )}
 
-                                                            {/* Info Bar - Status, Due Date, Assignee */}
+                                                            {/* Info Bar - Status, Due Date, Assignee, Total Time */}
                                                             {!isTimerActive && (
                                                                 <div className="flex items-center gap-4 bg-surface-dark/50 px-4 py-2.5 rounded-xl border border-white/5">
+                                                                    {/* Total Time Badge (Inactive) */}
+                                                                    {(() => {
+                                                                        const totalSeconds = task.time_logs?.reduce((acc: number, log: any) => acc + (log.duration_seconds || 0), 0) || 0;
+                                                                        if (totalSeconds > 0) {
+                                                                            return (
+                                                                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-primary/10 text-primary border border-primary/20 min-w-[80px] justify-center" title="Tempo Total Investido">
+                                                                                    <span className="material-symbols-outlined text-sm">schedule</span>
+                                                                                    <span>{formatTimer(totalSeconds)}</span>
+                                                                                </div>
+                                                                            );
+                                                                        }
+                                                                        return null;
+                                                                    })()}
+
                                                                     {/* Status Selector - Custom Dropdown */}
                                                                     <div className="relative min-w-[140px]">
                                                                         <button
