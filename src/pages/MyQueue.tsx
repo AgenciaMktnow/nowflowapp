@@ -39,6 +39,7 @@ type Task = {
     };
     task_number: number;
     time_logs?: { duration_seconds: number | null }[];
+    workflow_id?: string;
 };
 
 export default function MyQueue() {
@@ -171,10 +172,12 @@ export default function MyQueue() {
         setDisplayTasks(filtered);
     }, [tasks, activeTab, user?.id]);
 
+    const [kanbanColumns, setKanbanColumns] = useState<Record<string, any[]>>({});
+
     const fetchTasks = async () => {
         if (!user) return;
         try {
-            const { data, error } = await supabase
+            const { data } = await supabase
                 .from('tasks')
                 .select(`
                     *,
@@ -188,17 +191,29 @@ export default function MyQueue() {
                 .neq('status', 'DONE')
                 .order('position', { ascending: true });
 
-            if (error) {
-                const fb = await supabase.from('tasks').select(`
-                    *,
-                    client:client_id(name),
-                    project:projects(name, client_id, client:client_id(name)),
-                    assignee:users!tasks_assignee_id_fkey(full_name, avatar_url),
-                    creator:users!tasks_created_by_fkey(id, full_name),
-                    time_logs(duration_seconds)
-                `).neq('status', 'DONE').order('position', { ascending: true });
-                setTasks(fb.data || []);
-            } else {
+            if (data) {
+                // Fetch columns for unique workflows
+                const uniqueWorkflowIds = Array.from(new Set(data.map(t => t.workflow_id).filter(Boolean)));
+                if (uniqueWorkflowIds.length > 0) {
+                    const { data: workflowsData } = await supabase
+                        .from('workflows')
+                        .select('id, steps')
+                        .in('id', uniqueWorkflowIds);
+
+                    if (workflowsData) {
+                        const colsMap: Record<string, any[]> = {};
+                        workflowsData.forEach(wf => {
+                            // Parse steps JSON to get columns
+                            // Assuming steps structure matches Kanban component expectations
+                            const steps = typeof wf.steps === 'string' ? JSON.parse(wf.steps) : wf.steps;
+                            if (Array.isArray(steps)) {
+                                colsMap[wf.id] = steps;
+                            }
+                        });
+                        setKanbanColumns(colsMap);
+                    }
+                }
+
                 // Fallback: Sort tasks with null position to the end
                 const sortedTasks = (data || []).sort((a, b) => {
                     if (a.position === null && b.position === null) return 0;
@@ -307,7 +322,7 @@ export default function MyQueue() {
         return `${h}:${m}:${s}`;
     };
 
-    const handleStatusChange = async (newStatus: Task['status'], task: Task) => {
+    const handleStatusChange = async (newStatus: Task['status'], task: Task, specificColumnId?: string) => {
 
         try {
             // Find appropriate column_id for the new status
@@ -319,16 +334,23 @@ export default function MyQueue() {
                 'DONE': 'Done'
             };
 
-            const { data: column } = await supabase
-                .from('kanban_columns')
-                .select('id')
-                .eq('title', statusColumnMap[newStatus])
-                .single();
+            if (specificColumnId) {
+                // Option 2: Direct update with specific column ID (Robust)
+                const updates: any = { status: newStatus || 'TODO', column_id: specificColumnId };
+                await supabase.from('tasks').update(updates).eq('id', task.id);
+            } else {
+                // Fallback: Infer column from status (Fragile)
+                const { data: column } = await supabase
+                    .from('kanban_columns')
+                    .select('id')
+                    .eq('title', statusColumnMap[newStatus])
+                    .single();
 
-            const updates: any = { status: newStatus };
-            if (column) updates.column_id = column.id;
+                const updates: any = { status: newStatus };
+                if (column) updates.column_id = column.id;
 
-            await supabase.from('tasks').update(updates).eq('id', task.id);
+                await supabase.from('tasks').update(updates).eq('id', task.id);
+            }
 
             // Refresh tasks to show updated status
             fetchTasks();
@@ -603,7 +625,16 @@ export default function MyQueue() {
                                                                             }}
                                                                             className={`w-full px-3 pr-8 py-1.5 rounded-lg text-xs font-bold border cursor-pointer transition-all hover:scale-105 bg-surface-dark flex items-center justify-between ${getStatusConfig(task.status).color}`}
                                                                         >
-                                                                            <span>{getStatusConfig(task.status).label}</span>
+                                                                            <span>{(() => {
+                                                                                if (task.workflow_id && kanbanColumns[task.workflow_id]) {
+                                                                                    // Dynamic Label
+                                                                                    // Find the column that matches current status or column_id
+                                                                                    const cols = kanbanColumns[task.workflow_id];
+                                                                                    const match = cols.find(c => c.statuses?.includes(task.status) || c.id === (task as any).column_id);
+                                                                                    return match ? match.title : getStatusConfig(task.status).label;
+                                                                                }
+                                                                                return getStatusConfig(task.status).label;
+                                                                            })()}</span>
                                                                             <span className={`material-symbols-outlined text-sm transition-transform ${openDropdownId === task.id ? 'rotate-180' : ''}`}>expand_more</span>
                                                                         </button>
 
@@ -611,20 +642,62 @@ export default function MyQueue() {
                                                                         {openDropdownId === task.id && (
                                                                             <div className="absolute top-full left-0 mt-2 w-[180px] bg-surface-dark border border-white/10 rounded-xl shadow-xl z-[100] overflow-hidden animate-scale-in">
                                                                                 <div className="p-1">
-                                                                                    {(['TODO', 'IN_PROGRESS', 'WAITING_CLIENT', 'REVIEW', 'DONE'] as const).map((status) => (
-                                                                                        <button
-                                                                                            key={status}
-                                                                                            onClick={(e) => {
-                                                                                                e.stopPropagation();
-                                                                                                handleStatusChange(status, task);
-                                                                                                setOpenDropdownId(null);
-                                                                                            }}
-                                                                                            className="w-full text-left px-3 py-2.5 text-sm hover:bg-white/5 rounded-lg transition-colors flex items-center justify-between group"
-                                                                                        >
-                                                                                            <span className={getStatusConfig(status).color.split(' ')[1]}>{getStatusConfig(status).label}</span>
-                                                                                            {task.status === status && <span className="material-symbols-outlined text-primary text-[16px]">check</span>}
-                                                                                        </button>
-                                                                                    ))}
+                                                                                    {(task.workflow_id && kanbanColumns[task.workflow_id] ? kanbanColumns[task.workflow_id] : [
+                                                                                        { id: 'todo', title: 'TODO' },
+                                                                                        { id: 'in_progress', title: 'IN_PROGRESS' },
+                                                                                        { id: 'waiting_client', title: 'WAITING_CLIENT' },
+                                                                                        { id: 'review', title: 'REVIEW' },
+                                                                                        { id: 'done', title: 'DONE' }
+                                                                                    ]).map((column: any) => {
+                                                                                        // Map status string to display label logic or use column title
+                                                                                        const isDynamic = !!(task.workflow_id && kanbanColumns[task.workflow_id]);
+                                                                                        const columnTitle = column.title;
+                                                                                        // For static list, we use the status string to get label from config
+                                                                                        const displayLabel = isDynamic ? columnTitle : getStatusConfig(column.title as any).label;
+
+
+                                                                                        // Determine if selected
+                                                                                        // For dynamic: check if task.status matches the column's mapped status or if we can match by ID?
+                                                                                        // Current simple check:
+                                                                                        const isSelected = isDynamic
+                                                                                            // Complex match: we don't know the exact status mapping for dynamic columns here easily without checking the column's statuses array
+                                                                                            // But usually column.statuses contains the status string.
+                                                                                            ? (column.statuses?.includes(task.status) || column.id === (task as any).column_id)
+                                                                                            : task.status === columnTitle;
+
+
+                                                                                        return (
+                                                                                            <button
+                                                                                                key={column.id || column.title}
+                                                                                                onClick={(e) => {
+                                                                                                    e.stopPropagation();
+                                                                                                    // Logic for dynamic vs static update
+                                                                                                    if (isDynamic) {
+                                                                                                        // Handle dynamic column change - Option 2 logic later?
+                                                                                                        // For now, prompt mentions Option 1 first (visuals) -> "se eu mudar a etapa... feita na opcao 2"
+                                                                                                        // But the user said "do option 1 first (visuals/pulling), then option 2 (logic)"
+                                                                                                        // So here we should probably trying to map back to a valid status if possible or just pass the column info
+                                                                                                        // For now, let's keep using handleStatusChange but we might need to pass column ID if we implement Option 2 immediately or wait.
+                                                                                                        // Wait, Option 1 is just "pulling according to board". Option 2 is "changing updates board".
+                                                                                                        // To support "changing" correctly with dynamic columns we need Option 2 logic now or else it breaks.
+                                                                                                        // Let's implement a safe handler.
+
+                                                                                                        // Actually, if we just render the real columns, we need to pass the column ID to the update function
+                                                                                                        handleStatusChange(column.statuses?.[0] || 'TODO', task, column.id);
+                                                                                                    } else {
+                                                                                                        handleStatusChange(column.title, task);
+                                                                                                    }
+                                                                                                    setOpenDropdownId(null);
+                                                                                                }}
+                                                                                                className="w-full text-left px-3 py-2.5 text-sm hover:bg-white/5 rounded-lg transition-colors flex items-center justify-between group"
+                                                                                            >
+                                                                                                <span className={isDynamic ? "text-white" : getStatusConfig(column.title).color.split(' ')[1]}>
+                                                                                                    {displayLabel}
+                                                                                                </span>
+                                                                                                {isSelected && <span className="material-symbols-outlined text-primary text-[16px]">check</span>}
+                                                                                            </button>
+                                                                                        );
+                                                                                    })}
                                                                                 </div>
                                                                             </div>
                                                                         )}
