@@ -620,7 +620,7 @@ export default function Dashboard() {
                                             </button>
                                         ) : (
                                             <button
-                                                onClick={() => suggestedTask && navigate(`/tasks/${suggestedTask.task_number}`)}
+                                                onClick={(e) => suggestedTask && handleStartTask(e, suggestedTask)}
                                                 className={`flex items-center justify-center size-12 rounded-full transition-all ${suggestedTask ? 'bg-transparent border-2 border-primary text-primary hover:bg-primary hover:text-background-dark shadow-[0_0_15px_rgba(19,236,91,0.1)] hover:scale-105 cursor-pointer' : 'bg-surface-highlight text-text-muted cursor-not-allowed'}`}
                                                 disabled={!suggestedTask}
                                                 title={suggestedTask ? "Iniciar Tarefa Sugerida" : "Nenhuma tarefa para iniciar"}
