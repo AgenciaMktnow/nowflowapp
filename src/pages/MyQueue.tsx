@@ -269,9 +269,18 @@ export default function MyQueue() {
 
     const handlePauseTimer = async (e: React.MouseEvent) => {
         e.stopPropagation(); if (!activeTimerTask) return;
-        const { data: activeLog } = await supabase.from('time_logs').select('id').eq('user_id', user?.id).is('end_time', null).single();
+        const { data: activeLog } = await supabase.from('time_logs').select('id, start_time').eq('user_id', user?.id).is('end_time', null).single();
         if (activeLog) {
-            await supabase.from('time_logs').update({ end_time: new Date().toISOString() }).eq('id', activeLog.id);
+            // Calculate final duration to be safe
+            const startTime = new Date(activeLog.start_time).getTime();
+            const now = new Date().getTime();
+            const finalDuration = Math.floor((now - startTime) / 1000);
+
+            await supabase.from('time_logs').update({
+                end_time: new Date().toISOString(),
+                duration_seconds: finalDuration
+            }).eq('id', activeLog.id);
+
             await supabase.from('tasks').update({ status: 'WAITING_CLIENT' }).eq('id', activeTimerTask.id);
             setActiveTimerTask(null); fetchTasks();
         }
