@@ -41,7 +41,7 @@ type Task = {
 };
 
 export default function MyQueue() {
-    const { user } = useAuth();
+    const { user, userProfile } = useAuth();
     const navigate = useNavigate();
     const [tasks, setTasks] = useState<Task[]>([]);
     const [displayTasks, setDisplayTasks] = useState<Task[]>([]);
@@ -322,7 +322,7 @@ export default function MyQueue() {
                             </button>
 
                             {/* Gestão tab - Only for ADMIN and MANAGER */}
-                            {(user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
+                            {(userProfile?.role === 'ADMIN' || userProfile?.role === 'MANAGER') && (
                                 <button
                                     onClick={() => setViewMode('WORKLOAD')}
                                     className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${viewMode === 'WORKLOAD'
