@@ -811,7 +811,14 @@ export default function Dashboard() {
 
                             {pausedTasks.map(task => (
                                 <div key={task.id} onClick={() => navigate(`/tasks/${task.task_number}`)} className="bg-surface-highlight/50 p-4 rounded-xl border border-dashed border-white/10 opacity-75 hover:opacity-100 transition-opacity cursor-pointer relative group">
-                                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                        <button
+                                            onClick={(e) => handleStartTask(e, task)}
+                                            className="size-8 rounded-full bg-primary/20 hover:bg-primary flex items-center justify-center text-primary hover:text-background-dark transition-all shadow-lg"
+                                            title="Continuar Tarefa"
+                                        >
+                                            <span className="material-symbols-outlined text-lg fill">play_arrow</span>
+                                        </button>
                                         <TaskActionMenu
                                             task={task}
                                             onEdit={() => handleEdit(task)}
