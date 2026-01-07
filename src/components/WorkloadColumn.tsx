@@ -11,11 +11,6 @@ interface WorkloadColumnProps {
 
 const WorkloadColumn = ({ userId, user, tasks, onTaskClick }: WorkloadColumnProps) => {
 
-        userId,
-        userName: user?.full_name || 'Sem Responsável',
-        tasksCount: tasks.length,
-        taskIds: tasks.map(t => t.id)
-    });
 
     // Performance: Memoize total hours calculation
     const totalHours = useMemo(() => {
