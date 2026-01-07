@@ -1926,14 +1926,7 @@ export default function TaskDetail() {
                                 </div>
                             </div>
 
-                            {/* Clone Button */}
-                            <button
-                                onClick={handleCloneTask}
-                                className="w-full h-12 text-white border border-white/20 hover:bg-white/5 hover:border-white/40 font-bold rounded-lg flex items-center justify-center gap-2 transition-all group backdrop-blur-sm"
-                            >
-                                <span className="material-symbols-outlined text-[20px] group-hover:scale-110 transition-transform">content_copy</span>
-                                Clonar Tarefa
-                            </button>
+
 
                             <div className="relative py-2">
                                 <div aria-hidden="true" className="absolute inset-0 flex items-center">
