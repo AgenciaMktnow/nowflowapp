@@ -33,6 +33,7 @@ type Task = {
     };
     category: string;
     task_number: number;
+    time_logs?: { duration_seconds: number | null }[];
 };
 
 type Client = {
@@ -279,7 +280,8 @@ export default function Dashboard() {
                     creator:users!tasks_created_by_fkey(id, full_name),
                     task_assignees(
                         user_id
-                    )
+                    ),
+                    time_logs(duration_seconds)
                 `)
                 .order('created_at', { ascending: false });
 
@@ -658,11 +660,11 @@ export default function Dashboard() {
                                     {/* Quick Actions Hover */}
                                     <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                                         <button
-                                            onClick={(e) => handleStartTask(e, task)}
-                                            className="size-8 rounded-full bg-primary/20 hover:bg-primary flex items-center justify-center text-primary hover:text-background-dark transition-all shadow-lg"
-                                            title="Iniciar Tarefa"
+                                            onClick={(e) => activeTimerTask?.id === task.id ? handlePauseTimer() : handleStartTask(e, task)}
+                                            className={`size-8 rounded-full flex items-center justify-center transition-all shadow-lg ${activeTimerTask?.id === task.id ? 'bg-primary text-background-dark hover:scale-105' : 'bg-primary/20 hover:bg-primary text-primary hover:text-background-dark'}`}
+                                            title={activeTimerTask?.id === task.id ? "Pausar Tarefa" : "Iniciar Tarefa"}
                                         >
-                                            <span className="material-symbols-outlined text-lg fill">play_arrow</span>
+                                            <span className="material-symbols-outlined text-lg fill">{activeTimerTask?.id === task.id ? 'pause' : 'play_arrow'}</span>
                                         </button>
                                         <button
                                             onClick={(e) => handleQuickComplete(e, task)}
@@ -748,6 +750,20 @@ export default function Dashboard() {
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">
+                                            {/* Total Time Badge */}
+                                            {(() => {
+                                                const totalSeconds = task.time_logs?.reduce((acc, log) => acc + (log.duration_seconds || 0), 0) || 0;
+                                                if (totalSeconds > 0 && activeTimerTask?.id !== task.id) {
+                                                    return (
+                                                        <div className="flex items-center gap-1 bg-surface-dark/50 px-2 py-1 rounded text-[10px] font-mono font-bold text-text-secondary border border-white/5" title="Tempo Total">
+                                                            <span className="material-symbols-outlined text-xs">schedule</span>
+                                                            <span>{formatTimer(totalSeconds).h}:{formatTimer(totalSeconds).m}</span>
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            })()}
+
                                             {/* Active Team Indicator */}
                                             {activeTeamLogs[task.id] && (
                                                 <div className="flex items-center gap-1 bg-[#13ec5b]/10 px-2 py-0.5 rounded-full border border-[#13ec5b]/20" title={`Em andamento por: ${activeTeamLogs[task.id].user_name}`}>
@@ -898,16 +914,17 @@ export default function Dashboard() {
                             {doneTasks.length === 0 && <p className="text-center text-gray-600 font-medium text-sm py-8">Nenhuma tarefa por aqui</p>}
                         </div>
                     </section>
-                </div>
+                </div >
             </div >
 
             {/* Edit Drawer Modal */}
-            <TaskEditDrawer
+            < TaskEditDrawer
                 isOpen={isDrawerOpen}
                 onClose={() => {
                     setIsDrawerOpen(false);
                     setEditTaskNumber(undefined);
-                }}
+                }
+                }
                 taskNumber={editTaskNumber}
                 onSuccess={handleUpdateList}
             />
