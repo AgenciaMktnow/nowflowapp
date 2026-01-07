@@ -56,6 +56,7 @@ export default function MyQueue() {
 
     const [activeTimerTask, setActiveTimerTask] = useState<any>(null);
     const [timerElapsedTime, setTimerElapsedTime] = useState(0);
+    const [historicTime, setHistoricTime] = useState(0); // Add state for historic time
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
     // Initial Fetch for Workload
@@ -136,6 +137,24 @@ export default function MyQueue() {
         return () => clearInterval(interval);
     }, [user, activeTab, activeTimerTask?.id]);
 
+    // Anti-Freeze & Cross-Tab Sync
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                console.log('MyQueue: Tab visible - Resyncing timer...');
+                checkActiveTimer();
+                fetchTasks(); // Also refresh task list to reflect status changes from other tabs
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('focus', handleVisibilityChange); // Extra safety for window focus
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('focus', handleVisibilityChange);
+        };
+    }, [user]);
+
     useEffect(() => {
         let filtered: Task[] = [];
         filtered = tasks.filter(task => {
@@ -211,11 +230,31 @@ export default function MyQueue() {
     const checkActiveTimer = async () => {
         if (!user) return;
         const { data: activeLog } = await supabase.from('time_logs').select('*, task:tasks(*)').eq('user_id', user.id).is('end_time', null).single();
+
         if (activeLog && activeLog.task) {
             setActiveTimerTask(activeLog.task);
             const startTime = new Date(activeLog.start_time).getTime();
             setTimerElapsedTime(Math.floor((new Date().getTime() - startTime) / 1000));
-        } else { setActiveTimerTask(null); }
+
+            // FETCH HISTORIC TIME FOR THIS TASK
+            const { data: historyData } = await supabase
+                .from('time_logs')
+                .select('duration_seconds')
+                .eq('task_id', activeLog.task.id)
+                .not('end_time', 'is', null);
+
+            if (historyData) {
+                const total = historyData.reduce((acc, curr) => acc + (curr.duration_seconds || 0), 0);
+                setHistoricTime(total);
+            } else {
+                setHistoricTime(0);
+            }
+
+        } else {
+            setActiveTimerTask(null);
+            setTimerElapsedTime(0);
+            setHistoricTime(0);
+        }
     };
 
     const handleStartTask = async (e: React.MouseEvent, task: Task) => {
@@ -521,7 +560,7 @@ export default function MyQueue() {
                                                             {isTimerActive && (
                                                                 <div className="flex items-center gap-3 bg-background-dark/80 px-6 py-3 rounded-xl border border-primary/20 shadow-[0_0_20px_rgba(19,236,91,0.15)] backdrop-blur-md">
                                                                     <span className="material-symbols-outlined text-primary text-2xl animate-pulse">timelapse</span>
-                                                                    <span className="font-mono font-bold text-primary text-2xl tracking-wider">{formatTimer(timerElapsedTime)}</span>
+                                                                    <span className="font-mono font-bold text-primary text-2xl tracking-wider">{formatTimer(historicTime + timerElapsedTime)}</span>
                                                                 </div>
                                                             )}
 
