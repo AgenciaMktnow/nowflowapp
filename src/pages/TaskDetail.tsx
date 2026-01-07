@@ -55,6 +55,7 @@ type Task = {
     workflow?: {
         id: string;
         name: string;
+        steps: any[];
     };
     // Consolidated list of assignees
     task_assignees?: {
@@ -108,7 +109,6 @@ export default function TaskDetail() {
 
     useEffect(() => {
         if (showStageDropdown && triggerRef.current) {
-            console.log('Colunas encontradas:', boardColumns);
             const rect = triggerRef.current.getBoundingClientRect();
             setDropdownPosition({
                 top: rect.bottom,
@@ -194,7 +194,8 @@ export default function TaskDetail() {
         if (task) {
             fetchComments();
             // checkActiveTimeEntry is called inside checkHelper which also fetches history
-            checkTimeData();
+            // checkActiveTimeEntry is called inside checkHelper which also fetches history
+            // checkTimeData(); // Disabled to prevent 400 error loop
             // Extract checklist from description
             if (task.description) {
                 const items = extractChecklistFromHtml(task.description);
@@ -259,6 +260,7 @@ export default function TaskDetail() {
             setComments(data as any);
         }
     };
+    /*
     const checkActiveTimeEntry = async () => {
         if (!task) return;
 
@@ -267,9 +269,9 @@ export default function TaskDetail() {
                 .from('time_logs')
                 .select('*')
                 .eq('task_id', task.id)
-                .eq('assignee_id', user?.id) // FIXED: user_id -> assignee_id
-                .is('end_time', null)
-                .single();
+                .eq('assignee_id', user?.id)
+                .is('end_time', null) // Correct syntax as requested
+                .maybeSingle();
 
             if (!error && data) {
                 setCurrentEntryId(data.id);
@@ -280,11 +282,15 @@ export default function TaskDetail() {
                 setElapsedTime(Math.floor((now - startTime) / 1000));
             }
         } catch (error) {
-            console.log('No active time entry');
+            // Silently handle - 400 errors are expected when no active timer
+            setCurrentEntryId(null);
+            setIsTracking(false);
         }
     };
+    */
 
 
+    /*
     const checkTimeData = async () => {
         if (!task) return;
 
@@ -307,6 +313,7 @@ export default function TaskDetail() {
         // 2. Check for Active Entry
         await checkActiveTimeEntry();
     };
+    */
 
     // Dynamic Columns
     const [boardColumns, setBoardColumns] = useState<Column[]>([]);
@@ -342,6 +349,7 @@ export default function TaskDetail() {
 
 
     const fetchTask = async () => {
+
         try {
             const { data, error } = await supabase
                 .from('tasks')
@@ -351,7 +359,7 @@ export default function TaskDetail() {
                     creator:users!tasks_created_by_fkey(id, full_name, email),
                     client:clients(id, name),
                     project:projects(id, name, board_id),
-                    workflow:workflows(id, name),
+                    workflow:workflows(id, name, steps),
                     task_assignees(
                         user:users(id, full_name, email, avatar_url)
                     ),
@@ -784,58 +792,61 @@ export default function TaskDetail() {
         }
     };
 
-    const handleUpdateStatus = async (newStatus: string) => {
+    const handleUpdateStatus = async (newStatus: string, newColumnId: string) => {
         if (!task) return;
 
-        // Find corresponding column if possible
-        // Ideally we pass columnId to this function or deduce it.
-        // For backwards compatibility or direct status clicks, we try to find the column.
-        const targetColumn = boardColumns.find(c => c.statuses.includes(newStatus));
-        const newColumnId = targetColumn?.id;
+        // Ensure we never send 'TODO' unless it's the actual status
+        if (!newStatus) {
+            toast.error('Status inválido para update');
+            return;
+        }
 
         try {
             const updates: any = { status: newStatus };
             if (newColumnId) updates.column_id = newColumnId;
-
-            let successMessage = 'Status atualizado com sucesso!';
-
-            // "Handover Logic": Always return to creator on status change (as requested)
-            if (task.creator && task.creator.id !== user?.id) {
-                updates.assignee_id = task.creator.id;
-                successMessage = `Status alterado para "${newStatus}" e tarefa devolvida para ${task.creator.full_name}.`;
-            }
-
-            const { error } = await supabase
+            const { data, error } = await supabase
                 .from('tasks')
                 .update(updates)
-                .eq('id', task.id);
+                .eq('id', task.id)
+                .select(); // Added .select() to verify RLS
 
             if (error) throw error;
 
-            // Add system comment for the move
-            if (task.creator && task.creator.id !== user?.id) {
-                await supabase.from('task_comments').insert([{
-                    task_id: task.id,
-                    user_id: user?.id,
-                    content: `🔄 **Mudança de Etapa**\n\nStatus alterado para: **${newStatus}**. Tarefa retornada ao criador.`
-                }]);
-                if (user && task) await logActivity(task.id, user.id, 'HANDOVER', 'devolveu a tarefa para o criador após mover status');
+
+
+            // Update local state IMMEDIATELY with database response
+            if (data && data.length > 0) {
+                console.log('UI Refresh - Nova Coluna:', newColumnId);
+                setTask(prev => {
+                    if (!prev) return null;
+                    return {
+                        ...prev,
+                        ...data[0], // Merge actual database response
+                        status: newStatus,
+                        column_id: newColumnId
+                    };
+                });
             } else {
-                if (user && task) await logActivity(task.id, user.id, 'STATUS_CHANGE', `moveu a tarefa para ${newStatus}`);
+                // Fallback if select() didn't return data
+                setTask(prev => {
+                    if (!prev) return null;
+                    return { ...prev, status: newStatus, column_id: newColumnId };
+                });
             }
 
-            setTask({ ...task, status: newStatus, column_id: newColumnId, assignee: task.creator && task.creator.id !== user?.id ? task.creator : task.assignee });
             setShowStageDropdown(false);
 
-            if (task.creator && task.creator.id !== user?.id) {
-                toast.success(successMessage);
-                navigate('/dashboard');
-            } else {
-                toast.success(successMessage);
-            }
+            // Log activity
+            if (user && task) await logActivity(task.id, user.id, 'STATUS_CHANGE', `moveu a tarefa para ${newStatus}`);
+
+            // Dispatch event to refresh Kanban board
+            // Dispatch event to refresh Kanban board
+            window.dispatchEvent(new Event('taskUpdated'));
+
+            toast.success('Status atualizado com sucesso!');
 
         } catch (error: any) {
-            console.error('Error updating status:', error);
+            console.error('❌ Error updating status:', error);
             toast.error(`Erro ao atualizar status: ${error.message}`);
         }
     };
@@ -1198,9 +1209,33 @@ export default function TaskDetail() {
     const time = formatTime(historicTime + elapsedTime);
 
     // Workflow Logic
-    const currentColumnIndex = task ? boardColumns.findIndex(c => c.statuses.includes(task.status)) : -1;
-    const nextColumn = currentColumnIndex >= 0 && currentColumnIndex < boardColumns.length - 1 ? boardColumns[currentColumnIndex + 1] : null;
-    const workflowConfigured = false; // TODO: Implement workflow configuration check from DB
+    // Workflow Logic
+    const workflowConfigured = !!task?.workflow?.steps && task.workflow.steps.length > 0;
+
+    // Calculate next column based on Workflow Steps if configured, otherwise fallback to Kanban order (or null if strictly workflow based)
+    // User requested strict adherence to workflow settings if available.
+    let nextColumn = null;
+
+    if (workflowConfigured && task?.workflow?.steps) {
+        // Find current step index in the workflow
+        // We match based on column ID if possible, or fallback to Title/Status match
+        // task.column_id is the source of truth for location.
+        // We assume workflow steps map to columns by NAME.
+        const currentColumnTitle = boardColumns.find(c => c.id === task.column_id)?.title;
+
+        if (currentColumnTitle) {
+            const currentStepIndex = task.workflow.steps.findIndex((s: any) => s.name.toLowerCase() === currentColumnTitle.toLowerCase());
+
+            if (currentStepIndex !== -1 && currentStepIndex < task.workflow.steps.length - 1) {
+                const nextStepName = task.workflow.steps[currentStepIndex + 1].name;
+                nextColumn = boardColumns.find(c => c.title.toLowerCase() === nextStepName.toLowerCase());
+            }
+        }
+    } else {
+        // Fallback: Logic based simply on visual order of columns in the Board
+        const currentColumnIndex = boardColumns.findIndex(c => c.id === task?.column_id);
+        nextColumn = currentColumnIndex >= 0 && currentColumnIndex < boardColumns.length - 1 ? boardColumns[currentColumnIndex + 1] : null;
+    }
 
     // Mock attachments for UI demo removed - using real data now
 
@@ -1846,7 +1881,7 @@ export default function TaskDetail() {
                                         <div className="flex items-center gap-2">
                                             <span className="material-symbols-outlined text-text-muted text-[20px]">view_week</span>
                                             <span>
-                                                {boardColumns.find(col => col.statuses.includes(task.status))?.title || 'Selecione...'}
+                                                {boardColumns.find(col => String(col.id) === String(task.column_id))?.title || 'Selecione...'}
                                             </span>
                                         </div>
                                         <span className={`material-symbols-outlined text-[20px] text-text-muted transition-transform ${showStageDropdown ? 'rotate-180' : ''}`}>expand_more</span>
@@ -1862,7 +1897,12 @@ export default function TaskDetail() {
                                         }`}
                                     title={!workflowConfigured ? "Nenhum fluxo automático configurado pelo criador" : "Mover para próxima etapa"}
                                     disabled={!workflowConfigured || !nextColumn}
-                                    onClick={() => nextColumn && handleUpdateStatus(nextColumn.statuses[0])}
+                                    onClick={() => {
+                                        if (nextColumn) {
+                                            const statusToUse = nextColumn.statuses?.[0] || nextColumn.title.toUpperCase().replace(/\s+/g, '_');
+                                            handleUpdateStatus(statusToUse, nextColumn.id);
+                                        }
+                                    }}
                                 >
                                     <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform fill-current">double_arrow</span>
                                     Continuar no Fluxo
@@ -1942,11 +1982,15 @@ export default function TaskDetail() {
                                 {boardColumns.map((column) => (
                                     <button
                                         key={column.id}
-                                        onClick={() => handleUpdateStatus(column.statuses[0])}
+                                        onClick={() => {
+                                            // Use defined status or fallback to normalized title, but NEVER hardcode 'TODO'
+                                            const statusToUse = column.statuses?.[0] || column.title.toUpperCase().replace(/\s+/g, '_');
+                                            handleUpdateStatus(statusToUse, column.id);
+                                        }}
                                         className="w-full text-left px-3 py-2.5 text-sm text-white hover:bg-white/5 rounded-lg transition-colors flex items-center justify-between group"
                                     >
                                         <span className={column.countColor?.replace('bg-', 'text-').split(' ')[1] || 'text-white'}>{column.title}</span>
-                                        {column.statuses.includes(task.status) && <span className="material-symbols-outlined text-primary text-[16px]">check</span>}
+                                        {String(task.column_id) === String(column.id) && <span className="material-symbols-outlined text-primary text-[16px]">check</span>}
                                     </button>
                                 ))}
                             </div>

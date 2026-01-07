@@ -225,6 +225,18 @@ export default function Projects() {
     useEffect(() => {
         // Debounce could be added here if needed, but for now direct call
         fetchTasks();
+        
+        // Listen for task updates from TaskDetail page
+        const handleTaskUpdate = () => {
+            console.log('📡 Task update event received, refreshing Kanban...');
+            fetchTasks();
+        };
+        
+        window.addEventListener('taskUpdated', handleTaskUpdate);
+        
+        return () => {
+            window.removeEventListener('taskUpdated', handleTaskUpdate);
+        };
     }, [selectedBoard, selectedClient, selectedTeam, selectedProject, filterMine, filterUrgent, filterOverdue]);
 
     // Helper Functions

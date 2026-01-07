@@ -61,10 +61,7 @@ export default function MultiSelectDropdown({
         }
     };
 
-    const removeOption = (e: React.MouseEvent, optionId: string) => {
-        e.stopPropagation();
-        onChange(selectedValues.filter(id => id !== optionId));
-    };
+
 
     return (
         <div className={`space-y-1 ${className}`} ref={dropdownRef}>
@@ -74,34 +71,21 @@ export default function MultiSelectDropdown({
                 <button
                     type="button"
                     onClick={() => setIsOpen(!isOpen)}
-                    className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-sm transition-all h-auto min-h-[56px]
-                        ${isOpen ? 'ring-2 ring-primary border-transparent bg-surface-dark' : 'bg-surface-dark border-gray-700 hover:border-gray-500 hover:text-white'}
-                        ${selectedValues.length > 0 ? 'text-white' : 'text-gray-400'}
-                    `}
+                    className={`flex items-center justify-between gap-2 px-3 py-2 bg-[#112217] border border-[#326744] hover:bg-[#162e21] rounded-lg text-sm transition-colors w-full text-left h-[38px] ${isOpen ? 'ring-1 ring-primary border-primary' : ''}`}
                 >
-                    <div className="flex items-center gap-2 flex-1 overflow-hidden flex-wrap">
-                        {icon && <span className="material-symbols-outlined text-[20px] text-gray-400">{icon}</span>}
-
-                        {selectedValues.length === 0 ? (
-                            <span className="truncate">{placeholder}</span>
-                        ) : (
-                            <div className="flex flex-wrap gap-2 w-full">
-                                {selectedOptions.map((opt) => (
-                                    <span key={opt.id} className="inline-flex items-center gap-1 text-xs font-semibold bg-primary/20 text-primary px-2 py-1 rounded">
-                                        {opt.name}
-                                        <span
-                                            onClick={(e) => removeOption(e, opt.id)}
-                                            className="material-symbols-outlined text-[14px] cursor-pointer hover:text-red-400 transition-colors"
-                                            title="Remover"
-                                        >
-                                            close
-                                        </span>
-                                    </span>
-                                ))}
-                            </div>
-                        )}
+                    <div className="flex items-center gap-2 overflow-hidden">
+                        {icon && <span className="material-symbols-outlined text-[#92c9a4] text-[18px]">{icon}</span>}
+                        <span className={`truncate ${selectedValues.length > 0 ? 'text-white' : 'text-[#92c9a4]'}`}>
+                            {selectedValues.length === 0
+                                ? placeholder
+                                : (selectedValues.length === 1
+                                    ? selectedOptions[0]?.name
+                                    : `${selectedValues.length} selecionados`
+                                )
+                            }
+                        </span>
                     </div>
-                    <span className={`material-symbols-outlined text-[20px] transition-transform duration-200 ${isOpen ? 'rotate-180 text-primary' : 'text-gray-400'}`}>
+                    <span className={`material-symbols-outlined text-[#92c9a4] text-[18px] transition-transform ${isOpen ? 'rotate-180' : ''}`}>
                         expand_more
                     </span>
                 </button>
