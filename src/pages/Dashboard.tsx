@@ -660,7 +660,7 @@ export default function Dashboard() {
                                     {/* Quick Actions Hover */}
                                     <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                                         <button
-                                            onClick={(e) => activeTimerTask?.id === task.id ? handlePauseTimer() : handleStartTask(e, task)}
+                                            onClick={(e) => { e.stopPropagation(); activeTimerTask?.id === task.id ? handlePauseTimer() : handleStartTask(e, task); }}
                                             className={`size-8 rounded-full flex items-center justify-center transition-all shadow-lg ${activeTimerTask?.id === task.id ? 'bg-primary text-background-dark hover:scale-105' : 'bg-primary/20 hover:bg-primary text-primary hover:text-background-dark'}`}
                                             title={activeTimerTask?.id === task.id ? "Pausar Tarefa" : "Iniciar Tarefa"}
                                         >
