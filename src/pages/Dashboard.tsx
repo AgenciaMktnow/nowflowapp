@@ -865,6 +865,19 @@ export default function Dashboard() {
                                                 {task.assignee.full_name.slice(0, 2).toUpperCase()}
                                             </div>
                                         ) : <div className="size-6 rounded-full bg-gray-600"></div>}
+                                        {/* Total Time Badge */}
+                                        {(() => {
+                                            const totalSeconds = task.time_logs?.reduce((acc, log) => acc + (log.duration_seconds || 0), 0) || 0;
+                                            if (totalSeconds > 0) {
+                                                return (
+                                                    <div className="flex items-center gap-1 bg-surface-dark/50 px-2 py-1 rounded text-[10px] font-mono font-bold text-text-secondary border border-white/5" title="Tempo Total">
+                                                        <span className="material-symbols-outlined text-xs">schedule</span>
+                                                        <span>{formatTimer(totalSeconds).h}:{formatTimer(totalSeconds).m}</span>
+                                                    </div>
+                                                );
+                                            }
+                                            return null;
+                                        })()}
                                     </div>
                                 </div>
                             ))}
@@ -916,7 +929,22 @@ export default function Dashboard() {
                                     <h4 className="text-text-secondary line-through font-medium mb-3">{task.title}</h4>
                                     <div className="flex items-center justify-between mt-auto pt-2 border-t border-white/5">
                                         <span className="text-[10px] text-text-secondary">Concluído</span>
-                                        <div className="size-6 rounded-full bg-gray-600 grayscale"></div>
+                                        <div className="flex items-center gap-2">
+                                            {/* Done Column Total Time Badge */}
+                                            {(() => {
+                                                const totalSeconds = task.time_logs?.reduce((acc, log) => acc + (log.duration_seconds || 0), 0) || 0;
+                                                if (totalSeconds > 0) {
+                                                    return (
+                                                        <div className="flex items-center gap-1 bg-surface-dark/50 px-2 py-1 rounded text-[10px] font-mono font-bold text-text-secondary border border-white/5 opacity-50" title="Tempo Total">
+                                                            <span className="material-symbols-outlined text-xs">schedule</span>
+                                                            <span>{formatTimer(totalSeconds).h}:{formatTimer(totalSeconds).m}</span>
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            })()}
+                                            <div className="size-6 rounded-full bg-gray-600 grayscale"></div>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
