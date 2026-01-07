@@ -11,6 +11,7 @@ export interface UserProfile {
     full_name: string;
     avatar_url: string;
     role: 'ADMIN' | 'MANAGER' | 'MEMBER' | 'CLIENT';
+    organization_id: string;
 }
 
 interface AuthContextType {
@@ -37,7 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const { data, error } = await authService.getUserProfile(userId);
 
             if (!error && data) {
-                console.log("User profile loaded:", data.email);
+                console.log("User profile loaded:", data.email, "| Org:", (data as any).organization_id, "| Role:", (data as any).role);
                 setUserProfile(data as UserProfile);
             } else {
                 console.error("Error loading user profile:", error);

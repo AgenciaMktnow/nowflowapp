@@ -93,10 +93,10 @@ export default function LiveTimerWidget({ userId }: LiveTimerWidgetProps) {
                 `)
                 .eq('user_id', targetUserId)
                 .is('end_time', null)
-                .maybeSingle();
+                .limit(1);
 
             if (error) throw error;
-            setActiveTimer(data as any);
+            setActiveTimer(data && data.length > 0 ? (data[0] as any) : null);
         } catch (error) {
             console.error('Error fetching active timer:', error);
         } finally {

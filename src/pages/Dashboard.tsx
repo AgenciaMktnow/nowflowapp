@@ -140,7 +140,7 @@ export default function Dashboard() {
         if (!user) return;
         try {
             // 1. Check for active time log
-            const { data: activeLog } = await supabase
+            const { data: activeLogs } = await supabase
                 .from('time_logs')
                 .select(`
                     *,
@@ -152,7 +152,9 @@ export default function Dashboard() {
                 `)
                 .eq('user_id', user.id) // FIXED: Revert to user_id for time_logs
                 .is('end_time', null)
-                .single();
+                .limit(1);
+
+            const activeLog = activeLogs && activeLogs.length > 0 ? activeLogs[0] : null;
 
             if (activeLog && activeLog.task) {
                 setActiveTimerTask(activeLog.task);

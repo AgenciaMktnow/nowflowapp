@@ -341,12 +341,14 @@ export const taskService = {
             const now = new Date().toISOString();
 
             // 1. Check/Stop active timer (Atomic-like Auto-Switch)
-            const { data: activeLog } = await supabase
+            const { data: activeLogs } = await supabase
                 .from('time_logs')
                 .select('id')
                 .eq('user_id', userId)
                 .is('end_time', null)
-                .maybeSingle();
+                .limit(1);
+
+            const activeLog = activeLogs && activeLogs.length > 0 ? activeLogs[0] : null;
 
             if (activeLog) {
                 const { error: stopError } = await supabase
