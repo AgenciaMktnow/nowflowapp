@@ -39,7 +39,11 @@ type Task = {
     };
     task_number: number;
     time_logs?: { duration_seconds: number | null }[];
-    workflow_id?: string;
+
+    // Board logic
+    board_id?: string; // Resolved effective board ID
+    task_boards?: { board_id: string }[];
+    column_id?: string;
 };
 
 export default function MyQueue() {
@@ -174,6 +178,17 @@ export default function MyQueue() {
 
     const [kanbanColumns, setKanbanColumns] = useState<Record<string, any[]>>({});
 
+    // Helper to map variant to statuses (replicated from board.service.ts)
+    const getStatusesForVariant = (variant: string): string[] => {
+        switch (variant) {
+            case 'default': return ['TODO', 'BACKLOG'];
+            case 'progress': return ['IN_PROGRESS'];
+            case 'review': return ['WAITING_CLIENT', 'REVIEW'];
+            case 'done': return ['DONE'];
+            default: return ['TODO'];
+        }
+    };
+
     const fetchTasks = async () => {
         if (!user) return;
         try {
@@ -182,40 +197,54 @@ export default function MyQueue() {
                 .select(`
                     *,
                     client:client_id(name),
-                    project:projects(name, client_id, client:client_id(name)),
+                    project:projects(name, client_id, board_id, client:client_id(name)),
                     assignee:users!tasks_assignee_id_fkey(full_name, avatar_url),
                     creator:users!tasks_created_by_fkey(id, full_name),
-                    time_logs(duration_seconds)
+                    time_logs(duration_seconds),
+                    task_boards(board_id)
                 `)
                 .or(`assignee_id.eq.${user.id},created_by.eq.${user.id}`)
                 .neq('status', 'DONE')
                 .order('position', { ascending: true });
 
             if (data) {
-                // Fetch columns for unique workflows
-                const uniqueWorkflowIds = Array.from(new Set(data.map(t => t.workflow_id).filter(Boolean)));
-                if (uniqueWorkflowIds.length > 0) {
-                    const { data: workflowsData } = await supabase
-                        .from('workflows')
-                        .select('id, steps')
-                        .in('id', uniqueWorkflowIds);
+                // 1. Resolve Effective Board ID for each task
+                const processedTasks = data.map((t: any) => {
+                    const explicitBoardId = t.task_boards?.[0]?.board_id;
+                    const projectBoardId = t.project?.board_id;
+                    return {
+                        ...t,
+                        board_id: explicitBoardId || projectBoardId
+                    };
+                });
 
-                    if (workflowsData) {
+                // 2. Fetch columns for unique Board IDs
+                const uniqueBoardIds = Array.from(new Set(processedTasks.map((t: any) => t.board_id).filter(Boolean))) as string[];
+
+                if (uniqueBoardIds.length > 0) {
+                    const { data: colsData } = await supabase
+                        .from('board_columns')
+                        .select('*')
+                        .in('board_id', uniqueBoardIds)
+                        .order('position', { ascending: true });
+
+                    if (colsData) {
                         const colsMap: Record<string, any[]> = {};
-                        workflowsData.forEach(wf => {
-                            // Parse steps JSON to get columns
-                            // Assuming steps structure matches Kanban component expectations
-                            const steps = typeof wf.steps === 'string' ? JSON.parse(wf.steps) : wf.steps;
-                            if (Array.isArray(steps)) {
-                                colsMap[wf.id] = steps;
-                            }
+
+                        // Group by board_id
+                        colsData.forEach(col => {
+                            if (!colsMap[col.board_id]) colsMap[col.board_id] = [];
+                            colsMap[col.board_id].push({
+                                ...col,
+                                statuses: getStatusesForVariant(col.variant)
+                            });
                         });
                         setKanbanColumns(colsMap);
                     }
                 }
 
                 // Fallback: Sort tasks with null position to the end
-                const sortedTasks = (data || []).sort((a, b) => {
+                const sortedTasks = (processedTasks || []).sort((a: any, b: any) => {
                     if (a.position === null && b.position === null) return 0;
                     if (a.position === null) return 1;
                     if (b.position === null) return -1;
@@ -352,7 +381,14 @@ export default function MyQueue() {
                 await supabase.from('tasks').update(updates).eq('id', task.id);
             }
 
-            // Refresh tasks to show updated status
+            // Optimistic Update
+            setTasks(prev => prev.map(t =>
+                t.id === task.id
+                    ? { ...t, status: newStatus || 'TODO', column_id: specificColumnId || t.column_id } // Update both status and column_id
+                    : t
+            ));
+
+            // Refresh tasks ensure consistency
             fetchTasks();
         } catch (error) {
             console.error('Error updating status:', error);
@@ -626,11 +662,11 @@ export default function MyQueue() {
                                                                             className={`w-full px-3 pr-8 py-1.5 rounded-lg text-xs font-bold border cursor-pointer transition-all hover:scale-105 bg-surface-dark flex items-center justify-between ${getStatusConfig(task.status).color}`}
                                                                         >
                                                                             <span>{(() => {
-                                                                                if (task.workflow_id && kanbanColumns[task.workflow_id]) {
+                                                                                if (task.board_id && kanbanColumns[task.board_id]) {
                                                                                     // Dynamic Label
                                                                                     // Find the column that matches current status or column_id
-                                                                                    const cols = kanbanColumns[task.workflow_id];
-                                                                                    const match = cols.find(c => c.statuses?.includes(task.status) || c.id === (task as any).column_id);
+                                                                                    const cols = kanbanColumns[task.board_id];
+                                                                                    const match = cols.find(c => task.column_id ? c.id === task.column_id : c.statuses?.includes(task.status));
                                                                                     return match ? match.title : getStatusConfig(task.status).label;
                                                                                 }
                                                                                 return getStatusConfig(task.status).label;
@@ -642,7 +678,7 @@ export default function MyQueue() {
                                                                         {openDropdownId === task.id && (
                                                                             <div className="absolute top-full left-0 mt-2 w-[180px] bg-surface-dark border border-white/10 rounded-xl shadow-xl z-[100] overflow-hidden animate-scale-in">
                                                                                 <div className="p-1">
-                                                                                    {(task.workflow_id && kanbanColumns[task.workflow_id] ? kanbanColumns[task.workflow_id] : [
+                                                                                    {(task.board_id && kanbanColumns[task.board_id] ? kanbanColumns[task.board_id] : [
                                                                                         { id: 'todo', title: 'TODO' },
                                                                                         { id: 'in_progress', title: 'IN_PROGRESS' },
                                                                                         { id: 'waiting_client', title: 'WAITING_CLIENT' },
@@ -650,7 +686,7 @@ export default function MyQueue() {
                                                                                         { id: 'done', title: 'DONE' }
                                                                                     ]).map((column: any) => {
                                                                                         // Map status string to display label logic or use column title
-                                                                                        const isDynamic = !!(task.workflow_id && kanbanColumns[task.workflow_id]);
+                                                                                        const isDynamic = !!(task.board_id && kanbanColumns[task.board_id]);
                                                                                         const columnTitle = column.title;
                                                                                         // For static list, we use the status string to get label from config
                                                                                         const displayLabel = isDynamic ? columnTitle : getStatusConfig(column.title as any).label;
@@ -660,9 +696,8 @@ export default function MyQueue() {
                                                                                         // For dynamic: check if task.status matches the column's mapped status or if we can match by ID?
                                                                                         // Current simple check:
                                                                                         const isSelected = isDynamic
-                                                                                            // Complex match: we don't know the exact status mapping for dynamic columns here easily without checking the column's statuses array
-                                                                                            // But usually column.statuses contains the status string.
-                                                                                            ? (column.statuses?.includes(task.status) || column.id === (task as any).column_id)
+                                                                                            // Complex match: Prioritize specific column_id if available to avoid duplicate checks for columns with same variant
+                                                                                            ? (task.column_id ? column.id === task.column_id : column.statuses?.includes(task.status))
                                                                                             : task.status === columnTitle;
 
 
