@@ -107,6 +107,7 @@ export default function MyQueue() {
         setIsDrawerOpen(false);
         setEditTaskNumber(null);
         fetchTasks(); // Refresh list to show changes
+        checkActiveTimer(); // Refresh timer to include any manual time added
     };
 
     const handleCloneSuccess = (newTask: any) => {
