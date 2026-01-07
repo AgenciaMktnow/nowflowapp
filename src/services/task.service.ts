@@ -19,6 +19,7 @@ export interface Task {
     estimated_time?: number; // Hours
     category?: string;
     tags?: string[];
+    position?: number; // <--- NEW
     created_at: string;
     // Expanded fields for UI
     board_ids?: string[]; // Virtual field for Multi-Board
@@ -83,18 +84,18 @@ export const taskService = {
         // REMOVED: Member-based filtering is unreliable for strict segregation.
         // We now filter strictly by Project-Board relationship.
 
-        // 3. Build Query - SIMPLIFIED
-        // Fetch client directly from task.client_id instead of nested project.client
+        // 3. Build Query - FIXED
+        // Used 'project:projects(name, team_id)' instead of !inner to avoid excluding tasks without projects if getting all
         let query = supabase
             .from('tasks')
             .select(`
                 *,
                 client_id,
-                project:projects!inner(name, team_id),
+                project:projects(name, team_id),
                 assignee:users!tasks_assignee_id_fkey(full_name, email, avatar_url),
                 task_boards(board_id)
             `)
-            .order('created_at', { ascending: false });
+            .order('position', { ascending: true });
 
         // 4. Apply Filters
 
@@ -110,7 +111,7 @@ export const taskService = {
                     task_boards!inner(board_id) 
                 `)
                 .eq('task_boards.board_id', filters.boardId)
-                .order('created_at', { ascending: false });
+                .order('position', { ascending: true });
         }
 
         // STRICT TEAM FILTER
@@ -146,14 +147,10 @@ export const taskService = {
         if (error) return { data: [], error: mapTaskError(error) };
 
         // DEBUG: Check Client Data - ENHANCED
-        if (data && data.length > 0) {
-            console.log("=== KANBAN DEBUG: First Task ===");
-            console.log("Full Task Object:", JSON.stringify(data[0], null, 2));
-            console.log("task.client:", data[0].client);
-            console.log("task.project:", data[0].project);
-            console.log("task.client_id:", data[0].client_id);
-            console.log("task.project.client_id:", (data[0] as any).project?.client_id);
-        }
+        // if (data && data.length > 0) {
+        //     console.log("=== KANBAN DEBUG: First Task ===");
+        //     console.log("Full Task Object:", JSON.stringify(data[0], null, 2));
+        // }
 
         const tasks = data?.map((t: any) => ({
             ...t,
@@ -166,6 +163,12 @@ export const taskService = {
     async createTask(task: CreateTaskDTO & { board_ids?: string[] }): Promise<{ data: Task | null; error: Error | null }> {
         // Separate board_ids from the rest of the task data
         const { board_ids, ...taskData } = task;
+
+        // Auto-assign position just in case (though DB default or specific logic might better)
+        // For now relying on DB to handle null or client to send it if needed. 
+        // Or we can query max position? Nah, let's keep it simple. DB migration filled existing.
+        // New tasks could be 0 or Max. Ideally 'top' implies min or max.
+        // Let's assume frontend sets it or backend default.
 
         const { data, error } = await supabase
             .from('tasks')
@@ -235,6 +238,7 @@ export const taskService = {
             const promises = updates.map(u => {
                 const patch: any = {};
                 if (u.status) patch.status = u.status;
+                if (u.position !== undefined) patch.position = u.position; // <--- NEW: Support position update
 
                 if (Object.keys(patch).length === 0) return Promise.resolve({ error: null });
 

@@ -604,8 +604,7 @@ export default function NewTask({ isDrawer = false, taskNumber: propTaskNumber, 
                         task_id: savedTask!.id, // Non-null assertion safe here
                         user_id: c.user_id,
                         content: c.content,
-                        created_at: c.created_at,
-                        updated_at: new Date().toISOString()
+                        created_at: new Date().toISOString()
                     }));
 
                     const { error: commentError } = await supabase.from('task_comments').insert(commentRows);

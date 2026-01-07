@@ -267,7 +267,7 @@ export default function TaskDetail() {
                 .from('time_logs')
                 .select('*')
                 .eq('task_id', task.id)
-                .eq('user_id', user?.id)
+                .eq('assignee_id', user?.id) // FIXED: user_id -> assignee_id
                 .is('end_time', null)
                 .single();
 
@@ -1109,7 +1109,6 @@ export default function TaskDetail() {
                         user_id: c.user_id,
                         content: c.content,
                         created_at: c.created_at, // Preserve history
-                        updated_at: new Date().toISOString()
                     }));
                     await supabase.from('task_comments').insert(commentRows);
                 }

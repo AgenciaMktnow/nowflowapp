@@ -5,8 +5,8 @@ import { toast } from 'sonner';
 import NewColumnModal from '../components/NewColumnModal';
 import ColumnMenu from '../components/ColumnMenu';
 import SelectDropdown from '../components/SelectDropdown';
-import TaskActionMenu from '../components/TaskActionMenu'; // <--- NEW
-import TaskEditDrawer from '../components/TaskEditDrawer'; // <--- NEW
+import TaskEditDrawer from '../components/TaskEditDrawer';
+import TaskCard from '../components/TaskCard';
 import Header from '../components/layout/Header/Header';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -16,7 +16,6 @@ import { projectService, type Project } from '../services/project.service';
 import { taskService, type Task } from '../services/task.service';
 import { boardService, type Board, type Column } from '../services/board.service';
 import { teamService, type Team } from '../services/team.service';
-import { extractChecklistFromHtml } from '../utils/checklist';
 
 export default function Projects() {
     const navigate = useNavigate();
@@ -75,6 +74,9 @@ export default function Projects() {
     }, []);
 
     // DEBUG: Monitor Clients and Tasks State
+    useEffect(() => {
+        console.log('KANBAN BOARD MOUNTED - VERSION CLEAN 2.0');
+    }, []);
     // DEBUG: Monitor Clients and Tasks State - REMOVED
 
 
@@ -226,23 +228,7 @@ export default function Projects() {
     }, [selectedBoard, selectedClient, selectedTeam, selectedProject, filterMine, filterUrgent, filterOverdue]);
 
     // Helper Functions
-    const getPriorityIcon = (priority: string) => {
-        switch (priority) {
-            case 'HIGH': return <span className="material-symbols-outlined text-red-500 text-sm font-bold" title="Alta Prioridade">flag</span>;
-            case 'MEDIUM': return <span className="material-symbols-outlined text-orange-400 text-sm" title="Média Prioridade">flag</span>;
-            case 'LOW': return <span className="material-symbols-outlined text-blue-400 text-sm" title="Baixa Prioridade">flag</span>;
-            default: return null;
-        }
-    };
-
-    const getPriorityColor = (priority: string) => {
-        switch (priority) {
-            case 'HIGH': return '#ef4444'; // red-500
-            case 'MEDIUM': return '#fb923c'; // orange-400
-            case 'LOW': return '#60a5fa'; // blue-400
-            default: return '#10B981'; // default green
-        }
-    };
+    // Helper functions moved to TaskCard
 
     const loadBoards = async () => {
         const { data } = await boardService.getBoards();
@@ -443,6 +429,7 @@ export default function Projects() {
     };
 
     const onDragEnd = async (result: DropResult) => {
+        console.log('onDragEnd Triggered:', result);
         const { destination, source, type, draggableId } = result;
         if (!destination) return;
         if (destination.droppableId === source.droppableId && destination.index === source.index) return;
@@ -459,32 +446,102 @@ export default function Projects() {
         }
 
         if (type === 'TASK') {
+            const sourceColumnId = source.droppableId;
             const destColumnId = destination.droppableId;
+            const destIndex = destination.index;
+
+            // 1. Find the tasks in the destination column purely for calculation
+            // CRITICAL: We must use the EXACT same filtering logic as the render method to ensure 'destIndex' matches the filtered array.
+
             const destColumn = columns.find(c => c.id === destColumnId);
 
-            if (destColumn && destColumnId !== source.droppableId) {
-                let newStatus = destColumn.statuses[0];
+            const destColumnTasks = tasks
+                .filter(t => {
+                    // Exclude self from the "existing neighbors" list
+                    if (t.id === draggableId) return false;
+
+                    // Logic matching the Render Method:
+                    if (destColumnId.startsWith('def-')) {
+                        // Default columns: match by status
+                        return destColumn?.statuses?.includes(t.status);
+                    }
+
+                    // Custom columns
+                    if (t.column_id === destColumnId) return true;
+
+                    // Fallback for tasks without column_id matching status (if applicable)
+                    if (!t.column_id && destColumn?.statuses?.includes(t.status)) {
+                        const primaryColumn = columns.find(c => c.statuses.includes(t.status));
+                        return primaryColumn?.id === destColumnId;
+                    }
+                    return false;
+                })
+                .sort((a, b) => (a.position || 0) - (b.position || 0)); // Ensure sorted by position
+
+            // 2. Calculate New Position (Standard Fractional Indexing)
+            let newPosition = 0;
+
+            if (destColumnTasks.length === 0) {
+                newPosition = 1000;
+            } else if (destIndex === 0) {
+                // Top
+                newPosition = (destColumnTasks[0].position || 0) / 2;
+                if (newPosition < 1) newPosition = 1;
+            } else if (destIndex >= destColumnTasks.length) {
+                // Bottom
+                const last = destColumnTasks[destColumnTasks.length - 1];
+                newPosition = (last.position || 0) + 1000;
+            } else {
+                // Middle
+                const prev = destColumnTasks[destIndex - 1];
+                const next = destColumnTasks[destIndex];
+                newPosition = ((prev.position || 0) + (next.position || 0)) / 2;
+            }
+
+            // 3. Determine New Status (Visual Only for now, backend triggers/logic might override status but position is key)
+
+            let newStatus = tasks.find(t => t.id === draggableId)?.status || 'TODO';
+
+            if (destColumn && destColumnId !== sourceColumnId) {
+                newStatus = destColumn.statuses[0] as any;
                 const isLastColumn = columns[columns.length - 1].id === destColumnId;
                 if (isLastColumn || destColumn.variant === 'done') {
                     newStatus = 'DONE';
                 }
+            }
 
-                setTasks(prevTasks => prevTasks.map(t =>
-                    t.id === draggableId ? { ...t, status: newStatus as any, column_id: destColumnId } : t
-                ));
+            // 4. Update State Optimistically
+            // Use map to return new array, ensuring sorting holds visually? 
+            // Actually, DND library handles the visual 'gap'. We just need to update the data so next render puts it there.
+            // But since our Sort is by 'position', updating the position is crucial for the list to remain stable after re-render / fetch.
+            setTasks(prevTasks => {
+                const updated = prevTasks.map(t =>
+                    t.id === draggableId
+                        ? { ...t, status: newStatus as any, column_id: destColumnId, position: newPosition }
+                        : t
+                );
+                // We must re-sort the state immediately to match the new positions, 
+                // otherwise the UI might jump if the DND library relinquishes control and React renders unsorted data.
+                return updated.sort((a, b) => (a.position || 0) - (b.position || 0));
+            });
 
-                const updates: any = { status: newStatus };
-                // Always update column_id to persist Board Column placement
-                if (!destColumn.id.startsWith('def-')) {
-                    updates.column_id = destColumnId;
-                }
+            // 5. Persist to Backend
+            const updates: any = { status: newStatus as any, position: newPosition };
+            if (destColumn && !destColumn.id.startsWith('def-')) {
+                updates.column_id = destColumnId;
+            }
 
+            console.log('Moving Task:', { draggableId, newPosition, newStatus, destIndex, neighbors: destColumnTasks.map(t => t.position) });
+
+            try {
+                // Use taskService for batch or direct update? 
+                // Direct Supabase call is fine here as per existing pattern
                 const { error } = await supabase.from('tasks').update(updates).eq('id', draggableId);
-
-                if (error) {
-                    toast.error('Erro ao mover tarefa');
-                    fetchTasks();
-                }
+                if (error) throw error;
+            } catch (error) {
+                console.error('Error moving task:', error);
+                toast.error('Erro ao mover tarefa');
+                fetchTasks(); // Revert on error
             }
         }
     };
@@ -679,7 +736,7 @@ export default function Projects() {
                 </div>
             ) : (
                 <DragDropContext onDragEnd={onDragEnd}>
-                    <div className="flex-1 overflow-x-auto overflow-y-hidden p-2 md:p-6">
+                    <div className="flex-1 overflow-x-auto p-2 md:p-6">
                         <Droppable droppableId="all-columns" direction="horizontal" type="COLUMN">
                             {(provided) => (
                                 <div
@@ -754,170 +811,28 @@ export default function Projects() {
 
                                                         {/* Scrollable Tasks Area */}
                                                         <Droppable droppableId={column.id} type="TASK">
-                                                            {(provided) => (
+                                                            {(provided, snapshot) => (
                                                                 <div
                                                                     ref={provided.innerRef}
                                                                     {...provided.droppableProps}
-                                                                    className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar"
+                                                                    className={`flex-1 overflow-y-auto p-2 custom-scrollbar transition-colors duration-200 ${snapshot.isDraggingOver ? 'bg-white/5' : ''}`}
                                                                 >
                                                                     {columnTasks.map((task, index) => {
                                                                         const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== 'DONE';
-                                                                        const boardColor = (task as any).project?.board?.color || '#23482f';
-                                                                        // unused check
-                                                                        console.log(boardColor);
-                                                                        const attachmentCount = task.attachments?.length || 0;
-
-                                                                        // Basic check for checklist in description (not perfect count, but indication)
-                                                                        const hasChecklist = task.description?.includes('ul data-type="taskList"');
-                                                                        const checklistStats = extractChecklistFromHtml(task.description || '');
-                                                                        const checklistProgress = checklistStats.total > 0 ? Math.round((checklistStats.completed / checklistStats.total) * 100) : 0;
-                                                                        // const attachmentCount = task.attachments?.length || 0; // Already declared above
-                                                                        // const activeTeamLogs = {}; // This would override the state variable, not intended.
-                                                                        // const boardColor = task.project?.board?.color || '#3B82F6'; // Already declared above
 
                                                                         return (
-                                                                            <Draggable key={task.id} draggableId={task.id} index={index}>
-                                                                                {(provided) => (
-                                                                                    <div
-                                                                                        ref={provided.innerRef}
-                                                                                        {...provided.draggableProps}
-                                                                                        {...provided.dragHandleProps}
-                                                                                        onClick={() => navigate(`/tasks/${task.task_number}`)}
-                                                                                        className={`group relative bg-surface-dark p-4 rounded-lg shadow-sm border cursor-grab hover:shadow-md transition-all
-                                                                                        ${isOverdue ? 'border-red-500/50' : 'border-input-border/30 hover:border-primary/50'}
-                                                                                        ${column.variant === 'done' ? 'opacity-60 hover:opacity-100' : ''}
-                                                                                    `}
-                                                                                        style={{ ...provided.draggableProps.style }}
-                                                                                    >
-                                                                                        {/* Priority Color Strip (Left) */}
-                                                                                        <div
-                                                                                            className="absolute top-2 bottom-2 left-0 w-1 rounded-r-md"
-                                                                                            style={{ backgroundColor: getPriorityColor(task.priority) }}
-                                                                                        ></div>
-
-                                                                                        <div className="pl-3 flex flex-col gap-2 relative">
-                                                                                            {/* Task Action Menu (Absolute Right) */}
-                                                                                            <div className="absolute top-0 right-0 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                                                <TaskActionMenu
-                                                                                                    task={task}
-                                                                                                    onEdit={() => handleEdit(task)}
-                                                                                                    onClone={handleCloneSuccess}
-                                                                                                    onUpdate={handleUpdateList}
-                                                                                                />
-                                                                                            </div>
-
-                                                                                            {/* Header: ID & Client/Project */}
-                                                                                            <div className="flex items-center justify-between mb-0.5 pr-6">
-                                                                                                <div className="flex items-center gap-2 overflow-hidden">
-                                                                                                    <span className="text-[10px] font-mono text-text-muted">#{task.task_number}</span>
-                                                                                                    {/* Client Name Lookup */}
-                                                                                                    {/* Client Name Lookup */}
-                                                                                                    {(() => {
-                                                                                                        // Hierarchy: Task Client Lookup > Task Client Object > Project Client Object > Project Name
-                                                                                                        const lookupClientName = clients.find(c => c.id === task.client_id)?.name;
-                                                                                                        const taskClientName = task.client?.name;
-                                                                                                        const projectClientName = task.project?.client?.name;
-                                                                                                        const projectLookupName = clients.find(c => c.id === task.project?.client_id)?.name;
-
-                                                                                                        const displayText = lookupClientName || taskClientName || projectClientName || projectLookupName || task.project?.name;
-
-                                                                                                        return displayText && (
-                                                                                                            <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-white/5 text-text-secondary truncate max-w-[150px]">
-                                                                                                                {displayText}
-                                                                                                            </span>
-                                                                                                        );
-                                                                                                    })()}
-                                                                                                </div>
-                                                                                                {getPriorityIcon(task.priority)}
-                                                                                            </div>
-
-                                                                                            {/* Title */}
-                                                                                            <h4 className={`text-[15px] font-semibold text-text-primary leading-snug mt-1 mb-2 ${column.variant === 'done' ? 'line-through text-text-muted' : ''}`}>
-                                                                                                {task.title}
-                                                                                            </h4>
-
-                                                                                            {/* Metadata Footer */}
-                                                                                            <div className="flex items-end justify-between mt-auto">
-                                                                                                {/* Left: Date / Continuous */}
-                                                                                                <div className="flex items-center gap-2">
-                                                                                                    {task.due_date ? (
-                                                                                                        <div className={`flex items-center gap-1 text-[11px] font-medium ${isOverdue || new Date(task.due_date).toDateString() === new Date().toDateString() ? 'text-red-500' : 'text-text-secondary'}`}>
-                                                                                                            <span className="material-symbols-outlined text-[13px]">calendar_today</span>
-                                                                                                            <span>
-                                                                                                                {(() => {
-                                                                                                                    const [y, m, d] = task.due_date!.split('T')[0].split('-').map(Number);
-                                                                                                                    return new Date(y, m - 1, d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-                                                                                                                })()}
-                                                                                                            </span>
-                                                                                                        </div>
-                                                                                                    ) : (
-                                                                                                        <div className="flex items-center gap-1 text-[11px] text-text-muted" title="Tarefa Contínua">
-                                                                                                            <span className="material-symbols-outlined text-[14px]">all_inclusive</span>
-                                                                                                            <span>Contínua</span>
-                                                                                                        </div>
-                                                                                                    )}
-                                                                                                </div>
-
-                                                                                                {/* Right: Icons */}
-                                                                                                <div className="flex items-center gap-2 text-text-muted">
-                                                                                                    {/* Mirrored Indicator */}
-                                                                                                    {task.board_ids && task.board_ids.length > 1 && (
-                                                                                                        <div className="flex items-center gap-1 text-[#00FF00] bg-[#00FF00]/10 px-1.5 py-0.5 rounded border border-[#00FF00]/30 shadow-[0_0_5px_rgba(0,255,0,0.2)]" title="Tarefa Espelhada em Múltiplos Quadros">
-                                                                                                            <span className="material-symbols-outlined text-[12px] font-bold">dashboard_customize</span>
-                                                                                                            <span className="text-[10px] font-bold">+{task.board_ids.length - 1}</span>
-                                                                                                        </div>
-                                                                                                    )}
-                                                                                                    {(hasChecklist || attachmentCount > 0) && (
-                                                                                                        <div className="flex items-center gap-2 text-text-muted">
-                                                                                                            {hasChecklist && (
-                                                                                                                <span className="material-symbols-outlined text-[14px]" title="Contém Checklist">check_box</span>
-                                                                                                            )}
-                                                                                                            {attachmentCount > 0 && (
-                                                                                                                <div className="flex items-center gap-0.5" title={`${attachmentCount} Anexos`}>
-                                                                                                                    <span className="material-symbols-outlined text-[14px] -rotate-45">attach_file</span>
-                                                                                                                    <span className="text-[10px] font-bold">{attachmentCount}</span>
-                                                                                                                </div>
-                                                                                                            )}
-                                                                                                        </div>
-                                                                                                    )}
-                                                                                                </div>
-
-                                                                                                {/* Checklist Bar */}
-                                                                                                {checklistStats.total > 0 && (
-                                                                                                    <div className="w-full mt-2 mb-1">
-                                                                                                        <div className="flex justify-between items-center mb-0.5">
-                                                                                                            <span className="text-[9px] text-text-muted font-bold">Checklist</span>
-                                                                                                            <span className="text-[9px] text-text-secondary">{checklistStats.completed}/{checklistStats.total}</span>
-                                                                                                        </div>
-                                                                                                        <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                                                                                                            <div
-                                                                                                                className="h-full bg-[#00FF00] transition-all duration-300 shadow-[0_0_8px_rgba(0,255,0,0.4)]"
-                                                                                                                style={{ width: `${checklistProgress}%` }}
-                                                                                                            ></div>
-                                                                                                        </div>
-                                                                                                    </div>
-                                                                                                )}
-
-                                                                                                {/* Avatar */}
-                                                                                                <div className="relative">
-                                                                                                    {activeTeamLogs[task.id] && (
-                                                                                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-50"></span>
-                                                                                                    )}
-                                                                                                    {task.assignee ? (
-                                                                                                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold border border-[#333] ${activeTeamLogs[task.id] ? 'bg-primary text-black' : 'bg-surface-border text-text-subtle'}`} title={task.assignee.full_name}>
-                                                                                                            <img src={task.assignee.avatar_url} className="rounded-full w-full h-full object-cover" />
-                                                                                                        </div>
-                                                                                                    ) : (
-                                                                                                        <div className="w-5 h-5 rounded-full bg-white/5 border border-dashed border-text-muted/30 flex items-center justify-center">
-                                                                                                            <span className="text-[10px] text-text-muted">?</span>
-                                                                                                        </div>
-                                                                                                    )}
-                                                                                                </div>
-                                                                                            </div>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                )}
-                                                                            </Draggable>
+                                                                            <TaskCard
+                                                                                key={task.id}
+                                                                                task={task as any}
+                                                                                index={index}
+                                                                                columnVariant={column.variant}
+                                                                                isOverdue={!!isOverdue}
+                                                                                clientsList={clients}
+                                                                                activeTeamLog={!!activeTeamLogs[task.id]}
+                                                                                onEdit={() => handleEdit(task)}
+                                                                                onClone={handleCloneSuccess}
+                                                                                onUpdate={handleUpdateList}
+                                                                            />
                                                                         );
                                                                     })}
                                                                     {provided.placeholder}
@@ -928,8 +843,7 @@ export default function Projects() {
                                                                         </div>
                                                                     )}
                                                                 </div>
-                                                            )
-                                                            }
+                                                            )}
                                                         </Droppable>
                                                     </div>
                                                 )}

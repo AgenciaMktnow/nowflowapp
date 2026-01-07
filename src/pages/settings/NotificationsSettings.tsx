@@ -58,7 +58,7 @@ export default function NotificationsSettings() {
                 .upsert({
                     user_id: user.id,
                     [key]: newValue,
-                    updated_at: new Date().toISOString()
+                    created_at: new Date().toISOString()
                 });
 
             if (error) throw error;

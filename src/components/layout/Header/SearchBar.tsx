@@ -105,26 +105,22 @@ export default function SearchBar() {
                     id,
                     title,
                     task_number,
-                    updated_at,
+                    created_at,
                     project:projects(
                         name,
                         client:clients!projects_client_id_fkey(name)
                     ),
                     client:clients(name)
                 `)
-                .order('updated_at', { ascending: false })
-                .limit(2);
+                .order('created_at', { ascending: false })
+                .limit(3);
+            console.log('SearchBar: Fetching suggestions (Limit 3)...');
 
             // Get top 2 active clients
             const { data: activeClients } = await supabase
                 .from('clients')
-                .select(`
-                    id,
-                    name,
-                    tasks:tasks!tasks_client_id_fkey(count)
-                `)
-                .order('tasks(count)', { ascending: false })
-                .limit(2);
+                .select('id, name')
+                .limit(5);
 
             const suggestions: SearchResult[] = [];
 

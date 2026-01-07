@@ -16,8 +16,7 @@ type Task = {
     status: 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'WAITING_CLIENT' | 'REVIEW' | 'DONE';
     priority: 'LOW' | 'MEDIUM' | 'HIGH';
     due_date: string;
-    updated_at: string;
-    created_at: string;
+    created_at: string; // FIXED: updated_at -> created_at
     assignee_id?: string;
     project_id?: string;
     project?: {
@@ -130,7 +129,7 @@ export default function Dashboard() {
                         assignee:users!tasks_assignee_id_fkey(full_name)
                     )
                 `)
-                .eq('user_id', user.id)
+                .eq('user_id', user.id) // FIXED: Revert to user_id for time_logs
                 .is('end_time', null)
                 .single();
 
@@ -337,8 +336,8 @@ export default function Dashboard() {
     const waitingReviewCount = filteredTasks.filter(t => t.status === 'REVIEW').length;
 
     const doneThisWeekCount = tasks.filter(t => { // Use 'tasks' to see global personal done? Or filteredTasks? User said "Total Done in Week". Filtered makes sense for "My Performance".
-        if (t.status !== 'DONE' || !t.updated_at) return false;
-        const taskDate = new Date(t.updated_at);
+        if (t.status !== 'DONE' || !t.created_at) return false;
+        const taskDate = new Date(t.created_at);
         const today = new Date();
         const firstDayOfWeek = new Date(today.setDate(today.getDate() - today.getDay())); // Sunday
         return taskDate >= firstDayOfWeek;
