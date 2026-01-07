@@ -195,7 +195,7 @@ export default function TaskDetail() {
             fetchComments();
             // checkActiveTimeEntry is called inside checkHelper which also fetches history
             // checkActiveTimeEntry is called inside checkHelper which also fetches history
-            // checkTimeData(); // Disabled to prevent 400 error loop
+            checkTimeData();
             // Extract checklist from description
             if (task.description) {
                 const items = extractChecklistFromHtml(task.description);
@@ -244,6 +244,21 @@ export default function TaskDetail() {
         };
     }, [isTracking]);
 
+    // Visiblity Change Handler to Re-Sync Timer on Tab Focus
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible' && isTracking) {
+                console.log('Tab visible - Resyncing timer...');
+                checkActiveTimeEntry();
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [isTracking]);
+
     const fetchComments = async () => {
         if (!task) return;
 
@@ -260,7 +275,6 @@ export default function TaskDetail() {
             setComments(data as any);
         }
     };
-    /*
     const checkActiveTimeEntry = async () => {
         if (!task) return;
 
@@ -269,8 +283,7 @@ export default function TaskDetail() {
                 .from('time_logs')
                 .select('*')
                 .eq('task_id', task.id)
-                .eq('assignee_id', user?.id)
-                .is('end_time', null) // Correct syntax as requested
+                .is('end_time', null)
                 .maybeSingle();
 
             if (!error && data) {
@@ -287,10 +300,8 @@ export default function TaskDetail() {
             setIsTracking(false);
         }
     };
-    */
 
 
-    /*
     const checkTimeData = async () => {
         if (!task) return;
 
@@ -313,7 +324,6 @@ export default function TaskDetail() {
         // 2. Check for Active Entry
         await checkActiveTimeEntry();
     };
-    */
 
     // Dynamic Columns
     const [boardColumns, setBoardColumns] = useState<Column[]>([]);
