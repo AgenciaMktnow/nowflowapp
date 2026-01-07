@@ -110,7 +110,23 @@ export default function Dashboard() {
         };
 
         document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+
+        // Anti-Drift: Re-sync timer when tab becomes visible
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                checkActiveTimer();
+                checkActiveTeamLogs();
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('focus', handleVisibilityChange);
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('focus', handleVisibilityChange);
+        };
     }, [user, userProfile]);
 
 
@@ -197,11 +213,24 @@ export default function Dashboard() {
     const handlePauseTimer = async () => {
         if (!activeTimeLogId) return;
         try {
+            // Fetch start time to calculate precise duration (Anti-Drift)
+            const { data: logEntry } = await supabase
+                .from('time_logs')
+                .select('start_time')
+                .eq('id', activeTimeLogId)
+                .single();
+
+            if (!logEntry) return;
+
+            const startTime = new Date(logEntry.start_time).getTime();
+            const now = new Date().getTime();
+            const finalDuration = Math.floor((now - startTime) / 1000);
+
             const { error } = await supabase
                 .from('time_logs')
                 .update({
                     end_time: new Date().toISOString(),
-                    duration_seconds: timerElapsedTime
+                    duration_seconds: finalDuration
                 })
                 .eq('id', activeTimeLogId);
 
