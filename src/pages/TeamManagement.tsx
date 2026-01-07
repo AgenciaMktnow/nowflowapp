@@ -70,7 +70,9 @@ export default function TeamManagement() {
                     full_name: user.full_name || '',
                     email: user.email,
                     role: user.role?.toLowerCase() || 'member',
-                    last_access: undefined,
+                    last_access: user.last_sign_in_at
+                        ? new Date(user.last_sign_in_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
+                        : undefined,
                     is_active: true,
                     avatar_url: user.avatar_url,
                     user_id: user.id,
@@ -385,7 +387,7 @@ export default function TeamManagement() {
                                 {filteredUsers.map((user, index) => (
                                     <tr
                                         key={user.id}
-                                        className={`group hover:bg-white/5 transition-colors cursor-pointer border-l-2 ${index === 0 ? 'border-primary bg-white/[0.02]' : 'border-transparent'}`}
+                                        className={`group hover:bg-white/5 transition-colors cursor-pointer border-l-2 border-transparent`}
                                         onClick={() => setSelectedUser(user)}
                                     >
                                         <td className="py-3 px-4">
