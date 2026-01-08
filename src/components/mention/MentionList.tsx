@@ -1,10 +1,10 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
-import { supabase } from '../../lib/supabase';
+
 
 export default forwardRef((props: any, ref) => {
     const [selectedIndex, setSelectedIndex] = useState(0);
-    const [users, setUsers] = useState<any[]>([]);
+
 
     const selectItem = (index: number) => {
         const item = props.items[index];
