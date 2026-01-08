@@ -25,7 +25,14 @@ export default function NotificationDropdown({
             onMarkAsRead(notification.id);
         }
         if (notification.task) {
-            navigate(`/tasks/${notification.task.task_number}`);
+            let targetUrl = `/tasks/${notification.task.task_number}`;
+
+            // Auto-switch to comments tab for specific types
+            if (['COMMENT', 'MENTION', 'MOVEMENT'].includes(notification.type)) {
+                targetUrl += `?tab=comments`;
+            }
+
+            navigate(targetUrl);
             onClose();
         } else if (notification.task_id) {
             // Fallback for verification/legacy

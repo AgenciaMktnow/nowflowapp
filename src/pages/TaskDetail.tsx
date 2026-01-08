@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import SimpleEditor from '../components/SimpleEditor';
@@ -100,6 +100,7 @@ import EmojiPicker, { Theme } from 'emoji-picker-react';
 export default function TaskDetail() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const { user, userProfile } = useAuth();
     const timerInterval = useRef<number | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -209,6 +210,19 @@ export default function TaskDetail() {
             }
         }
     }, [task]);
+
+    // Handle Deep Link Scrolling
+    useEffect(() => {
+        if (task && searchParams.get('tab') === 'comments') {
+            // Short delay to ensure rendering
+            setTimeout(() => {
+                const element = document.getElementById('comments-section');
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 500);
+        }
+    }, [task, searchParams]);
 
     // Fetch boards list once
     useEffect(() => {
@@ -1492,7 +1506,7 @@ export default function TaskDetail() {
                         </div>
 
                         {/* Comments */}
-                        <div className="bg-surface-dark rounded-xl border border-border-dark p-6 md:p-8 flex flex-col gap-6">
+                        <div id="comments-section" className="bg-surface-dark rounded-xl border border-border-dark p-6 md:p-8 flex flex-col gap-6">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-white text-lg font-bold flex items-center gap-2">
                                     <span className="material-symbols-outlined text-primary">chat</span>
