@@ -804,7 +804,7 @@ export default function MyQueue() {
                     {viewMode === 'WORKLOAD' && (
                         <div className="flex-1 h-full min-h-[600px]">
                             <WorkloadBoard
-                                onTaskClick={handleEdit}
+                                onTaskClick={(task) => navigate(`/tasks/${task.task_number}`)}
                                 users={availableUsers.filter(u => selectedUserIds.includes(u.id))}
                                 teamId={selectedTeam}
                             />
