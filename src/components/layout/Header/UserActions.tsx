@@ -19,7 +19,8 @@ export default function UserActions() {
         unreadCount,
         loading,
         markAsRead,
-        markAllAsRead
+        markAllAsRead,
+        clearAll
     } = useNotifications();
 
     // Close dropdowns when clicking outside
@@ -68,6 +69,7 @@ export default function UserActions() {
                         onClose={() => setIsNotificationsOpen(false)}
                         onMarkAsRead={markAsRead}
                         onMarkAllAsRead={markAllAsRead}
+                        onClearAll={clearAll}
                     />
                 )}
             </div>

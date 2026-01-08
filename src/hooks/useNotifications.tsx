@@ -104,12 +104,20 @@ export function useNotifications() {
         await notificationService.markAllAsRead(user.id);
     };
 
+    const clearAll = async () => {
+        if (!user) return;
+        setNotifications([]);
+        setUnreadCount(0);
+        await notificationService.clearAll(user.id);
+    };
+
     return {
         notifications,
         unreadCount,
         loading,
         markAsRead,
         markAllAsRead,
+        clearAll,
         refresh: loadNotifications
     };
 }

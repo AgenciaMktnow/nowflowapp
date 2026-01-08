@@ -8,6 +8,7 @@ interface NotificationDropdownProps {
     onClose: () => void;
     onMarkAsRead: (id: string) => void;
     onMarkAllAsRead: () => void;
+    onClearAll: () => void;
     loading: boolean;
 }
 
@@ -16,6 +17,7 @@ export default function NotificationDropdown({
     onClose,
     onMarkAsRead,
     onMarkAllAsRead,
+    onClearAll,
     loading
 }: NotificationDropdownProps) {
     const navigate = useNavigate();
@@ -64,16 +66,28 @@ export default function NotificationDropdown({
     return (
         <div className="absolute right-0 top-full mt-2 w-80 md:w-96 bg-[#162e21] border border-[#23482f] rounded-xl shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-100 flex flex-col max-h-[80vh]">
             {/* Header */}
-            <div className="p-4 border-b border-white/5 flex justify-between items-center">
+            <div className="p-4 border-b border-white/5 flex justify-between items-center bg-black/20">
                 <h3 className="text-white font-bold text-sm">Notificações</h3>
-                {notifications.some(n => !n.is_read) && (
-                    <button
-                        onClick={onMarkAllAsRead}
-                        className="text-xs text-primary hover:underline hover:text-primary/80"
-                    >
-                        Marcar todas como lidas
-                    </button>
-                )}
+                <div className="flex items-center gap-2">
+                    {notifications.length > 0 && (
+                        <button
+                            onClick={onClearAll}
+                            className="text-[10px] text-gray-400 hover:text-red-400 transition-colors flex items-center gap-1"
+                            title="Limpar todas as notificações"
+                        >
+                            <span className="material-symbols-outlined text-[12px]">delete</span>
+                            Limpar
+                        </button>
+                    )}
+                    {notifications.some(n => !n.is_read) && (
+                        <button
+                            onClick={onMarkAllAsRead}
+                            className="text-xs text-primary hover:underline hover:text-primary/80"
+                        >
+                            Marcar lidas
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* List */}

@@ -60,5 +60,14 @@ export const notificationService = {
 
         if (error) return 0;
         return count || 0;
+    },
+
+    async clearAll(userId: string): Promise<{ error: Error | null }> {
+        const { error } = await supabase
+            .from('notifications')
+            .delete()
+            .eq('user_id', userId);
+
+        return { error };
     }
 };
