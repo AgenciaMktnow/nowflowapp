@@ -909,10 +909,13 @@ export default function TaskDetail() {
 
             if (commentError) throw commentError;
 
-            // 2. Update task assignee to creator
+            // 2. Update task assignee to creator and status to WAITING_CLIENT (Devolution)
             const { error: taskError } = await supabase
                 .from('tasks')
-                .update({ assignee_id: task.creator.id })
+                .update({
+                    assignee_id: task.creator.id,
+                    status: 'WAITING_CLIENT'
+                })
                 .eq('id', task.id);
 
             if (taskError) throw taskError;
