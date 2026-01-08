@@ -35,6 +35,7 @@ type Task = {
     priority: string;
     due_date: string;
     created_at: string;
+    created_by?: string;
     assignee?: {
         id: string;
         full_name: string;
@@ -1212,6 +1213,27 @@ export default function TaskDetail() {
         }
     };
 
+    const handleDeleteTask = async () => {
+        if (!task || !confirm('Tem certeza que deseja excluir esta tarefa permanentemente? Esta ação não pode ser desfeita.')) return;
+
+        try {
+            const { error } = await supabase
+                .from('tasks')
+                .delete()
+                .eq('id', task.id);
+
+            if (error) throw error;
+
+            toast.success('Tarefa excluída com sucesso.');
+            navigate('/queue');
+        } catch (error: any) {
+            console.error('Error deleting task:', error);
+            toast.error(`Erro ao excluir tarefa: ${error.message}`);
+        }
+    };
+
+
+
     // Helper for formatting time (re-use existing or ensure it matches design requirements)
     const formatTime = (seconds: number) => {
         const hours = Math.floor(seconds / 3600);
@@ -1409,6 +1431,19 @@ export default function TaskDetail() {
                                         <span className="material-symbols-outlined text-[16px]">content_copy</span>
                                         Clonar
                                     </button>
+
+                                    {user && (
+                                        (userProfile?.role === 'ADMIN') ||
+                                        (userProfile?.role === 'MANAGER' && task?.created_by === user.id)
+                                    ) && (
+                                            <button
+                                                onClick={handleDeleteTask}
+                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 text-xs font-bold uppercase tracking-wider rounded-lg border border-red-500/20 transition-colors"
+                                            >
+                                                <span className="material-symbols-outlined text-[16px]">delete</span>
+                                                Excluir
+                                            </button>
+                                        )}
                                 </div>
                             </div>
                         </div>
