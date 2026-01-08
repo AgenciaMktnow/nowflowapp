@@ -16,10 +16,13 @@ export type Attachment = {
 interface AttachmentListProps {
     attachments: Attachment[];
     onDelete: (id: string) => void;
-    canDelete: boolean; // permission check passed from parent
+    currentUser: {
+        id: string;
+        role: 'ADMIN' | 'MANAGER' | 'MEMBER' | 'CLIENT';
+    } | null;
 }
 
-export default function AttachmentList({ attachments, onDelete, canDelete }: AttachmentListProps) {
+export default function AttachmentList({ attachments, onDelete, currentUser }: AttachmentListProps) {
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
     const formatSize = (bytes: number) => {
@@ -85,49 +88,57 @@ export default function AttachmentList({ attachments, onDelete, canDelete }: Att
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {attachments.map((file) => (
-                    <div
-                        key={file.id}
-                        className="group flex items-center p-2 rounded-lg bg-[#14261d] border border-[#23482f] hover:border-primary/50 transition-all cursor-pointer relative overflow-hidden"
-                        onClick={() => handlePreview(file)}
-                    >
-                        {/* File Icon / Thumbnail */}
-                        <div className="size-10 rounded bg-[#1a3524] flex items-center justify-center text-[#92c9a4] mr-3 border border-[#23482f]">
-                            <span className="material-symbols-outlined">{getIcon(file.type)}</span>
-                        </div>
+                {attachments.map((file) => {
+                    // Permission Check
+                    const canDelete = currentUser && (
+                        currentUser.role === 'ADMIN' ||
+                        currentUser.id === file.user_id
+                    );
 
-                        {/* File Info */}
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-slate-200 truncate pr-6" title={file.name}>
-                                {file.name}
-                            </p>
-                            <p className="text-xs text-slate-500">
-                                {formatSize(file.size)} • {new Date(file.created_at).toLocaleDateString('pt-BR')}
-                            </p>
-                        </div>
+                    return (
+                        <div
+                            key={file.id}
+                            className="group flex items-center p-2 rounded-lg bg-[#14261d] border border-[#23482f] hover:border-primary/50 transition-all cursor-pointer relative overflow-hidden"
+                            onClick={() => handlePreview(file)}
+                        >
+                            {/* File Icon / Thumbnail */}
+                            <div className="size-10 rounded bg-[#1a3524] flex items-center justify-center text-[#92c9a4] mr-3 border border-[#23482f]">
+                                <span className="material-symbols-outlined">{getIcon(file.type)}</span>
+                            </div>
 
-                        {/* Actions */}
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity absolute right-2 bg-[#14261d]/80 backdrop-blur-sm rounded pl-2">
-                            <button
-                                onClick={(e) => { e.stopPropagation(); handleDownload(file); }}
-                                className="p-1.5 hover:bg-white/10 rounded text-slate-400 hover:text-primary transition-colors"
-                                title="Baixar"
-                            >
-                                <span className="material-symbols-outlined text-[18px]">download</span>
-                            </button>
+                            {/* File Info */}
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-slate-200 truncate pr-6" title={file.name}>
+                                    {file.name}
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                    {formatSize(file.size)} • {new Date(file.created_at).toLocaleDateString('pt-BR')}
+                                </p>
+                            </div>
 
-                            {canDelete && (
+                            {/* Actions */}
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity absolute right-2 bg-[#14261d]/80 backdrop-blur-sm rounded pl-2">
                                 <button
-                                    onClick={(e) => { e.stopPropagation(); onDelete(file.id); }}
-                                    className="p-1.5 hover:bg-red-500/20 rounded text-slate-400 hover:text-red-500 transition-colors"
-                                    title="Excluir"
+                                    onClick={(e) => { e.stopPropagation(); handleDownload(file); }}
+                                    className="p-1.5 hover:bg-white/10 rounded text-slate-400 hover:text-primary transition-colors"
+                                    title="Baixar"
                                 >
-                                    <span className="material-symbols-outlined text-[18px]">delete</span>
+                                    <span className="material-symbols-outlined text-[18px]">download</span>
                                 </button>
-                            )}
+
+                                {canDelete && (
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); onDelete(file.id); }}
+                                        className="p-1.5 hover:bg-red-500/20 rounded text-slate-400 hover:text-red-500 transition-colors"
+                                        title="Excluir"
+                                    >
+                                        <span className="material-symbols-outlined text-[18px]">delete</span>
+                                    </button>
+                                )}
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
 
             {/* Image Preview Modal */}

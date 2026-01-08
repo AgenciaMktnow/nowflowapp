@@ -1439,7 +1439,7 @@ export default function TaskDetail() {
                             <AttachmentList
                                 attachments={attachments}
                                 onDelete={handleDeleteAttachment}
-                                canDelete={true} // DB Policy protects actual deletion, UI can show button
+                                currentUser={user ? { id: user.id, role: userProfile?.role || 'MEMBER' } : null}
                             />
 
                             {/* Empty State */}
