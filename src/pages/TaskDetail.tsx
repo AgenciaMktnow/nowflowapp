@@ -64,6 +64,7 @@ type Task = {
     };
     // Consolidated list of assignees
     task_assignees?: {
+        completed_at?: string | null;
         user: {
             id: string;
             full_name: string;
@@ -398,6 +399,7 @@ export default function TaskDetail() {
                     project:projects(id, name, board_id),
                     workflow:workflows(id, name, steps),
                     task_assignees(
+                        completed_at,
                         user:users(id, full_name, email, avatar_url)
                     ),
                     task_boards(board_id)
@@ -953,6 +955,51 @@ export default function TaskDetail() {
         } catch (error: any) {
             console.error('Error completing task:', error);
             alert(`Erro ao concluir tarefa: ${error?.message}`);
+        }
+    };
+
+    const handleReopenTask = async () => {
+        if (!task || !confirm('Deseja realmente reabrir esta tarefa? As entregas individuais serão resetadas.')) return;
+
+        try {
+            const { error } = await supabase.rpc('reopen_task', { p_task_id: task.id });
+            if (error) throw error;
+
+            toast.success('Tarefa reaberta com sucesso!');
+            fetchTask(); // Refresh to see status change
+        } catch (error: any) {
+            console.error('Error reopening task:', error);
+            toast.error(`Erro ao reabrir: ${error.message}`);
+        }
+    };
+
+    const handleToggleMyPart = async () => {
+        if (!task || !user) return;
+
+        try {
+            const { data, error } = await supabase.rpc('toggle_task_assignee_completion', { p_task_id: task.id });
+            if (error) throw error;
+
+            const result = data as any;
+            if (result.status === 'DONE') {
+                toast.success('🎉 Tarefa concluída! Todos entregaram suas partes.');
+            } else {
+                // Check local toggle status
+                // Note: We need to refetch to get accurate state, but for instant feedback:
+                const isCompleted = task.task_assignees?.find(ta => ta.user.id === user.id)?.completed_at;
+                if (isCompleted) {
+                    toast.info('Entrega cancelada.'); // Logic seems inverted? No, if it WAS completed, RPC toggled to NULL (cancel). 
+                    // Wait, if LOCAL is completed, RPC just toggled it OFF.
+                    // But RPC returns stats, not new boolean. 
+                    // Safe beat: "Status atualizado". Or FetchTask.
+                } else {
+                    toast.success('Sua parte foi entregue! 👍');
+                }
+            }
+            fetchTask();
+        } catch (error: any) {
+            console.error('Error toggling part:', error);
+            toast.error(`Erro ao entregar parte: ${error.message}`);
         }
     };
 
@@ -1747,9 +1794,15 @@ export default function TaskDetail() {
                             <div className="flex flex-wrap gap-2">
                                 {task.task_assignees && task.task_assignees.length > 0 ? (
                                     task.task_assignees.map((assignee) => (
-                                        <div key={assignee.user.id} className="flex items-center gap-1.5 bg-background-dark border border-border-dark rounded-full pl-1 pr-2 py-1 transition-colors hover:border-primary/50 group cursor-default">
+                                        <div key={assignee.user.id}
+                                            className={`flex items-center gap-1.5 border rounded-full pl-1 pr-2 py-1 transition-colors group cursor-default ${assignee.completed_at
+                                                    ? 'bg-green-500/10 border-green-500/30'
+                                                    : 'bg-background-dark border-border-dark hover:border-primary/50'
+                                                }`}
+                                        >
                                             <div
-                                                className="size-5 rounded-full bg-cover bg-center bg-[#2a2a2e] ring-1 ring-white/10 flex items-center justify-center shrink-0"
+                                                className={`size-5 rounded-full bg-cover bg-center bg-[#2a2a2e] ring-1 flex items-center justify-center shrink-0 ${assignee.completed_at ? 'ring-green-500' : 'ring-white/10'
+                                                    }`}
                                                 style={{ backgroundImage: assignee.user.avatar_url ? `url('${assignee.user.avatar_url}')` : undefined }}
                                             >
                                                 {!assignee.user.avatar_url && (
@@ -1757,8 +1810,16 @@ export default function TaskDetail() {
                                                         {assignee.user.full_name?.charAt(0) || assignee.user.email?.charAt(0).toUpperCase()}
                                                     </span>
                                                 )}
+                                                {assignee.completed_at && (
+                                                    <div className="absolute -bottom-0.5 -right-0.5 bg-green-500 rounded-full p-[1px]">
+                                                        <span className="material-symbols-outlined text-[8px] text-black font-bold">check</span>
+                                                    </div>
+                                                )}
                                             </div>
-                                            <span className="text-[10px] font-bold text-gray-200 group-hover:text-white transition-colors max-w-[100px] truncate">{assignee.user.full_name || assignee.user.email}</span>
+                                            <span className={`text-[10px] font-bold transition-colors max-w-[100px] truncate ${assignee.completed_at ? 'text-green-500' : 'text-gray-200 group-hover:text-white'
+                                                }`}>
+                                                {assignee.user.full_name || assignee.user.email}
+                                            </span>
                                         </div>
                                     ))
                                 ) : (
@@ -1927,10 +1988,40 @@ export default function TaskDetail() {
 
                         {/* Workflow Actions */}
                         <div className="bg-surface-dark rounded-xl border border-border-dark p-6 flex flex-col gap-5">
-                            <button onClick={handleCompleteTask} className="w-full h-12 bg-primary hover:bg-primary-dark text-background-dark text-lg font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_25px_-5px_rgba(19,236,91,0.5)] hover:shadow-[0_0_35px_-5px_rgba(19,236,91,0.7)] group transform active:scale-[0.98]">
-                                <span className="material-symbols-outlined text-[24px] fill-current">check_circle</span>
-                                Concluir Tarefa
-                            </button>
+                            {task && task.status === 'DONE' ? (
+                                <button
+                                    onClick={handleReopenTask}
+                                    className="w-full h-12 bg-white/5 hover:bg-white/10 text-white text-lg font-bold rounded-xl flex items-center justify-center gap-2 transition-all border border-white/10"
+                                >
+                                    <span className="material-symbols-outlined text-[24px]">replay</span>
+                                    Reabrir Tarefa
+                                </button>
+                            ) : task && (task.task_assignees?.length || 0) > 1 ? (
+                                <button
+                                    onClick={handleToggleMyPart}
+                                    className={`w-full h-12 text-lg font-bold rounded-xl flex items-center justify-center gap-2 transition-all group transform active:scale-[0.98] ${task.task_assignees?.find(ta => ta.user.id === user?.id)?.completed_at
+                                        ? 'bg-green-500/20 text-green-500 border border-green-500/50 hover:bg-green-500/30'
+                                        : 'bg-primary hover:bg-primary-dark text-background-dark shadow-[0_0_25px_-5px_rgba(19,236,91,0.5)]'
+                                        }`}
+                                >
+                                    {task.task_assignees?.find(ta => ta.user.id === user?.id)?.completed_at ? (
+                                        <>
+                                            <span className="material-symbols-outlined text-[24px]">check_circle</span>
+                                            Minha Parte Entregue
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span className="material-symbols-outlined text-[24px]">back_hand</span>
+                                            Entregar Minha Parte
+                                        </>
+                                    )}
+                                </button>
+                            ) : (
+                                <button onClick={handleCompleteTask} className="w-full h-12 bg-primary hover:bg-primary-dark text-background-dark text-lg font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_25px_-5px_rgba(19,236,91,0.5)] hover:shadow-[0_0_35px_-5px_rgba(19,236,91,0.7)] group transform active:scale-[0.98]">
+                                    <span className="material-symbols-outlined text-[24px] fill-current">check_circle</span>
+                                    Concluir Tarefa
+                                </button>
+                            )}
 
                             <div className="relative py-2">
                                 <div aria-hidden="true" className="absolute inset-0 flex items-center">

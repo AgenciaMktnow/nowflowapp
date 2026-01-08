@@ -13,6 +13,7 @@ interface Task {
     status: string;
     due_date?: string;
     assignee?: { full_name: string; avatar_url?: string };
+    task_assignees?: { user_id: string; completed_at?: string }[];
     client?: { name: string };
     project?: { name: string; client?: { name: string }; client_id?: string; board?: { color?: string } };
     client_id?: string;
@@ -145,6 +146,17 @@ const TaskCard = ({ task, index, columnVariant, isOverdue, clientsList, activeTe
                                     <div className="flex items-center gap-1 text-[#00FF00] bg-[#00FF00]/10 px-1.5 py-0.5 rounded border border-[#00FF00]/30 shadow-[0_0_5px_rgba(0,255,0,0.2)]" title="Tarefa Espelhada em Múltiplos Quadros">
                                         <span className="material-symbols-outlined text-[12px] font-bold">dashboard_customize</span>
                                         <span className="text-[10px] font-bold">+{task.board_ids.length - 1}</span>
+                                    </div>
+                                )}
+                                {task.task_assignees && task.task_assignees.length > 1 && (
+                                    <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded border ${task.task_assignees.filter(t => t.completed_at).length === task.task_assignees.length
+                                        ? 'text-green-400 bg-green-400/10 border-green-400/20'
+                                        : 'text-orange-400 bg-orange-400/10 border-orange-400/20'
+                                        }`} title="Participantes que entregaram sua parte">
+                                        <span className="material-symbols-outlined text-[12px]">group_add</span>
+                                        <span className="text-[10px] font-bold">
+                                            {task.task_assignees.filter(t => t.completed_at).length}/{task.task_assignees.length}
+                                        </span>
                                     </div>
                                 )}
                                 {(hasChecklist || attachmentCount > 0) && (

@@ -26,7 +26,7 @@ export interface Task {
     project?: { name: string; client_id?: string; board_id?: string; team_id?: string; client?: { name: string } };
     client?: { name: string };
     assignee?: { full_name: string; email: string; avatar_url?: string };
-    task_assignees?: { user_id: string }[];
+    task_assignees?: { user_id: string; completed_at?: string }[];
     comments_count?: number; // Virtual field often joined
     attachments?: any[];
 }
@@ -93,6 +93,7 @@ export const taskService = {
                 client_id,
                 project:projects(name, team_id),
                 assignee:users!tasks_assignee_id_fkey(full_name, email, avatar_url),
+                task_assignees(user_id, completed_at),
                 task_boards(board_id)
             `)
             .order('position', { ascending: true });
@@ -108,6 +109,7 @@ export const taskService = {
                     client_id,
                     project:projects(name, team_id),
                     assignee:users!tasks_assignee_id_fkey(full_name, email, avatar_url),
+                    task_assignees(user_id, completed_at),
                     task_boards!inner(board_id) 
                 `)
                 .eq('task_boards.board_id', filters.boardId)
@@ -177,7 +179,7 @@ export const taskService = {
                 *,
                 project:projects(name),
                 assignee:users!tasks_assignee_id_fkey(full_name, email),
-                task_assignees(user_id)
+                task_assignees(user_id, completed_at)
             `)
             .single();
 
@@ -205,7 +207,7 @@ export const taskService = {
                 *,
                 project:projects(name),
                 assignee:users!tasks_assignee_id_fkey(full_name, email),
-                task_assignees(user_id)
+                task_assignees(user_id, completed_at)
             `)
             .single();
 
@@ -266,7 +268,7 @@ export const taskService = {
                 *,
                 project:projects(name),
                 assignee:users!tasks_assignee_id_fkey(full_name, email),
-                task_assignees(user_id)
+                task_assignees(user_id, completed_at)
             `)
             .eq('id', id)
             .single();
@@ -292,7 +294,7 @@ export const taskService = {
                 *,
                 project:projects(name),
                 assignee:users!tasks_assignee_id_fkey(full_name, email),
-                task_assignees(user_id)
+                task_assignees(user_id, completed_at)
             `)
             .eq('task_number', taskNumber)
             .single();
