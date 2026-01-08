@@ -149,10 +149,10 @@ export default function TaskDetail() {
     const [editor, setEditor] = useState<Editor | null>(null);
 
 
-
-
     const [comments, setComments] = useState<Comment[]>([]);
     const [newComment, setNewComment] = useState('');
+    const [activeTab, setActiveTab] = useState<'overview' | 'execution' | 'comments' | 'files' | 'history'>('overview');
+
     const [returnReason, setReturnReason] = useState('');
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -1495,267 +1495,324 @@ export default function TaskDetail() {
                             </div>
                         </div>
 
-                        {/* Description */}
-                        <div className="bg-surface-dark rounded-xl border border-border-dark p-6 md:p-8">
-                            <h3 className="text-white text-lg font-bold mb-4 flex items-center gap-2">
-                                <span className="material-symbols-outlined text-primary">description</span>
-                                Descrição
-                            </h3>
-                            <div
-                                className="prose prose-invert max-w-none text-gray-300 leading-relaxed font-body whitespace-pre-wrap"
-                                dangerouslySetInnerHTML={{
-                                    __html: (() => {
-                                        const html = task.description || '';
-                                        if (!html) return '';
-                                        const parser = new DOMParser();
-                                        const doc = parser.parseFromString(html, 'text/html');
-                                        doc.querySelectorAll('ul[data-type="taskList"]').forEach(ul => ul.remove());
-                                        return doc.body.innerHTML;
-                                    })()
-                                }}
-                            />
+                        <div className="flex bg-surface-dark border border-border-dark border-b-0 rounded-t-xl px-2 pt-2 gap-1 sm:gap-2 overflow-x-auto custom-scrollbar-horizontal">
+                            {[
+                                { id: 'overview', label: 'Visão Geral', icon: 'description' },
+                                { id: 'execution', label: 'Execução', icon: 'checklist', badge: checklistItems.filter(i => !i.completed).length || null },
+                                { id: 'comments', label: 'Comentários', icon: 'chat', badge: comments.length },
+                                { id: 'files', label: 'Arquivos', icon: 'attach_file', badge: attachments.length },
+                                { id: 'history', label: 'Histórico', icon: 'history' },
+                            ].map((tab) => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id as any)}
+                                    className={`relative flex items-center gap-2 px-4 py-2.5 text-sm font-bold transition-all whitespace-nowrap group rounded-lg mb-2 ${activeTab === tab.id
+                                        ? 'bg-primary/10 text-primary shadow-[0_0_12px_rgba(19,236,91,0.15)] ring-1 ring-primary/20'
+                                        : 'bg-transparent text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                                        }`}
+                                >
+                                    <span className={`material-symbols-outlined text-[18px] transition-colors ${activeTab === tab.id
+                                        ? 'text-primary drop-shadow-[0_0_8px_rgba(19,236,91,0.6)]'
+                                        : 'text-slate-500 group-hover:text-slate-400'
+                                        }`}>
+                                        {tab.icon}
+                                    </span>
+                                    {tab.label}
+                                    {tab.badge ? (
+                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${activeTab === tab.id
+                                            ? 'bg-primary/20 text-primary border-primary/30 shadow-[0_0_8px_rgba(19,236,91,0.3)]'
+                                            : 'bg-slate-800 text-slate-400 border-slate-700'
+                                            }`}>
+                                            {tab.badge}
+                                        </span>
+                                    ) : null}
+                                </button>
+                            ))}
                         </div>
 
-                        {/* Attachments Section - Compact */}
-                        <div className="bg-[#102216] rounded-xl border border-[#23482f] p-4 shadow-sm transition-all">
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-primary text-[18px]">attach_file</span>
-                                    Arquivos & Anexos
-                                    {attachments.length > 0 && <span className="text-xs text-slate-400 font-normal">({attachments.length})</span>}
-                                </h3>
-                                <label className={`cursor-pointer px-2.5 py-1 bg-[#1a3524] hover:bg-[#23482f] border border-[#23482f] rounded text-[10px] font-bold text-[#92c9a4] transition-colors flex items-center gap-1.5 ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
-                                    <span className="material-symbols-outlined text-[14px]">add_circle</span>
-                                    {uploading ? 'Enviando...' : 'Adicionar'}
-                                    <input
-                                        type="file"
-                                        multiple
-                                        className="hidden"
-                                        disabled={uploading}
-                                        onChange={(e) => {
-                                            if (e.target.files) handleFileUpload(Array.from(e.target.files));
+                        {/* UNIFIED CONTENT CONTAINER */}
+                        <div className="bg-surface-dark border border-border-dark border-t-0 rounded-b-xl p-6 md:p-8 animate-fade-in relative z-20 shadow-lg min-h-[300px]">
+
+                            {/* TAB CONTENT - OVERVIEW */}
+                            {activeTab === 'overview' && (
+                                <div className="animate-fade-in">
+                                    <h3 className="text-white text-lg font-bold mb-4 flex items-center gap-2">
+                                        <span className="material-symbols-outlined text-primary">description</span>
+                                        Descrição
+                                    </h3>
+                                    <div
+                                        className="prose prose-invert max-w-none text-gray-300 leading-relaxed font-body whitespace-pre-wrap"
+                                        dangerouslySetInnerHTML={{
+                                            __html: (() => {
+                                                const html = task.description || '';
+                                                if (!html) return '<p class="text-slate-500 italic">Sem descrição.</p>';
+                                                const parser = new DOMParser();
+                                                const doc = parser.parseFromString(html, 'text/html');
+                                                doc.querySelectorAll('ul[data-type="taskList"]').forEach(ul => ul.remove());
+                                                return doc.body.innerHTML;
+                                            })()
                                         }}
                                     />
-                                </label>
-                            </div>
+                                </div>
+                            )}
 
-                            {/* Attachments List - Only show if has items */}
-                            {attachments.length > 0 && (
-                                <div className="mt-3">
+                            {/* TAB CONTENT - FILES */}
+                            {activeTab === 'files' && (
+                                <div className="animate-fade-in">
+                                    <div className="flex items-center justify-between mb-6">
+                                        <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-primary">attach_file</span>
+                                            Arquivos & Anexos
+                                        </h3>
+                                        <label className={`cursor-pointer px-3 py-1.5 bg-[#1a3524] hover:bg-[#23482f] border border-[#23482f] rounded-lg text-xs font-bold text-[#92c9a4] transition-colors flex items-center gap-2 ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                                            <span className="material-symbols-outlined text-[16px]">add_circle</span>
+                                            {uploading ? 'Enviando...' : 'Adicionar'}
+                                            <input
+                                                type="file"
+                                                multiple
+                                                className="hidden"
+                                                disabled={uploading}
+                                                onChange={(e) => {
+                                                    if (e.target.files) handleFileUpload(Array.from(e.target.files));
+                                                }}
+                                            />
+                                        </label>
+                                    </div>
+
                                     <AttachmentList
                                         attachments={attachments}
                                         onDelete={handleDeleteAttachment}
                                         currentUser={user ? { id: user.id, role: userProfile?.role || 'MEMBER' } : null}
                                     />
+
+                                    {attachments.length === 0 && (
+                                        <div className="border-2 border-dashed border-[#23482f] rounded-lg p-12 flex flex-col items-center justify-center text-center mt-4">
+                                            <span className="material-symbols-outlined text-5xl text-slate-700 mb-4">cloud_upload</span>
+                                            <p className="text-white font-medium">Nenhum arquivo anexado</p>
+                                            <p className="text-sm text-slate-500 mt-1">Clique em "Adicionar" para enviar documentos.</p>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
-                            {/* Empty State - Only show when Dragging (handled by global overlay mostly) or if explicitly desired small hint */}
-                            {attachments.length === 0 && (
-                                <div className="mt-2 text-[10px] text-slate-500 italic ml-7">
-                                    Nenhum arquivo anexado.
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Checklist */}
-                        <div className="bg-surface-dark rounded-xl border border-border-dark p-6 md:p-8">
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-white text-lg font-bold flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-primary">checklist</span>
-                                    Checklist de Execução
-                                </h3>
-                                <div className="flex items-center gap-3">
-                                    <span className="text-sm font-semibold text-text-muted tabular-nums">{completionPercentage}%</span>
-                                    <span className="text-xs font-bold bg-primary/10 text-primary px-2.5 py-1 rounded border border-primary/20">{completedCount}/{checklistItems.length} Concluído</span>
-                                </div>
-                            </div>
-                            <div className="relative w-full bg-background-dark rounded-full h-2.5 mb-8 overflow-hidden border border-white/5">
-                                <div className="absolute top-0 left-0 h-full bg-primary rounded-full shadow-[0_0_12px_rgba(19,236,91,0.6)] transition-all duration-500 ease-out" style={{ width: `${completionPercentage}%` }}></div>
-                            </div>
-                            <div className="flex flex-col gap-3">
-                                {checklistItems.map(item => (
-                                    <label key={item.id} className={`flex items-start gap-3 p-3.5 rounded-lg transition-all group cursor-pointer ${item.completed
-                                        ? 'bg-background-dark/40 border border-transparent opacity-60 hover:opacity-100'
-                                        : 'bg-surface-dark border border-border-dark hover:border-primary/60 hover:bg-[#23482f]/30 hover:shadow-md'
-                                        }`}>
-                                        <div className="relative flex items-center mt-0.5">
-                                            <input
-                                                type="checkbox"
-                                                checked={item.completed}
-                                                onChange={() => handleToggleChecklistItem(item.id)}
-                                                className="peer h-5 w-5 cursor-pointer appearance-none rounded border border-text-muted bg-transparent checked:border-primary checked:bg-primary transition-all"
-                                            />
-                                            <span className="material-symbols-outlined absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-background-dark text-[16px] opacity-0 peer-checked:opacity-100 pointer-events-none font-bold">check</span>
-                                        </div>
-                                        <span className={`transition-colors select-none ${item.completed ? 'text-text-muted line-through group-hover:text-gray-400' : 'text-white font-medium group-hover:text-primary'
-                                            }`}>
-                                            {item.text}
-                                        </span>
-                                    </label>
-                                ))}
-                            </div>
-                        </div>
-
-
-
-                        {/* Comments */}
-                        <div id="comments-section" className="bg-surface-dark rounded-xl border border-border-dark p-6 md:p-8 flex flex-col gap-6">
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-white text-lg font-bold flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-primary">chat</span>
-                                    Comentários da Tarefa
-                                </h3>
-                                <span className="text-xs font-medium text-text-muted bg-background-dark px-2 py-1 rounded border border-border-dark">{comments.length} notas</span>
-                            </div>
-
-                            <div className="flex justify-center">
-                                <button className="text-xs text-text-muted hover:text-primary transition-colors flex items-center gap-1 py-1 px-3 rounded hover:bg-background-dark">
-                                    <span className="material-symbols-outlined text-[14px]">history</span>
-                                    Carregar comentários anteriores
-                                </button>
-                            </div>
-
-                            <div className="flex flex-col gap-6">
-
-
-                                {comments.map(comment => {
-                                    const isSystemLog = comment.content.startsWith('[SISTEMA]:');
-
-                                    if (isSystemLog) {
-                                        return (
-                                            <div key={comment.id} className="flex gap-4 items-start py-2 opacity-80 group hover:opacity-100 transition-opacity">
-                                                <div className="size-10 rounded-full bg-white/5 flex items-center justify-center shrink-0 border border-white/10">
-                                                    <span className="material-symbols-outlined text-[18px] text-gray-400">smart_toy</span>
-                                                </div>
-                                                <div className="flex-1 pt-1.5 flex flex-col">
-                                                    <p className="text-sm text-gray-400 leading-relaxed font-mono">
-                                                        {comment.content.replace('[SISTEMA]:', '').trim().replace(/\*\*/g, '')}
-                                                    </p>
-                                                    <div className="flex items-center gap-2 mt-1">
-                                                        <span className="text-[10px] text-gray-600 uppercase font-bold tracking-wider">{formatDateTime(comment.created_at)}</span>
-                                                        <span className="h-px w-8 bg-gray-800"></span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    }
-
-                                    const isMe = comment.user.email === user?.email;
-                                    const userAvatar = (comment.user as any).avatar_url;
-                                    const userInitials = (comment.user.full_name || comment.user.email).charAt(0).toUpperCase();
-
-                                    return (
-                                        <div key={comment.id} className={`flex gap-4 group ${isMe ? 'flex-row-reverse' : ''}`}>
-                                            <div className={`size-10 rounded-full bg-cover bg-center shrink-0 ring-2 transition-all flex items-center justify-center text-sm font-bold overflow-hidden ${isMe ? 'ring-primary/40 group-hover:ring-primary' : 'ring-transparent group-hover:ring-border-dark'
-                                                } ${!userAvatar ? 'bg-primary/20 text-primary' : ''}`}
-                                                style={userAvatar ? { backgroundImage: `url("${userAvatar}")` } : {}}
-                                            >
-                                                {!userAvatar && userInitials}
-                                            </div>
-                                            <div className={`flex-1 flex flex-col gap-2 ${isMe ? 'items-end' : ''}`}>
-                                                <div className={`flex items-center gap-2 ${isMe ? 'justify-end' : ''}`}>
-                                                    <span className="text-white text-sm font-bold">{isMe ? 'Você' : comment.user.full_name || comment.user.email}</span>
-                                                    <span className="text-text-muted text-xs">{formatDateTime(comment.created_at)}</span>
-                                                </div>
-                                                <div className={`p-3.5 rounded-lg border text-sm leading-relaxed shadow-sm ${isMe
-                                                    ? 'bg-[#1c4d32] rounded-tr-none border-primary/20 text-white text-right shadow-md'
-                                                    : 'bg-background-dark rounded-tl-none border-border-dark text-gray-300'
-                                                    }`}>
-                                                    <div className="prose prose-invert prose-sm max-w-none text-gray-300 [&_img]:rounded-lg [&_img]:max-w-full [&_img]:h-auto" dangerouslySetInnerHTML={{ __html: comment.content }} />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-
-                            <hr className="border-border-dark" />
-
-                            <div className="flex gap-4">
-                                <div className="hidden sm:block size-10 rounded-full bg-cover bg-center shrink-0" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuD0j0lEspGG79bejLev2TcmdFsrfIeiQ9Pv18Ow0OfMD3Rn47uH6P84XFEZ6VCDqOF__vKddpeFF-j2mVGMvwieIwbIY3N68MPSOfr_X5-jLcpynlKbrhJAIHUZ9CqPbwhMPixK1Y_iKyYiHniwZ-3wgg_WLQIZ9f5VnWa7oa590FgR3CFcVWFoXC5N_l9iV16Pl4HYmT3A2cccTgonqY8ccOXMRfNy5r9M5urxD1kXxu6BtWSeAxBYmQmzIkBByKVwV0YtPSzWeZQ")' }}></div>
-                                <div className="flex-1">
-                                    <div className="relative group">
-
-                                        <div className="h-[200px] bg-[#162a1e] border border-border-dark rounded-lg overflow-hidden focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all shadow-inner relative">
-                                            <SimpleEditor
-                                                value={newComment}
-                                                onChange={setNewComment}
-                                                placeholder="Escreva um comentário, dúvida ou atualização..."
-                                                onImageUpload={handleCommentImageUpload}
-                                                hideToolbar={true}
-                                                onEditorReady={setEditor}
-                                            />
-                                            {/* Hidden File Input for Attachment Button */}
-                                            <input
-                                                type="file"
-                                                ref={fileInputRef}
-                                                className="hidden"
-                                                accept="image/*"
-                                                onChange={handleFileChange}
-                                            />
-                                        </div>
-                                        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
-                                            <div className="flex items-center gap-1 relative">
-                                                <button
-                                                    onClick={() => fileInputRef.current?.click()}
-                                                    className="p-1.5 text-text-muted hover:text-white hover:bg-surface-dark rounded transition-colors"
-                                                    title="Adicionar anexo"
-                                                >
-                                                    <span className="material-symbols-outlined text-[20px]">attach_file</span>
-                                                </button>
-                                                <button
-                                                    onClick={() => editor?.chain().focus().insertContent('@').run()}
-                                                    className="p-1.5 text-text-muted hover:text-white hover:bg-surface-dark rounded transition-colors"
-                                                    title="Mencionar alguém"
-                                                >
-                                                    <span className="material-symbols-outlined text-[20px]">alternate_email</span>
-                                                </button>
-
-                                                <div className="relative">
-                                                    <button
-                                                        onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                                                        className="p-1.5 text-text-muted hover:text-white hover:bg-surface-dark rounded transition-colors"
-                                                        title="Adicionar emoji"
-                                                    >
-                                                        <span className="material-symbols-outlined text-[20px]">add_reaction</span>
-                                                    </button>
-
-                                                    {showEmojiPicker && (
-                                                        <div className="absolute bottom-full mb-2 left-0 z-50">
-                                                            <div className="fixed inset-0 z-40" onClick={() => setShowEmojiPicker(false)}></div>
-                                                            <div className="relative z-50 shadow-2xl rounded-lg overflow-hidden">
-                                                                <EmojiPicker
-                                                                    onEmojiClick={(emojiData) => {
-                                                                        if (editor) {
-                                                                            editor.chain().focus().insertContent(emojiData.emoji).run();
-                                                                        }
-                                                                        setShowEmojiPicker(false);
-                                                                    }}
-                                                                    theme={Theme.DARK}
-                                                                    lazyLoadEmojis={true}
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <button
-                                                onClick={handleAddComment}
-                                                disabled={submitting}
-                                                className="px-4 py-1.5 bg-primary hover:bg-primary-dark text-background-dark text-sm font-bold rounded shadow-lg shadow-primary/20 transition-all transform active:scale-95 hover:-translate-y-0.5"
-                                            >
-                                                {submitting ? 'Enviando...' : 'Enviar'}
-                                            </button>
+                            {/* TAB CONTENT - EXECUTION */}
+                            {activeTab === 'execution' && (
+                                <div className="animate-fade-in">
+                                    <div className="flex items-center justify-between mb-6">
+                                        <h3 className="text-white text-lg font-bold flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-primary">checklist</span>
+                                            Checklist de Execução
+                                        </h3>
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-sm font-semibold text-text-muted tabular-nums">{completionPercentage}%</span>
+                                            <span className="text-xs font-bold bg-primary/10 text-primary px-2.5 py-1 rounded border border-primary/20">{completedCount}/{checklistItems.length} Concluído</span>
                                         </div>
                                     </div>
-                                    <p className="mt-2 text-xs text-text-muted flex items-center gap-2">
-                                        <span className="material-symbols-outlined text-[14px]">info</span>
-                                        Pressione <span className="font-mono bg-background-dark px-1.5 py-0.5 rounded border border-border-dark text-[10px] tracking-wider">CTRL + ENTER</span> para enviar
-                                    </p>
+                                    <div className="relative w-full bg-background-dark rounded-full h-2.5 mb-8 overflow-hidden border border-white/5">
+                                        <div className="absolute top-0 left-0 h-full bg-primary rounded-full shadow-[0_0_12px_rgba(19,236,91,0.6)] transition-all duration-500 ease-out" style={{ width: `${completionPercentage}%` }}></div>
+                                    </div>
+                                    <div className="flex flex-col gap-3">
+                                        {checklistItems.map(item => (
+                                            <label key={item.id} className={`flex items-start gap-3 p-3.5 rounded-lg transition-all group cursor-pointer ${item.completed
+                                                ? 'bg-background-dark/40 border border-transparent opacity-60 hover:opacity-100'
+                                                : 'bg-surface-dark border border-border-dark hover:border-primary/60 hover:bg-[#23482f]/30 hover:shadow-md'
+                                                }`}>
+                                                <div className="relative flex items-center mt-0.5">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={item.completed}
+                                                        onChange={() => handleToggleChecklistItem(item.id)}
+                                                        className="peer h-5 w-5 cursor-pointer appearance-none rounded border border-text-muted bg-transparent checked:border-primary checked:bg-primary transition-all"
+                                                    />
+                                                    <span className="material-symbols-outlined absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-background-dark text-[16px] opacity-0 peer-checked:opacity-100 pointer-events-none font-bold">check</span>
+                                                </div>
+                                                <span className={`transition-colors select-none ${item.completed ? 'text-text-muted line-through group-hover:text-gray-400' : 'text-white font-medium group-hover:text-primary'
+                                                    }`}>
+                                                    {item.text}
+                                                </span>
+                                            </label>
+                                        ))}
+                                        {checklistItems.length === 0 && (
+                                            <p className="text-center text-slate-500 py-10 italic">Nenhum item no checklist.</p>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
+                            )}
+
+                            {/* TAB CONTENT - COMMENTS */}
+                            {activeTab === 'comments' && (
+                                <div className="animate-fade-in flex flex-col gap-6">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-white text-lg font-bold flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-primary">chat</span>
+                                            Comentários da Tarefa
+                                        </h3>
+                                        <span className="text-xs font-medium text-text-muted bg-background-dark px-2 py-1 rounded border border-border-dark">{comments.length} notas</span>
+                                    </div>
+
+                                    <div className="flex justify-center">
+                                        <button className="text-xs text-text-muted hover:text-primary transition-colors flex items-center gap-1 py-1 px-3 rounded hover:bg-background-dark">
+                                            <span className="material-symbols-outlined text-[14px]">history</span>
+                                            Carregar comentários anteriores
+                                        </button>
+                                    </div>
+
+                                    <div className="flex flex-col gap-6">
+                                        {comments.map(comment => {
+                                            const isSystemLog = comment.content.startsWith('[SISTEMA]:');
+
+                                            if (isSystemLog) {
+                                                return (
+                                                    <div key={comment.id} className="flex gap-4 items-start py-2 opacity-80 group hover:opacity-100 transition-opacity">
+                                                        <div className="size-10 rounded-full bg-white/5 flex items-center justify-center shrink-0 border border-white/10">
+                                                            <span className="material-symbols-outlined text-[18px] text-gray-400">smart_toy</span>
+                                                        </div>
+                                                        <div className="flex-1 pt-1.5 flex flex-col">
+                                                            <p className="text-sm text-gray-400 leading-relaxed font-mono">
+                                                                {comment.content.replace('[SISTEMA]:', '').trim().replace(/\*\*/g, '')}
+                                                            </p>
+                                                            <div className="flex items-center gap-2 mt-1">
+                                                                <span className="text-[10px] text-gray-600 uppercase font-bold tracking-wider">{formatDateTime(comment.created_at)}</span>
+                                                                <span className="h-px w-8 bg-gray-800"></span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }
+
+                                            const isMe = comment.user.email === user?.email;
+                                            const userAvatar = (comment.user as any).avatar_url;
+                                            const userInitials = (comment.user.full_name || comment.user.email).charAt(0).toUpperCase();
+
+                                            return (
+                                                <div key={comment.id} className={`flex gap-4 group ${isMe ? 'flex-row-reverse' : ''}`}>
+                                                    <div className={`size-10 rounded-full bg-cover bg-center shrink-0 ring-2 transition-all flex items-center justify-center text-sm font-bold overflow-hidden ${isMe ? 'ring-primary/40 group-hover:ring-primary' : 'ring-transparent group-hover:ring-border-dark'
+                                                        } ${!userAvatar ? 'bg-primary/20 text-primary' : ''}`}
+                                                        style={userAvatar ? { backgroundImage: `url("${userAvatar}")` } : {}}
+                                                    >
+                                                        {!userAvatar && userInitials}
+                                                    </div>
+                                                    <div className={`flex-1 flex flex-col gap-2 ${isMe ? 'items-end' : ''}`}>
+                                                        <div className={`flex items-center gap-2 ${isMe ? 'justify-end' : ''}`}>
+                                                            <span className="text-white text-sm font-bold">{isMe ? 'Você' : comment.user.full_name || comment.user.email}</span>
+                                                            <span className="text-text-muted text-xs">{formatDateTime(comment.created_at)}</span>
+                                                        </div>
+                                                        <div className={`p-3.5 rounded-lg border text-sm leading-relaxed shadow-sm ${isMe
+                                                            ? 'bg-[#1c4d32] rounded-tr-none border-primary/20 text-white text-right shadow-md'
+                                                            : 'bg-background-dark rounded-tl-none border-border-dark text-gray-300'
+                                                            }`}>
+                                                            <div className="prose prose-invert prose-sm max-w-none text-gray-300 [&_img]:rounded-lg [&_img]:max-w-full [&_img]:h-auto" dangerouslySetInnerHTML={{ __html: comment.content }} />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    <hr className="border-border-dark" />
+
+                                    <div className="flex gap-4">
+                                        <div className="hidden sm:block size-10 rounded-full bg-cover bg-center shrink-0" style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuD0j0lEspGG79bejLev2TcmdFsrfIeiQ9Pv18Ow0OfMD3Rn47uH6P84XFEZ6VCDqOF__vKddpeFF-j2mVGMvwieIwbIY3N68MPSOfr_X5-jLcpynlKbrhJAIHUZ9CqPbwhMPixK1Y_iKyYiHniwZ-3wgg_WLQIZ9f5VnWa7oa590FgR3CFcVWFoXC5N_l9iV16Pl4HYmT3A2cccTgonqY8ccOXMRfNy5r9M5urxD1kXxu6BtWSeAxBYmQmzIkBByKVwV0YtPSzWeZQ")' }}></div>
+                                        <div className="flex-1">
+                                            <div className="relative group">
+
+                                                <div className="h-[200px] bg-[#162a1e] border border-border-dark rounded-lg overflow-hidden focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all shadow-inner relative">
+                                                    <SimpleEditor
+                                                        value={newComment}
+                                                        onChange={setNewComment}
+                                                        placeholder="Escreva um comentário, dúvida ou atualização..."
+                                                        onImageUpload={handleCommentImageUpload}
+                                                        hideToolbar={true}
+                                                        onEditorReady={setEditor}
+                                                    />
+                                                    {/* Hidden File Input for Attachment Button */}
+                                                    <input
+                                                        type="file"
+                                                        ref={fileInputRef}
+                                                        className="hidden"
+                                                        accept="image/*"
+                                                        onChange={handleFileChange}
+                                                    />
+                                                </div>
+                                                <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
+                                                    <div className="flex items-center gap-1 relative">
+                                                        <button
+                                                            onClick={() => fileInputRef.current?.click()}
+                                                            className="p-1.5 text-text-muted hover:text-white hover:bg-surface-dark rounded transition-colors"
+                                                            title="Adicionar anexo"
+                                                        >
+                                                            <span className="material-symbols-outlined text-[20px]">attach_file</span>
+                                                        </button>
+                                                        <button
+                                                            onClick={() => editor?.chain().focus().insertContent('@').run()}
+                                                            className="p-1.5 text-text-muted hover:text-white hover:bg-surface-dark rounded transition-colors"
+                                                            title="Mencionar alguém"
+                                                        >
+                                                            <span className="material-symbols-outlined text-[20px]">alternate_email</span>
+                                                        </button>
+
+                                                        <div className="relative">
+                                                            <button
+                                                                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                                                                className="p-1.5 text-text-muted hover:text-white hover:bg-surface-dark rounded transition-colors"
+                                                                title="Adicionar emoji"
+                                                            >
+                                                                <span className="material-symbols-outlined text-[20px]">add_reaction</span>
+                                                            </button>
+
+                                                            {showEmojiPicker && (
+                                                                <div className="absolute bottom-full mb-2 left-0 z-50">
+                                                                    <div className="fixed inset-0 z-40" onClick={() => setShowEmojiPicker(false)}></div>
+                                                                    <div className="relative z-50 shadow-2xl rounded-lg overflow-hidden">
+                                                                        <EmojiPicker
+                                                                            onEmojiClick={(emojiData) => {
+                                                                                if (editor) {
+                                                                                    editor.chain().focus().insertContent(emojiData.emoji).run();
+                                                                                }
+                                                                                setShowEmojiPicker(false);
+                                                                            }}
+                                                                            theme={Theme.DARK}
+                                                                            lazyLoadEmojis={true}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        onClick={handleAddComment}
+                                                        disabled={submitting}
+                                                        className="px-4 py-1.5 bg-primary hover:bg-primary-dark text-background-dark text-sm font-bold rounded shadow-lg shadow-primary/20 transition-all transform active:scale-95 hover:-translate-y-0.5"
+                                                    >
+                                                        {submitting ? 'Enviando...' : 'Enviar'}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <p className="mt-2 text-xs text-text-muted flex items-center gap-2">
+                                                <span className="material-symbols-outlined text-[14px]">info</span>
+                                                Pressione <span className="font-mono bg-background-dark px-1.5 py-0.5 rounded border border-border-dark text-[10px] tracking-wider">CTRL + ENTER</span> para enviar
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* TAB CONTENT - HISTORY */}
+                            {activeTab === 'history' && (
+                                <div className="animate-fade-in">
+                                    <h3 className="text-white text-lg font-bold mb-6 flex items-center gap-2">
+                                        <span className="material-symbols-outlined text-primary">history</span>
+                                        Histórico de Atividades
+                                    </h3>
+                                    <TaskActivityLog taskId={task.id} />
+                                </div>
+                            )}
+
                         </div>
+
+
+
+
                     </div>
 
                     <div className="lg:col-span-4 flex flex-col gap-4 sticky top-24">
@@ -2119,10 +2176,7 @@ export default function TaskDetail() {
                             </div>
                         </div>
 
-                        {/* Recent Activity */}
-                        <div className="bg-surface-dark/50 rounded-xl border border-border-dark p-4">
-                            <TaskActivityLog taskId={task.id} />
-                        </div>
+
                     </div>
                 </div>
             </main>
