@@ -641,7 +641,8 @@ export default function TaskDetail() {
                 .insert([{
                     task_id: task.id,
                     user_id: user?.id,
-                    content: newComment
+                    content: newComment,
+                    mentions: extractMentionsFromContent(editor?.getJSON())
                 }])
                 .select(`
                     *,
@@ -661,6 +662,23 @@ export default function TaskDetail() {
         } finally {
             setSubmitting(false);
         }
+    };
+
+    const extractMentionsFromContent = (json: any): string[] => {
+        const mentions: string[] = [];
+
+        const traverse = (node: any) => {
+            if (node.type === 'mention' && node.attrs?.id) {
+                mentions.push(node.attrs.id);
+            }
+            if (node.content && Array.isArray(node.content)) {
+                node.content.forEach((child: any) => traverse(child));
+            }
+        };
+
+        if (json) traverse(json);
+        // Deduplicate
+        return Array.from(new Set(mentions));
     };
 
     const extractChecklistFromHtml = (htmlContent: string): ChecklistItem[] => {

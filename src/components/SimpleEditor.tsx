@@ -15,6 +15,8 @@ import FontFamily from '@tiptap/extension-font-family';
 import { FontSize } from './editor/extensions/FontSize';
 import { useEffect, useCallback, useState } from 'react';
 import { toast } from 'sonner';
+import Mention from '@tiptap/extension-mention';
+import suggestion from './mention/suggestion';
 
 interface SimpleEditorProps {
     value: string;
@@ -70,8 +72,14 @@ const SimpleEditor = ({ value, onChange, placeholder, onImageUpload, hideToolbar
             FontFamily,
             FontSize,
             Placeholder.configure({
-                placeholder: placeholder || 'Digite aqui...',
+                placeholder: placeholder || 'Digite aqui (use @ para mencionar)...',
                 emptyEditorClass: 'is-editor-empty relative before:content-[attr(data-placeholder)] before:text-gray-500 before:absolute before:left-0 before:top-0 before:pointer-events-none',
+            }),
+            Mention.configure({
+                HTMLAttributes: {
+                    class: 'mention text-primary bg-primary/10 rounded px-1 font-bold',
+                },
+                suggestion,
             }),
         ],
         content: value,
