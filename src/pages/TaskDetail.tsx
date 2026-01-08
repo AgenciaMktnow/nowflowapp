@@ -13,7 +13,9 @@ import { taskService } from '../services/task.service';
 import { compressImage } from '../utils/imageCompression';
 import { boardService, type Column } from '../services/board.service';
 import { toast } from 'sonner';
+import AttachmentList, { type Attachment } from '../components/AttachmentList';
 import Header from '../components/layout/Header/Header';
+import EmojiPicker, { Theme } from 'emoji-picker-react';
 
 
 import type { Board } from '../types/database.types';
@@ -21,6 +23,7 @@ import type { Board } from '../types/database.types';
 const Portal = ({ children }: { children: React.ReactNode }) => {
     return createPortal(children, document.body);
 };
+
 
 type Task = {
     id: string;
@@ -70,15 +73,6 @@ type Task = {
     board_ids?: string[];
 };
 
-type Attachment = {
-    id: string;
-    name: string;
-    size: string;
-    type: string;
-    path: string;
-    uploaded_at: string;
-};
-
 type Comment = {
     id: string;
     content: string;
@@ -95,7 +89,10 @@ type ChecklistItem = {
     completed: boolean;
 };
 
-import EmojiPicker, { Theme } from 'emoji-picker-react';
+// ... unused imports like EmojiPicker might be needed later, keeping specific ones if referenced
+
+
+
 
 export default function TaskDetail() {
     const { id } = useParams<{ id: string }>();
@@ -158,6 +155,9 @@ export default function TaskDetail() {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [attachments, setAttachments] = useState<Attachment[]>([]);
+    const [isDragging, setIsDragging] = useState(false);
+    const dragCounter = useRef(0); // Wrapper to prevent flicker on child elements
 
     // Clone Task State
     const [showCloneModal, setShowCloneModal] = useState(false);
@@ -207,6 +207,7 @@ export default function TaskDetail() {
             // Set selected boards
             if (task.id) { // Ensure we have the UUID
                 fetchTaskBoards(task.id);
+                fetchAttachments(task.id);
             }
         }
     }, [task]);
@@ -372,6 +373,16 @@ export default function TaskDetail() {
     };
 
 
+
+    const fetchAttachments = async (taskId: string) => {
+        const { data } = await supabase
+            .from('task_attachments')
+            .select('*')
+            .eq('task_id', taskId)
+            .order('created_at', { ascending: false });
+
+        if (data) setAttachments(data as any);
+    };
 
     const fetchTask = async () => {
 
@@ -635,13 +646,134 @@ export default function TaskDetail() {
                 .from('task-attachments')
                 .getPublicUrl(filePath);
 
-            console.log('URL Pública:', publicUrl);
             return publicUrl;
+
         } catch (error: any) {
             console.error('Erro detalhado no handleCommentImageUpload:', error);
             throw error;
         }
     };
+
+
+    // --- DRAG AND DROP LOGIC ---
+    const handleDragEnter = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dragCounter.current++;
+        if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+            setIsDragging(true);
+        }
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dragCounter.current--;
+        if (dragCounter.current === 0) {
+            setIsDragging(false);
+        }
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+    };
+
+    const handleDrop = async (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+        dragCounter.current = 0;
+
+        const files = Array.from(e.dataTransfer.files);
+        if (files.length > 0) {
+            await handleFileUpload(files);
+        }
+    };
+
+    const handleFileUpload = async (files: File[]) => {
+        if (!task || !user) return;
+        setUploading(true);
+        const toastId = toast.loading(`Enviando ${files.length} arquivo(s)...`);
+
+        try {
+            for (const file of files) {
+                // 1. Validate size (max 50MB)
+                if (file.size > 50 * 1024 * 1024) {
+                    toast.error(`Arquivo ${file.name} muito grande (max 50MB)`);
+                    continue;
+                }
+
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${task.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+                // 2. Upload to Storage
+                const { error: uploadError } = await supabase.storage
+                    .from('task-attachments')
+                    .upload(fileName, file);
+
+                if (uploadError) throw uploadError;
+
+                // 3. Insert into Database
+                const { error: dbError } = await supabase
+                    .from('task_attachments')
+                    .insert([{
+                        task_id: task.id,
+                        user_id: user.id,
+                        name: file.name,
+                        size: file.size,
+                        type: file.type,
+                        path: fileName
+                    }]);
+
+                if (dbError) throw dbError;
+
+                // Add Activity Log
+                await logActivity(task.id, user.id, 'ATTACHMENT_ADD', `anexou o arquivo: ${file.name}`);
+            }
+
+            toast.success('Arquivos enviados com sucesso!', { id: toastId });
+            fetchAttachments(task.id);
+
+        } catch (error: any) {
+            console.error('Upload error:', error);
+            toast.error(`Erro ao enviar: ${error.message}`, { id: toastId });
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const handleDeleteAttachment = async (attachmentId: string) => {
+        if (!task || !confirm('Tem certeza que deseja excluir este anexo?')) return;
+
+        try {
+            const attachment = attachments.find(a => a.id === attachmentId);
+            if (!attachment) return;
+
+            // 1. Delete from Storage
+            const { error: storageError } = await supabase.storage
+                .from('task-attachments')
+                .remove([attachment.path]);
+
+            if (storageError) console.error('Storage delete error (might be okay if db only):', storageError);
+
+            // 2. Delete from DB
+            const { error: dbError } = await supabase
+                .from('task_attachments')
+                .delete()
+                .eq('id', attachmentId);
+
+            if (dbError) throw dbError;
+
+            setAttachments(prev => prev.filter(a => a.id !== attachmentId));
+            toast.success('Anexo removido.');
+
+        } catch (error) {
+            console.error('Delete attachment error:', error);
+            toast.error('Erro ao excluir anexo.');
+        }
+    };
+
 
 
     const handleAddComment = async () => {
@@ -931,117 +1063,7 @@ export default function TaskDetail() {
     };
 
 
-    const formatFileSize = (bytes: number) => {
-        if (bytes === 0) return '0 Bytes';
-        const k = 1024;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-    };
 
-    const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        if (!event.target.files || event.target.files.length === 0 || !task) return;
-
-        const file = event.target.files[0];
-        setUploading(true);
-
-        try {
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
-            const filePath = `${task.id}/${fileName}`;
-
-            // 1. Upload to Storage
-            const { error: uploadError } = await supabase.storage
-                .from('task-attachments')
-                .upload(filePath, file);
-
-            if (uploadError) throw uploadError;
-
-            // 2. Prepare new attachment object
-            const newAttachment: Attachment = {
-                id: crypto.randomUUID(),
-                name: file.name,
-                size: formatFileSize(file.size),
-                type: fileExt || 'unknown',
-                path: filePath,
-                uploaded_at: new Date().toISOString()
-            };
-
-            // 3. Update task record
-            const updatedAttachments = [...(task.attachments || []), newAttachment];
-
-            const { error: updateError } = await supabase
-                .from('tasks')
-                .update({ attachments: updatedAttachments as any }) // Cast to any to satisfy Json type
-                .eq('id', task.id);
-
-            if (updateError) throw updateError;
-
-            // 4. Update local state
-            setTask({ ...task, attachments: updatedAttachments });
-
-            // Log Activity
-            if (user && task) await logActivity(task.id, user.id, 'ATTACHMENT_ADD', `adicionou o anexo "${file.name}"`);
-
-            alert('Arquivo anexado com sucesso!');
-
-        } catch (error: any) {
-            console.error('Error uploading file:', error);
-            alert(`Erro ao fazer upload: ${error.message}`);
-        } finally {
-            setUploading(false);
-            if (fileInputRef.current) {
-                fileInputRef.current.value = '';
-            }
-        }
-    };
-
-    const handleDeleteAttachment = async (attachment: Attachment) => {
-        if (!task || !confirm(`Deseja realmente excluir o anexo "${attachment.name}"?`)) return;
-
-        try {
-            // 1. Remove from Storage
-            const { error: deleteError } = await supabase.storage
-                .from('task-attachments')
-                .remove([attachment.path]);
-
-            if (deleteError) {
-                console.error('Error deleting from storage:', deleteError);
-                // Continue to remove from DB even if storage delete fails
-            }
-
-            // 2. Update task record
-            const updatedAttachments = (task.attachments || []).filter(a => a.id !== attachment.id);
-
-            const { error: updateError } = await supabase
-                .from('tasks')
-                .update({ attachments: updatedAttachments as any })
-                .eq('id', task.id);
-
-            if (updateError) throw updateError;
-
-            // 3. Update local state
-            setTask({ ...task, attachments: updatedAttachments });
-
-        } catch (error: any) {
-            console.error('Error deleting attachment:', error);
-            alert(`Erro ao excluir anexo: ${error.message}`);
-        }
-    };
-
-    const handleDownloadAttachment = async (attachment: Attachment) => {
-        try {
-            const { data } = supabase.storage
-                .from('task-attachments')
-                .getPublicUrl(attachment.path);
-
-            if (data) {
-                window.open(data.publicUrl, '_blank');
-            }
-        } catch (error) {
-            console.error('Error getting URL:', error);
-        }
-    };
 
     const handleCloneTask = async () => {
         if (!task) return;
@@ -1292,7 +1314,21 @@ export default function TaskDetail() {
     }
 
     return (
-        <div className="bg-background-dark text-white font-display antialiased overflow-x-hidden min-h-screen flex flex-col">
+        <div
+            className="bg-background-dark text-white font-display antialiased overflow-x-hidden min-h-screen flex flex-col relative"
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+        >
+            {isDragging && (
+                <div className="absolute inset-0 z-50 bg-primary/20 backdrop-blur-sm border-2 border-primary border-dashed m-4 rounded-xl flex items-center justify-center pointer-events-none">
+                    <div className="bg-background-dark p-6 rounded-xl border border-primary shadow-xl flex flex-col items-center gap-4 animate-in zoom-in duration-200">
+                        <span className="material-symbols-outlined text-6xl text-primary animate-bounce">cloud_upload</span>
+                        <h3 className="text-xl font-bold text-white">Solte os arquivos para anexar</h3>
+                    </div>
+                </div>
+            )}
             {/* Header */}
             <Header
                 title="Detalhes da Tarefa"
@@ -1377,6 +1413,45 @@ export default function TaskDetail() {
                             </div>
                         </div>
 
+                        {/* Attachments Section - NEW */}
+                        <div className="bg-[#102216] rounded-xl border border-[#23482f] p-6 shadow-sm">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-primary">attach_file</span>
+                                    Arquivos & Anexos
+                                </h3>
+                                <label className={`cursor-pointer px-3 py-1.5 bg-[#1a3524] hover:bg-[#23482f] border border-[#23482f] rounded-lg text-xs font-bold text-[#92c9a4] transition-colors flex items-center gap-2 ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                                    <span className="material-symbols-outlined text-[16px]">add_circle</span>
+                                    {uploading ? 'Enviando...' : 'Adicionar'}
+                                    <input
+                                        type="file"
+                                        multiple
+                                        className="hidden"
+                                        disabled={uploading}
+                                        onChange={(e) => {
+                                            if (e.target.files) handleFileUpload(Array.from(e.target.files));
+                                        }}
+                                    />
+                                </label>
+                            </div>
+
+                            {/* Attachments List */}
+                            <AttachmentList
+                                attachments={attachments}
+                                onDelete={handleDeleteAttachment}
+                                canDelete={true} // DB Policy protects actual deletion, UI can show button
+                            />
+
+                            {/* Empty State */}
+                            {attachments.length === 0 && (
+                                <div className="border-2 border-dashed border-[#23482f] rounded-lg p-8 flex flex-col items-center justify-center text-center hover:border-primary/30 transition-colors">
+                                    <span className="material-symbols-outlined text-4xl text-slate-600 mb-2">cloud_upload</span>
+                                    <p className="text-sm font-medium text-slate-400">Arraste arquivos aqui ou clique em Adicionar</p>
+                                    <p className="text-xs text-slate-600 mt-1">Suporta imagens, PDFs, docs...</p>
+                                </div>
+                            )}
+                        </div>
+
                         {/* Description */}
                         <div className="bg-surface-dark rounded-xl border border-border-dark p-6 md:p-8">
                             <h3 className="text-white text-lg font-bold mb-4 flex items-center gap-2">
@@ -1437,76 +1512,7 @@ export default function TaskDetail() {
                             </div>
                         </div>
 
-                        {/* Attachments */}
-                        <div className="flex flex-col gap-4">
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-white text-lg font-bold flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-primary">attach_file</span>
-                                    Anexos ({task.attachments?.length || 0})
-                                </h3>
-                                <div>
-                                    <input
-                                        type="file"
-                                        ref={fileInputRef}
-                                        onChange={handleFileUpload}
-                                        className="hidden"
-                                    />
-                                    <button
-                                        onClick={() => fileInputRef.current?.click()}
-                                        disabled={uploading}
-                                        className="relative flex items-center gap-2 border border-dashed border-gray-700 bg-surface-dark/50 rounded-lg px-3 py-1.5 hover:border-primary/50 transition-all cursor-pointer hover:bg-surface-dark group"
-                                    >
-                                        <span className="material-symbols-outlined text-[16px] text-gray-400 group-hover:text-primary transition-colors">cloud_upload</span>
-                                        <span className="text-xs font-bold text-gray-300 group-hover:text-white transition-colors">
-                                            {uploading ? 'Enviando...' : 'Adicionar Anexo'}
-                                        </span>
-                                    </button>
-                                </div>
-                            </div>
 
-                            {(!task.attachments || task.attachments.length === 0) ? (
-                                <div className="text-text-muted text-sm italic py-2">
-                                    Nenhum anexo adicionado ainda.
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    {task.attachments.map((file) => (
-                                        <div key={file.id} className="flex items-center gap-3 p-3 rounded-lg bg-surface-dark border border-border-dark hover:bg-[#23482f] transition-colors group relative">
-                                            <div
-                                                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer p-1 text-text-muted hover:text-[#ff6b6b]"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDeleteAttachment(file);
-                                                }}
-                                                title="Excluir anexo"
-                                            >
-                                                <span className="material-symbols-outlined text-[16px]">close</span>
-                                            </div>
-
-                                            <div
-                                                className={`size-10 rounded flex items-center justify-center shrink-0 cursor-pointer ${file.type.includes('pdf') ? 'bg-red-500/20 text-red-500' :
-                                                    file.type.includes('image') ? 'bg-blue-500/20 text-blue-500' :
-                                                        'bg-gray-500/20 text-gray-400'
-                                                    }`}
-                                                onClick={() => handleDownloadAttachment(file)}
-                                            >
-                                                <span className="material-symbols-outlined">
-                                                    {file.type.includes('image') ? 'image' :
-                                                        file.type.includes('pdf') ? 'picture_as_pdf' : 'description'}
-                                                </span>
-                                            </div>
-                                            <div
-                                                className="flex flex-col overflow-hidden cursor-pointer flex-1"
-                                                onClick={() => handleDownloadAttachment(file)}
-                                            >
-                                                <span className="text-white text-sm font-medium truncate hover:underline" title={file.name}>{file.name}</span>
-                                                <span className="text-text-muted text-xs">{file.size} • {new Date(file.uploaded_at).toLocaleDateString()}</span>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
 
                         {/* Comments */}
                         <div id="comments-section" className="bg-surface-dark rounded-xl border border-border-dark p-6 md:p-8 flex flex-col gap-6">

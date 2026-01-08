@@ -8,7 +8,7 @@ type User = {
     id: string;
     full_name: string;
     email: string;
-    role: 'admin' | 'manager' | 'operational';
+    role: 'admin' | 'manager' | 'member';
     last_access?: string;
     is_active: boolean;
     avatar_url?: string;
@@ -69,7 +69,7 @@ export default function TeamManagement() {
                     id: user.id,
                     full_name: user.full_name || '',
                     email: user.email,
-                    role: user.role?.toLowerCase() || 'member',
+                    role: (['admin', 'manager'].includes(user.role?.toLowerCase()) ? user.role?.toLowerCase() : 'member') as 'admin' | 'manager' | 'member',
                     last_access: user.last_sign_in_at
                         ? new Date(user.last_sign_in_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
                         : undefined,
@@ -90,16 +90,19 @@ export default function TeamManagement() {
         const styles = {
             admin: 'bg-primary/20 text-primary border-primary/20',
             manager: 'bg-purple-500/20 text-purple-400 border-purple-500/20',
-            operational: 'bg-blue-500/20 text-blue-400 border-blue-500/20',
+            member: 'bg-blue-500/20 text-blue-400 border-blue-500/20',
         };
         const labels = {
             admin: 'Admin',
             manager: 'Gestor',
-            operational: 'Operacional',
+            member: 'Membro',
         };
+
+        const validRole = (role in styles) ? role as keyof typeof styles : 'member';
+
         return (
-            <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-bold border ${styles[role as keyof typeof styles]}`}>
-                {labels[role as keyof typeof labels]}
+            <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-bold border ${styles[validRole]}`}>
+                {labels[validRole]}
             </span>
         );
     };
@@ -199,7 +202,7 @@ export default function TeamManagement() {
                         id: userId,
                         full_name: selectedUser.full_name || '',
                         email: selectedUser.email,
-                        role: selectedUser.role?.toLowerCase() as 'admin' | 'manager' | 'operational' || 'operational',
+                        role: selectedUser.role?.toLowerCase() as 'admin' | 'manager' | 'member' || 'member',
                         last_access: undefined,
                         is_active: true,
                         avatar_url: selectedUser.avatar_url,
@@ -322,7 +325,7 @@ export default function TeamManagement() {
                             id: 'new',
                             full_name: '',
                             email: '',
-                            role: 'operational',
+                            role: 'member',
                             is_active: true,
                             user_id: '',
                             team_ids: []
@@ -365,7 +368,7 @@ export default function TeamManagement() {
                                     <option value="all">Função: Todos</option>
                                     <option value="admin">Função: Administrador</option>
                                     <option value="manager">Função: Gestor</option>
-                                    <option value="operational">Função: Operacional</option>
+                                    <option value="member">Função: Membro</option>
                                 </select>
                                 <span className="material-symbols-outlined text-sm text-[#92c9a4] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">expand_more</span>
                             </div>
@@ -609,16 +612,16 @@ export default function TeamManagement() {
                                     </div>
                                 </label>
 
-                                {/* Operational */}
-                                <label className={`relative flex items-start p-3 rounded-lg cursor-pointer transition-all ${selectedUser.role === 'operational' ? 'bg-[#23482f]/50 border-2 border-primary' : 'bg-[#1a2c20] border border-[#2a4e38] hover:border-slate-500'}`}>
+                                {/* Member */}
+                                <label className={`relative flex items-start p-3 rounded-lg cursor-pointer transition-all ${selectedUser.role === 'member' ? 'bg-[#23482f]/50 border-2 border-primary' : 'bg-[#1a2c20] border border-[#2a4e38] hover:border-slate-500'}`}>
                                     <input
                                         className="hidden"
                                         name="role"
                                         type="radio"
-                                        checked={selectedUser.role === 'operational'}
-                                        onChange={() => setSelectedUser({ ...selectedUser, role: 'operational' })}
+                                        checked={selectedUser.role === 'member'}
+                                        onChange={() => setSelectedUser({ ...selectedUser, role: 'member' })}
                                     />
-                                    {selectedUser.role === 'operational' && (
+                                    {selectedUser.role === 'member' && (
                                         <div className="absolute top-3 right-3">
                                             <span className="material-symbols-outlined text-primary text-xl icon-filled">check_circle</span>
                                         </div>
@@ -629,7 +632,7 @@ export default function TeamManagement() {
                                         </div>
                                     </div>
                                     <div className="ml-3">
-                                        <span className="block text-sm font-bold text-slate-200">Operacional</span>
+                                        <span className="block text-sm font-bold text-slate-200">Membro</span>
                                         <span className="block text-xs text-slate-500 mt-1">Visualização de tarefas e execução de atividades.</span>
                                     </div>
                                 </label>
