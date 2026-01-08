@@ -24,7 +24,11 @@ export default function NotificationDropdown({
         if (!notification.is_read) {
             onMarkAsRead(notification.id);
         }
-        if (notification.task_id) {
+        if (notification.task) {
+            navigate(`/tasks/${notification.task.task_number}`);
+            onClose();
+        } else if (notification.task_id) {
+            // Fallback for verification/legacy
             navigate(`/tasks/${notification.task_id}`);
             onClose();
         }

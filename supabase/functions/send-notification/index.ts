@@ -28,11 +28,53 @@ serve(async (req) => {
   try {
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '', // Use service-role for admin bypass
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '', // Service role required for admin actions
     )
 
-    const { type, data }: NotificationRequest = await req.json()
-    console.log('Processing notification:', { type, data })
+    const payload = await req.json()
+    console.log('Incoming Payload:', JSON.stringify(payload))
+
+    let type: NotificationRequest['type']
+    let data: NotificationRequest['data']
+
+    // DETECT SOURCE: Direct Call vs Webhook
+    if (payload.record && payload.table === 'notifications') {
+      // It's a Webhook!
+      const record = payload.record // The row inserted into 'notifications'
+
+      // Determine Email Type based on DB Notification Type
+      switch (record.type) {
+        case 'ASSIGNMENT':
+          type = 'task_assigned'
+          break
+        case 'MOVEMENT':
+          type = 'task_status_changed'
+          break
+        case 'COMMENT':
+        case 'MENTION':
+          type = 'task_commented'
+          break
+        default:
+          console.log('Skipping unknown notification type:', record.type)
+          return new Response('Skipped unknown type', { status: 200 })
+      }
+
+      // Map Data
+      data = {
+        task_id: record.task_id,
+        user_id: record.user_id, // The recipient
+        // For comments, we might miss specific comment_id context in specific notification row,
+        // but the generic email template handles it.
+        new_status: record.message // Sometimes message contains status info, but we fetch fresh task data anyway
+      }
+
+    } else {
+      // Direct Call (Test Email or specific client trigger)
+      type = payload.type
+      data = payload.data
+    }
+
+    console.log('Processing Email Logic:', { type, data })
 
     // 1. Get Task details with Assignee and Project info (Skip for test email)
     let task = null
@@ -52,11 +94,17 @@ serve(async (req) => {
       task = taskData
     }
 
-    // 2. Identify Recipient (usually assignee, or creator for status updates)
-    let recipientId = type === 'test_email' ? data.user_id : task?.assignee_id
-    if (type === 'task_status_changed' || type === 'task_returned') {
-      // Priority: if assignee exists, notify them. If not, notify creator.
+    // 2. Identify Recipient
+    // For Webhooks, 'user_id' in the record IS the recipient (the person who saw the bell notification).
+    // For Direct Calls, we might infer.
+    let recipientId = data.user_id
+    if (!recipientId && (type === 'task_status_changed' || type === 'task_returned')) {
+      // Fallback for direct calls if not provided
       recipientId = task?.assignee_id || task?.created_by
+    }
+    // For Assignments, the assignee is the recipient
+    if (!recipientId && type === 'task_assigned') {
+      recipientId = task?.assignee_id
     }
 
     if (!recipientId) return new Response('No recipient identified', { status: 200 })
@@ -93,9 +141,9 @@ serve(async (req) => {
       subject: '',
       title: '',
       message: '',
-      task_title: task.title,
-      project_name: task.project?.name || 'Projeto',
-      task_link: `${Deno.env.get('APP_URL')}/tasks/${task.id}`,
+      task_title: task?.title || 'Tarefa',
+      project_name: task?.project?.name || 'Projeto',
+      task_link: `${Deno.env.get('APP_URL')}/tasks/${task?.task_number}`,
       logo_url: settings?.logo_dark_url,
       recipient_name: recipient.full_name || 'Usuário'
     }
@@ -123,15 +171,23 @@ serve(async (req) => {
         emailData.message = `O status da tarefa foi alterado para: **${task.status}**.`
         break
       case 'task_commented':
-        const { data: comment } = await supabaseClient
-          .from('task_comments')
-          .select('*, user:users(full_name)')
-          .eq('id', data.comment_id)
-          .single()
+        // If we have comment_id, fetch details. If not (Webhook generic), generic msg.
+        let commentContext = null;
+        if (data.comment_id) {
+          const { data: comment } = await supabaseClient
+            .from('task_comments')
+            .select('*, user:users(full_name)')
+            .eq('id', data.comment_id)
+            .single()
+          commentContext = comment?.content;
+          emailData.message = `**${comment?.user?.full_name || 'Alguém'}** comentou na tarefa.`
+        } else {
+          emailData.message = `Há novos comentários nesta tarefa.`
+        }
+
         emailData.subject = `💬 Novo comentário em: ${task.title}`
         emailData.title = '💬 Novo Comentário'
-        emailData.message = `**${comment?.user?.full_name || 'Alguém'}** comentou na tarefa.`
-        emailData.context = comment?.content
+        if (commentContext) emailData.context = commentContext
         break
       case 'test_email':
         emailData.subject = `🧪 E-mail de Teste NowFlow`
@@ -152,7 +208,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in send-notification:', error)
     return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }

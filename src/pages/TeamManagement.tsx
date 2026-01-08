@@ -130,7 +130,20 @@ export default function TeamManagement() {
 
                 console.log('Creating auth account for:', selectedUser.email);
 
-                // Create authentication account and send confirmation email
+                // 1. PRE-INVITE (Bypass Shield Protocol): Create invitation record
+                // This ensures the email is whitelisted before Auth Trigger runs.
+                const { error: inviteError } = await supabase.rpc('invite_user', {
+                    new_email: selectedUser.email,
+                    new_role: selectedUser.role.toUpperCase(),
+                    new_name: selectedUser.full_name
+                });
+
+                if (inviteError) {
+                    console.error('Error creating invitation:', inviteError);
+                    throw new Error(`Erro ao criar convite: ${inviteError.message}`);
+                }
+
+                // 2. Create authentication account (Now allowed by Shield Trigger)
                 const { data: authData, error: authError } = await supabase.auth.signUp({
                     email: selectedUser.email,
                     password: tempPassword,
@@ -139,7 +152,7 @@ export default function TeamManagement() {
                             full_name: selectedUser.full_name,
                             role: selectedUser.role.toUpperCase()
                         },
-                        emailRedirectTo: 'https://nowflow.it/auth/callback'
+                        emailRedirectTo: `${window.location.origin}/auth/callback`
                     }
                 });
 

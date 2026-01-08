@@ -61,6 +61,14 @@ export default function AuthCallback() {
         };
 
         handleAuthRedirect();
+
+        // Safety Timeout (5s)
+        const timeout = setTimeout(() => {
+            console.warn("AuthCallback: Timeout reached. Redirecting to home.");
+            navigate('/');
+        }, 5000);
+
+        return () => clearTimeout(timeout);
     }, [navigate]);
 
     return (

@@ -4,6 +4,9 @@ export interface Notification {
     id: string;
     user_id: string;
     task_id?: string;
+    task?: {
+        task_number: number;
+    };
     type: 'ASSIGNMENT' | 'MOVEMENT' | 'COMMENT' | 'MENTION';
     title: string;
     message: string;
@@ -16,7 +19,7 @@ export const notificationService = {
     async getNotifications(userId: string): Promise<{ data: Notification[] | null; error: Error | null }> {
         const { data, error } = await supabase
             .from('notifications')
-            .select('*')
+            .select('*, task:tasks(task_number)')
             .eq('user_id', userId)
             .order('created_at', { ascending: false })
             .limit(50); // Reasonable limit for dropdown
