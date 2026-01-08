@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import SimpleEditor from '../components/SimpleEditor';
 import { Editor } from '@tiptap/react';
-import ActivityFeed from '../components/ActivityFeed';
+import TaskActivityLog from '../components/TaskActivityLog';
 import { logActivity } from '../services/activityLogger';
 import { taskService } from '../services/task.service';
 
@@ -1796,8 +1796,8 @@ export default function TaskDetail() {
                                     task.task_assignees.map((assignee) => (
                                         <div key={assignee.user.id}
                                             className={`flex items-center gap-1.5 border rounded-full pl-1 pr-2 py-1 transition-colors group cursor-default ${assignee.completed_at
-                                                    ? 'bg-green-500/10 border-green-500/30'
-                                                    : 'bg-background-dark border-border-dark hover:border-primary/50'
+                                                ? 'bg-green-500/10 border-green-500/30'
+                                                : 'bg-background-dark border-border-dark hover:border-primary/50'
                                                 }`}
                                         >
                                             <div
@@ -2118,7 +2118,7 @@ export default function TaskDetail() {
 
                         {/* Recent Activity */}
                         <div className="bg-surface-dark/50 rounded-xl border border-border-dark p-4">
-                            <ActivityFeed taskId={task.id} />
+                            <TaskActivityLog taskId={task.id} />
                         </div>
                     </div>
                 </div>
