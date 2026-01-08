@@ -1495,45 +1495,6 @@ export default function TaskDetail() {
                             </div>
                         </div>
 
-                        {/* Attachments Section - NEW */}
-                        <div className="bg-[#102216] rounded-xl border border-[#23482f] p-6 shadow-sm">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-primary">attach_file</span>
-                                    Arquivos & Anexos
-                                </h3>
-                                <label className={`cursor-pointer px-3 py-1.5 bg-[#1a3524] hover:bg-[#23482f] border border-[#23482f] rounded-lg text-xs font-bold text-[#92c9a4] transition-colors flex items-center gap-2 ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
-                                    <span className="material-symbols-outlined text-[16px]">add_circle</span>
-                                    {uploading ? 'Enviando...' : 'Adicionar'}
-                                    <input
-                                        type="file"
-                                        multiple
-                                        className="hidden"
-                                        disabled={uploading}
-                                        onChange={(e) => {
-                                            if (e.target.files) handleFileUpload(Array.from(e.target.files));
-                                        }}
-                                    />
-                                </label>
-                            </div>
-
-                            {/* Attachments List */}
-                            <AttachmentList
-                                attachments={attachments}
-                                onDelete={handleDeleteAttachment}
-                                currentUser={user ? { id: user.id, role: userProfile?.role || 'MEMBER' } : null}
-                            />
-
-                            {/* Empty State */}
-                            {attachments.length === 0 && (
-                                <div className="border-2 border-dashed border-[#23482f] rounded-lg p-8 flex flex-col items-center justify-center text-center hover:border-primary/30 transition-colors">
-                                    <span className="material-symbols-outlined text-4xl text-slate-600 mb-2">cloud_upload</span>
-                                    <p className="text-sm font-medium text-slate-400">Arraste arquivos aqui ou clique em Adicionar</p>
-                                    <p className="text-xs text-slate-600 mt-1">Suporta imagens, PDFs, docs...</p>
-                                </div>
-                            )}
-                        </div>
-
                         {/* Description */}
                         <div className="bg-surface-dark rounded-xl border border-border-dark p-6 md:p-8">
                             <h3 className="text-white text-lg font-bold mb-4 flex items-center gap-2">
@@ -1553,6 +1514,48 @@ export default function TaskDetail() {
                                     })()
                                 }}
                             />
+                        </div>
+
+                        {/* Attachments Section - Compact */}
+                        <div className="bg-[#102216] rounded-xl border border-[#23482f] p-4 shadow-sm transition-all">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-primary text-[18px]">attach_file</span>
+                                    Arquivos & Anexos
+                                    {attachments.length > 0 && <span className="text-xs text-slate-400 font-normal">({attachments.length})</span>}
+                                </h3>
+                                <label className={`cursor-pointer px-2.5 py-1 bg-[#1a3524] hover:bg-[#23482f] border border-[#23482f] rounded text-[10px] font-bold text-[#92c9a4] transition-colors flex items-center gap-1.5 ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                                    <span className="material-symbols-outlined text-[14px]">add_circle</span>
+                                    {uploading ? 'Enviando...' : 'Adicionar'}
+                                    <input
+                                        type="file"
+                                        multiple
+                                        className="hidden"
+                                        disabled={uploading}
+                                        onChange={(e) => {
+                                            if (e.target.files) handleFileUpload(Array.from(e.target.files));
+                                        }}
+                                    />
+                                </label>
+                            </div>
+
+                            {/* Attachments List - Only show if has items */}
+                            {attachments.length > 0 && (
+                                <div className="mt-3">
+                                    <AttachmentList
+                                        attachments={attachments}
+                                        onDelete={handleDeleteAttachment}
+                                        currentUser={user ? { id: user.id, role: userProfile?.role || 'MEMBER' } : null}
+                                    />
+                                </div>
+                            )}
+
+                            {/* Empty State - Only show when Dragging (handled by global overlay mostly) or if explicitly desired small hint */}
+                            {attachments.length === 0 && (
+                                <div className="mt-2 text-[10px] text-slate-500 italic ml-7">
+                                    Nenhum arquivo anexado.
+                                </div>
+                            )}
                         </div>
 
                         {/* Checklist */}
