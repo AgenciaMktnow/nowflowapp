@@ -8,7 +8,7 @@ const corsHeaders = {
 }
 
 interface NotificationRequest {
-  type: 'task_created' | 'task_assigned' | 'task_commented' | 'task_status_changed' | 'task_returned' | 'test_email'
+  type: 'task_created' | 'task_assigned' | 'task_commented' | 'task_mentioned' | 'task_status_changed' | 'task_completed' | 'task_returned' | 'task_deadline_approaching' | 'test_email'
   data: {
     task_id: string
     user_id?: string
@@ -17,6 +17,7 @@ interface NotificationRequest {
     new_status?: string
     last_comment?: string
     changed_by?: string
+    metadata?: any
   }
 }
 
@@ -28,7 +29,7 @@ serve(async (req) => {
   try {
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '', // Service role required for admin actions
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     )
 
     const payload = await req.json()
@@ -39,44 +40,48 @@ serve(async (req) => {
 
     // DETECT SOURCE: Direct Call vs Webhook
     if (payload.record && payload.table === 'notifications') {
-      // It's a Webhook!
-      const record = payload.record // The row inserted into 'notifications'
+      const record = payload.record
 
-      // Determine Email Type based on DB Notification Type
       switch (record.type) {
         case 'ASSIGNMENT':
           type = 'task_assigned'
           break
         case 'MOVEMENT':
-          type = 'task_status_changed'
+          if (record.title.includes('✅')) {
+            type = 'task_completed'
+          } else if (record.title.includes('Aguardando')) {
+            type = 'task_returned'
+          } else if (record.title.includes('⏳')) {
+            type = 'task_deadline_approaching'
+          } else {
+            type = 'task_status_changed'
+          }
           break
         case 'COMMENT':
-        case 'MENTION':
           type = 'task_commented'
+          break
+        case 'MENTION':
+          type = 'task_mentioned'
           break
         default:
           console.log('Skipping unknown notification type:', record.type)
           return new Response('Skipped unknown type', { status: 200 })
       }
 
-      // Map Data
       data = {
         task_id: record.task_id,
-        user_id: record.user_id, // The recipient
-        // For comments, we might miss specific comment_id context in specific notification row,
-        // but the generic email template handles it.
-        new_status: record.message // Sometimes message contains status info, but we fetch fresh task data anyway
+        user_id: record.user_id,
+        new_status: record.message,
+        metadata: record.metadata
       }
 
     } else {
-      // Direct Call (Test Email or specific client trigger)
       type = payload.type
       data = payload.data
     }
 
     console.log('Processing Email Logic:', { type, data })
 
-    // 1. Get Task details with Assignee and Project info (Skip for test email)
     let task = null
     if (type !== 'test_email') {
       const { data: taskData, error: taskError } = await supabaseClient
@@ -94,22 +99,16 @@ serve(async (req) => {
       task = taskData
     }
 
-    // 2. Identify Recipient
-    // For Webhooks, 'user_id' in the record IS the recipient (the person who saw the bell notification).
-    // For Direct Calls, we might infer.
     let recipientId = data.user_id
     if (!recipientId && (type === 'task_status_changed' || type === 'task_returned')) {
-      // Fallback for direct calls if not provided
       recipientId = task?.assignee_id || task?.created_by
     }
-    // For Assignments, the assignee is the recipient
     if (!recipientId && type === 'task_assigned') {
       recipientId = task?.assignee_id
     }
 
     if (!recipientId) return new Response('No recipient identified', { status: 200 })
 
-    // 3. Check User Notification Preferences
     const { data: prefs } = await supabaseClient
       .from('user_notification_settings')
       .select('*')
@@ -130,13 +129,11 @@ serve(async (req) => {
 
     if (!recipient?.email) return new Response('Recipient email not found', { status: 200 })
 
-    // 4. Get System Settings for Logo
     const { data: settings } = await supabaseClient
       .from('system_settings')
       .select('logo_dark_url')
       .single()
 
-    // 5. Prepare Email Data
     let emailData: any = {
       subject: '',
       title: '',
@@ -147,6 +144,9 @@ serve(async (req) => {
       logo_url: settings?.logo_dark_url,
       recipient_name: recipient.full_name || 'Usuário'
     }
+
+    // Extract Context from Metadata (e.g. Devolution Reason)
+    const contextReason = data.metadata?.context || null;
 
     switch (type) {
       case 'task_created':
@@ -160,46 +160,51 @@ serve(async (req) => {
         emailData.message = 'Você foi definido como responsável por esta tarefa.'
         break
       case 'task_returned':
-        emailData.subject = `🔄 Tarefa devolvida: ${task.title}`
+        emailData.subject = `🔄 Devolução/Pausa: ${task.title}`
         emailData.title = '🔄 Tarefa Devolvida'
-        emailData.message = 'Uma tarefa sob sua responsabilidade retornou para uma etapa anterior.'
-        emailData.context = data.last_comment ? `**Motivo/Contexto:** ${data.last_comment}` : null
+        emailData.message = 'A tarefa aguarda ação do cliente ou revisão.'
+        if (contextReason) emailData.context = `**Motivo/Contexto:** ${contextReason}`
         break
       case 'task_status_changed':
         emailData.subject = `🚀 Status atualizado: ${task.title}`
         emailData.title = '🚀 Status Atualizado'
         emailData.message = `O status da tarefa foi alterado para: **${task.status}**.`
         break
+      case 'task_deadline_approaching':
+        emailData.subject = `⏳ Prazo Próximo: ${task.title}`
+        emailData.title = '⏳ Atenção ao Prazo'
+        emailData.message = 'Esta tarefa vence em menos de 24 horas. Por favor, verifique.'
+        if (contextReason) emailData.context = contextReason
+        break
+      case 'task_completed':
+        emailData.subject = `✅ Missão Cumprida: ${task.title}`
+        emailData.title = '✅ Missão Cumprida!'
+        emailData.message = 'Parabéns! A tarefa foi concluída com sucesso.'
+        if (contextReason) emailData.context = `**Obs:** ${contextReason}`
+        break
+      case 'task_mentioned':
+        emailData.subject = `⚠️ Você foi mencionado: ${task.title}`
+        emailData.title = '⚠️ Nova Menção'
+        emailData.message = 'Você foi mencionado em um comentário nesta tarefa.'
+        if (contextReason) emailData.context = `**Comentário:** "${contextReason}"`
+        break
       case 'task_commented':
-        // If we have comment_id, fetch details. If not (Webhook generic), generic msg.
-        let commentContext = null;
-        if (data.comment_id) {
-          const { data: comment } = await supabaseClient
-            .from('task_comments')
-            .select('*, user:users(full_name)')
-            .eq('id', data.comment_id)
-            .single()
-          commentContext = comment?.content;
-          emailData.message = `**${comment?.user?.full_name || 'Alguém'}** comentou na tarefa.`
-        } else {
-          emailData.message = `Há novos comentários nesta tarefa.`
-        }
-
-        emailData.subject = `💬 Novo comentário em: ${task.title}`
-        emailData.title = '💬 Novo Comentário'
-        if (commentContext) emailData.context = commentContext
+        // Metadata might contain count
+        const count = data.metadata?.count || 1;
+        emailData.subject = `💬 ${count > 1 ? `${count} novos comentários` : 'Novo comentário'}: ${task.title}`
+        emailData.title = '💬 Nova Interação'
+        emailData.message = `${count > 1 ? 'Existem novos comentários' : 'Há um novo comentário'} nesta tarefa.`
+        if (contextReason) emailData.context = `"${contextReason}"`
         break
       case 'test_email':
         emailData.subject = `🧪 E-mail de Teste NowFlow`
         emailData.title = '🧪 Teste de Conexão'
         emailData.message = 'Este é um e-mail de teste para validar a configuração do SMTP e do Edge Function.'
-        emailData.task_title = 'Tarefa de Teste'
         emailData.project_name = 'Sistema NowFlow'
         emailData.task_link = `${Deno.env.get('APP_URL')}/settings`
         break
     }
 
-    // 6. Send Email via Resend SMTP
     await sendSmtpEmail({
       to: recipient.email,
       subject: emailData.subject,
