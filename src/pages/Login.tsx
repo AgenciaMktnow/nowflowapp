@@ -74,7 +74,7 @@ export default function Login() {
         e.preventDefault();
         setResetLoading(true);
         try {
-            const redirectUrl = 'https://nowflow.it/auth/callback';
+            const redirectUrl = `${window.location.origin}/auth/callback`;
             console.log('Sending recovery email with redirect:', redirectUrl);
             const { error } = await authService.resetPasswordForEmail(resetEmail, redirectUrl);
             if (error) throw error;

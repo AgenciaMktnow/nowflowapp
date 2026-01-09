@@ -67,12 +67,22 @@ export default function Profile() {
                 if (publicError) console.warn('Error updating public user record:', publicError);
             }
 
-            toast.success('Perfil atualizado com sucesso!');
+            if (email !== user?.email) {
+                toast.success('Solicitação de troca de e-mail enviada!', {
+                    description: 'Verifique a caixa de entrada do seu NOVO e-mail para confirmar a alteração.',
+                    duration: 8000,
+                });
+            } else {
+                toast.success('Perfil atualizado com sucesso!');
+            }
+
             setPassword('');
             setConfirmPassword('');
 
-            // Force reload to update context if needed or rely on AuthContext subscription
-            window.location.reload();
+            // If email changed, we don't want to reload immediately as it might look confusing
+            if (email === user?.email) {
+                window.location.reload();
+            }
 
         } catch (error: any) {
             console.error('Error updating profile:', error);
@@ -208,6 +218,15 @@ export default function Profile() {
                                     className="bg-background-dark/50 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-gray-600 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all"
                                     placeholder="seu@email.com"
                                 />
+                                {(user as any)?.new_email && (
+                                    <div className="mt-2 text-xs bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 p-3 rounded-lg flex items-start gap-2">
+                                        <span className="material-symbols-outlined text-[16px] mt-0.5">info</span>
+                                        <p>
+                                            Alteração pendente para: <strong>{(user as any).new_email}</strong><br />
+                                            Verifique sua caixa de entrada para confirmar.
+                                        </p>
+                                    </div>
+                                )}
                             </label>
                         </div>
 
