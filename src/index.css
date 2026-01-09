@@ -151,3 +151,82 @@
     outline: 2px solid #13ec5b !important;
     outline-offset: 2px;
 }
+
+/* Global Rich Text Styles for .prose */
+@layer components {
+    .prose blockquote {
+        border-left: 4px solid #13ec5b;
+        background-color: var(--color-surface-highlight);
+        padding: 0.5rem 1rem;
+        border-radius: 0 0.5rem 0.5rem 0;
+        color: #e2e8f0;
+        font-style: normal;
+        margin-top: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .prose ul {
+        list-style-type: disc !important;
+        padding-left: 1.5rem !important;
+        margin-top: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .prose ol {
+        list-style-type: decimal !important;
+        padding-left: 1.5rem !important;
+        margin-top: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .prose li {
+        margin-top: 0.25rem;
+        margin-bottom: 0.25rem;
+        color: #e2e8f0;
+    }
+
+    .prose a {
+        color: #13ec5b;
+        text-decoration: underline;
+        font-weight: 500;
+    }
+
+    /* Headings adjustments for Prose */
+    .prose h1 {
+        font-size: 1.8rem;
+        font-weight: 800;
+        color: white;
+        margin-top: 1.5rem;
+        margin-bottom: 0.75rem;
+        line-height: 1.2;
+    }
+
+    .prose h2 {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: white;
+        margin-top: 1.25rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .prose h3 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #13ec5b;
+        /* Neon Green for H3/Subheaders */
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .prose strong {
+        color: white;
+        font-weight: 700;
+    }
+
+    .prose p {
+        margin-top: 0.75rem;
+        margin-bottom: 0.75rem;
+        line-height: 1.75;
+        color: #e2e8f0;
+    }
+}
