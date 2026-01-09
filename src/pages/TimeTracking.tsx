@@ -151,9 +151,7 @@ export default function TimeTracking() {
     ];
 
     // Determine users object for Report props (needs object array)
-    const reportUsers = selectedUserId && selectedUserId !== 'all'
-        ? teamMembers.filter(u => u.id === selectedUserId)
-        : (selectedTeam ? teamMembers.filter(m => m.team_ids?.includes(selectedTeam)) : teamMembers);
+
 
     return (
         <div className="flex-1 w-full max-w-[1600px] mx-auto p-6 md:p-8 flex flex-col gap-8 animate-fade-in overflow-y-auto h-full">

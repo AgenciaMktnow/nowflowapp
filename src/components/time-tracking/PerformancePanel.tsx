@@ -29,7 +29,7 @@ export default function PerformancePanel({ userIds, clientId }: PerformancePanel
             const start = new Date();
             start.setDate(start.getDate() - 7);
 
-            const { data, error } = await supabase
+            const { data } = await supabase
                 .from('time_logs')
                 .select(`
                     duration_seconds,
