@@ -100,7 +100,27 @@ const TaskActivityLog = ({ taskId }: TaskActivityLogProps) => {
                     );
                 }
                 // Fallback for legacy logs
-                return <span className="text-gray-300"><b>{actorName}</b> {details.content_snippet?.replace('moveu a tarefa para', 'alterou o status para') || 'alterou o status'}.</span>;
+                let fallbackContent = details.content_snippet || 'alterou o status';
+
+                // Translate codes in string if present
+                const statusLabels: Record<string, string> = {
+                    'TODO': 'A Fazer',
+                    'IN_PROGRESS': 'Em Andamento',
+                    'WAITING_CLIENT': 'Em Revisão',
+                    'REVIEW': 'Em Revisão',
+                    'DONE': 'Concluído',
+                    'BACKLOG': 'Backlog',
+                    'CANCELED': 'Cancelado'
+                };
+
+                // Replace known codes
+                Object.keys(statusLabels).forEach(key => {
+                    fallbackContent = fallbackContent.replace(new RegExp(`\\b${key}\\b`, 'g'), statusLabels[key]);
+                });
+
+                fallbackContent = fallbackContent.replace('moveu a tarefa para', 'alterou o status para');
+
+                return <span className="text-gray-300"><b>{actorName}</b> {fallbackContent}.</span>;
             case 'ASSIGNED':
                 return <span className="text-gray-300"><b>{actorName}</b> adicionou <b>{details.assigned_to?.split(' ')[0]}</b> como responsável.</span>;
             case 'UNASSIGNED':
