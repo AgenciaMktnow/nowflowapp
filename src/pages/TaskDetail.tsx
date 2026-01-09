@@ -1048,7 +1048,7 @@ export default function TaskDetail() {
             setShowStageDropdown(false);
 
             // Log activity
-            if (user && task) await logActivity(task.id, user.id, 'STATUS_CHANGE', `moveu a tarefa para ${newStatus}`);
+            // Trigger handles STATUS_CHANGE log automatically
 
             // Dispatch event to refresh Kanban board
             // Dispatch event to refresh Kanban board

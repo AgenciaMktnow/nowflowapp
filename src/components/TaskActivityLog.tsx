@@ -80,11 +80,27 @@ const TaskActivityLog = ({ taskId }: TaskActivityLogProps) => {
             case 'CREATED':
                 return <span className="text-gray-300"><b>{actorName}</b> criou a tarefa.</span>;
             case 'STATUS_CHANGE':
-                return (
-                    <span className="text-gray-300">
-                        <b>{actorName}</b> moveu de <span className="px-1.5 py-0.5 rounded bg-white/5 text-xs border border-white/10">{details.from}</span> para <span className="px-1.5 py-0.5 rounded bg-white/5 text-xs border border-white/10">{details.to}</span>
-                    </span>
-                );
+                if (details.from && details.to) {
+                    const statusLabels: Record<string, string> = {
+                        'TODO': 'A Fazer',
+                        'IN_PROGRESS': 'Em Andamento',
+                        'WAITING_CLIENT': 'Em Revisão',
+                        'REVIEW': 'Em Revisão',
+                        'DONE': 'Concluído',
+                        'BACKLOG': 'Backlog',
+                        'CANCELED': 'Cancelado'
+                    };
+                    const fromLabel = statusLabels[details.from] || details.from;
+                    const toLabel = statusLabels[details.to] || details.to;
+
+                    return (
+                        <span className="text-gray-300">
+                            <b>{actorName}</b> moveu de <span className="px-1.5 py-0.5 rounded bg-white/5 text-xs border border-white/10">{fromLabel}</span> para <span className="px-1.5 py-0.5 rounded bg-white/5 text-xs border border-white/10">{toLabel}</span>
+                        </span>
+                    );
+                }
+                // Fallback for legacy logs
+                return <span className="text-gray-300"><b>{actorName}</b> {details.content_snippet?.replace('moveu a tarefa para', 'alterou o status para') || 'alterou o status'}.</span>;
             case 'ASSIGNED':
                 return <span className="text-gray-300"><b>{actorName}</b> adicionou <b>{details.assigned_to?.split(' ')[0]}</b> como responsável.</span>;
             case 'UNASSIGNED':
