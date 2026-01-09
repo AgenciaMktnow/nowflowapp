@@ -5,10 +5,11 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import DateRangePicker from '../DateRangePicker';
 
 interface WeeklyTimesheetProps {
-    userId?: string;
+    userIds?: string[];
+    clientId?: string;
 }
 
-export default function WeeklyTimesheet({ userId }: WeeklyTimesheetProps) {
+export default function WeeklyTimesheet({ userIds, clientId }: WeeklyTimesheetProps) {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -42,7 +43,8 @@ export default function WeeklyTimesheet({ userId }: WeeklyTimesheetProps) {
     const [startDate, setStartDate] = useState<Date>(getInitialDate('start'));
     const [endDate, setEndDate] = useState<Date>(getInitialDate('end', true));
 
-    const targetUserId = userId || user?.id;
+    // Determine target User IDs (default to current user if empty/undefined)
+    const targetUserIds = userIds && userIds.length > 0 ? userIds : (user?.id ? [user.id] : []);
 
     // Sync to URL
     useEffect(() => {
@@ -53,10 +55,14 @@ export default function WeeklyTimesheet({ userId }: WeeklyTimesheetProps) {
     }, [startDate, endDate, setSearchParams]);
 
     useEffect(() => {
-        if (targetUserId) {
+        // Only fetch if we have users to fetch for
+        if (targetUserIds.length > 0) {
             fetchWeeklyLogs();
+        } else {
+            setLogs([]);
+            setLoading(false);
         }
-    }, [targetUserId, startDate, endDate]);
+    }, [JSON.stringify(targetUserIds), startDate, endDate, clientId]); // Add clientId to dep array
 
     const fetchWeeklyLogs = async () => {
         setLoading(true);
@@ -80,16 +86,25 @@ export default function WeeklyTimesheet({ userId }: WeeklyTimesheetProps) {
                         task_number,
                         title,
                         project:projects(name),
-                        client:clients(name)
+                        client:clients(id, name)
                     )
                 `)
-                .eq('user_id', targetUserId)
+                .in('user_id', targetUserIds) // Use IN for array
                 .gte('start_time', startQuery.toISOString())
                 .lt('start_time', endQuery.toISOString())
                 .not('duration_seconds', 'is', null);
 
             if (error) throw error;
-            setLogs(data || []);
+
+            // Client-side filtering for Client ID (Supabase join filtering is complex)
+            const filteredData = data?.filter((log: any) => {
+                // Filter out logs without tasks or where task client doesn't match
+                if (!log.task) return false;
+                if (clientId && log.task.client?.id !== clientId) return false;
+                return true;
+            });
+
+            setLogs(filteredData || []);
         } catch (error) {
             console.error('Error fetching weekly logs:', error);
         } finally {
@@ -142,6 +157,7 @@ export default function WeeklyTimesheet({ userId }: WeeklyTimesheetProps) {
                 <h3 className="text-white text-lg font-bold flex items-center gap-2">
                     <span className="material-symbols-outlined text-primary">calendar_view_week</span>
                     Horas por Tarefa
+                    {targetUserIds.length > 1 && <span className="text-xs font-normal text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full ml-2">(Equipe: {targetUserIds.length})</span>}
                 </h3>
                 <div className="w-full md:w-80">
                     <DateRangePicker

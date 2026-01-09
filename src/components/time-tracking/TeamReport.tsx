@@ -36,6 +36,15 @@ export default function TeamReport({ users, teams, filterTeam: initialFilterTeam
     const [selectedClientId, setSelectedClientId] = useState<string>(filterClient || '');
     const [selectedUserId, setSelectedUserId] = useState<string>('');
 
+    // Sync Props to State
+    useEffect(() => {
+        if (initialFilterTeam !== undefined) setSelectedTeamId(initialFilterTeam);
+    }, [initialFilterTeam]);
+
+    useEffect(() => {
+        if (filterClient !== undefined) setSelectedClientId(filterClient);
+    }, [filterClient]);
+
     // Export State
     const [showExportMenu, setShowExportMenu] = useState(false);
 

@@ -6,6 +6,11 @@ import { useNavigate } from 'react-router-dom';
 type ActiveTimer = {
     id: string;
     start_time: string;
+    user_id: string;
+    user?: {
+        full_name: string;
+        avatar_url?: string;
+    };
     task: {
         id: string; // real ID
         task_number: number;
@@ -20,32 +25,41 @@ type ActiveTimer = {
 };
 
 interface LiveTimerWidgetProps {
-    userId?: string;
+    userIds?: string[];
+    clientId?: string;
 }
 
-export default function LiveTimerWidget({ userId }: LiveTimerWidgetProps) {
+export default function LiveTimerWidget({ userIds, clientId }: LiveTimerWidgetProps) {
     const { user } = useAuth();
     const navigate = useNavigate();
-    const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null);
-    const [elapsedSeconds, setElapsedSeconds] = useState(0);
+    const [activeTimers, setActiveTimers] = useState<ActiveTimer[]>([]); // Array for multi-user
+    const [elapsedSeconds, setElapsedSeconds] = useState<Record<string, number>>({});
     const [loading, setLoading] = useState(true);
 
-    // Use passed userId or fallback to current user
-    const targetUserId = userId || user?.id;
+    // Determine target User IDs (default to current user if empty/undefined)
+    const targetUserIds = userIds && userIds.length > 0 ? userIds : (user?.id ? [user.id] : []);
+
+    // Check if we are in "Single User View" (explicitly me, or just one user selected)
+    // If multiple users selected, we use List Mode.
+    const isMultiUser = targetUserIds.length > 1;
 
     useEffect(() => {
-        if (targetUserId) {
-            fetchActiveTimer();
-            // Optional: Subscribe to changes (Realtime)
+        if (targetUserIds.length > 0) {
+            fetchActiveTimers();
+
+            // Realtime subscription could be heavy for "All Users", but let's try strict filter
             const subscription = supabase
-                .channel('time_logs_changes')
+                .channel('time_logs_live_changes')
                 .on('postgres_changes', {
                     event: '*',
                     schema: 'public',
                     table: 'time_logs',
-                    filter: `user_id=eq.${targetUserId}`
+                    filter: `end_time=is.null` // We listen to all active timers and filter in callback or refine filter? 
+                    // Postgres filter IN (...) is not supported efficiently in realtime filters string syntax usually.
+                    // Better to just refresh on ANY time_log change for safety or poll.
+                    // Let's stick to polling active timers every minute + initial fetch, or simple refresh on events.
                 }, () => {
-                    fetchActiveTimer();
+                    fetchActiveTimers(); // Brute force refresh is safer than complex filter logic for now
                 })
                 .subscribe();
 
@@ -53,76 +67,88 @@ export default function LiveTimerWidget({ userId }: LiveTimerWidgetProps) {
                 subscription.unsubscribe();
             };
         }
-    }, [targetUserId]);
+    }, [JSON.stringify(targetUserIds), clientId]);
 
     useEffect(() => {
         let interval: any;
-        if (activeTimer) {
-            // Calculate initial elapsed time
+        if (activeTimers.length > 0) {
             const updateTime = () => {
-                const start = new Date(activeTimer.start_time).getTime();
                 const now = new Date().getTime();
-                setElapsedSeconds(Math.floor((now - start) / 1000));
+                const newSeconds: Record<string, number> = {};
+
+                activeTimers.forEach(timer => {
+                    const start = new Date(timer.start_time).getTime();
+                    newSeconds[timer.id] = Math.floor((now - start) / 1000);
+                });
+                setElapsedSeconds(newSeconds);
             };
 
             updateTime(); // Immediate update
             interval = setInterval(updateTime, 1000);
         } else {
-            setElapsedSeconds(0);
+            setElapsedSeconds({});
         }
 
         return () => {
             if (interval) clearInterval(interval);
         };
-    }, [activeTimer]);
+    }, [activeTimers]);
 
-    const fetchActiveTimer = async () => {
+    const fetchActiveTimers = async () => {
         try {
             const { data, error } = await supabase
                 .from('time_logs')
                 .select(`
                     id,
                     start_time,
+                    user_id,
+                    user:users (
+                        full_name,
+                        avatar_url
+                    ),
                     task:tasks (
                         id,
                         task_number,
                         title,
                         project:projects(name),
-                        client:clients(name)
+                        client:clients(id, name)
                     )
                 `)
-                .eq('user_id', targetUserId)
-                .is('end_time', null)
-                .limit(1);
+                .in('user_id', targetUserIds)
+                .is('end_time', null);
 
             if (error) throw error;
-            setActiveTimer(data && data.length > 0 ? (data[0] as any) : null);
+
+            // Client side filter
+            const filteredData = (data as any[])?.filter((log: any) => {
+                if (!log.task) return false;
+                if (clientId && log.task.client?.id !== clientId) return false;
+                return true;
+            });
+
+            setActiveTimers(filteredData || []);
         } catch (error) {
-            console.error('Error fetching active timer:', error);
+            console.error('Error fetching active timers:', error);
         } finally {
             setLoading(false);
         }
     };
 
-    const handleStopTimer = async () => {
-        if (!activeTimer) return;
-
+    const handleStopTimer = async (timerId: string, currentSeconds: number) => {
         try {
             const now = new Date();
             const { error } = await supabase
                 .from('time_logs')
                 .update({
                     end_time: now.toISOString(),
-                    duration_seconds: elapsedSeconds // Save the calculated seconds
+                    duration_seconds: currentSeconds
                 })
-                .eq('id', activeTimer.id);
+                .eq('id', timerId);
 
             if (error) throw error;
 
-            // Log activity (optional, but good for consistency)
-            // Ideally we'd import logActivity service here if needed
-
-            setActiveTimer(null);
+            // Optimistic update
+            setActiveTimers(prev => prev.filter(t => t.id !== timerId));
         } catch (error) {
             console.error('Error stopping timer:', error);
             alert('Erro ao parar o timer.');
@@ -137,6 +163,68 @@ export default function LiveTimerWidget({ userId }: LiveTimerWidgetProps) {
     };
 
     if (loading) return null;
+
+    // --- VIEW: Multi-User List ---
+    if (isMultiUser) {
+        if (activeTimers.length === 0) {
+            return (
+                <div className="bg-surface-dark border border-gray-800 rounded-2xl p-6 flex flex-col items-center justify-center text-center gap-2 min-h-[100px] shadow-sm">
+                    <span className="material-symbols-outlined text-gray-600">timer_off</span>
+                    <p className="text-gray-500 text-sm">Nenhum membro da equipe com timer ativo.</p>
+                </div>
+            );
+        }
+
+        return (
+            <div className="bg-surface-dark border border-gray-800 rounded-2xl overflow-hidden shadow-lg flex flex-col">
+                <div className="p-4 border-b border-gray-800 bg-background-dark/50">
+                    <h3 className="text-white text-sm font-bold flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary text-lg">timer</span>
+                        Timers Ativos ({activeTimers.length})
+                    </h3>
+                </div>
+                <div className="divide-y divide-gray-800 max-h-[300px] overflow-y-auto custom-scrollbar">
+                    {activeTimers.map(timer => (
+                        <div key={timer.id} className="p-4 flex items-center justify-between hover:bg-white/5 transition-colors">
+                            <div className="flex items-center gap-3 overflow-hidden">
+                                {timer.user?.avatar_url ? (
+                                    <img src={timer.user.avatar_url} className="w-8 h-8 rounded-full border border-gray-700" title={timer.user.full_name} />
+                                ) : (
+                                    <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-xs text-white font-bold" title={timer.user?.full_name}>
+                                        {timer.user?.full_name?.charAt(0)}
+                                    </div>
+                                )}
+                                <div className="min-w-0">
+                                    <div className="text-white text-sm font-medium truncate">{timer.task.title}</div>
+                                    <div className="text-xs text-gray-500 truncate">
+                                        {timer.user?.full_name} • {timer.task.client?.name}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <span className="font-mono text-primary font-bold text-lg">
+                                    {formatTime(elapsedSeconds[timer.id] || 0)}
+                                </span>
+                                {/* Optional: Admin could stop other people's timers? Maybe strictly for now NO, or safely yes if admin. 
+                                    Let's allow stopping for now as it's useful for managers. */}
+                                <button
+                                    onClick={() => handleStopTimer(timer.id, elapsedSeconds[timer.id] || 0)}
+                                    className="text-gray-500 hover:text-red-400 p-1 transition-colors"
+                                    title="Parar Timer"
+                                >
+                                    <span className="material-symbols-outlined">stop_circle</span>
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
+    // --- VIEW: Single User (Big Timer) ---
+    // If strict single user (targetUserIds has 1 item), we behave like original logic
+    const activeTimer = activeTimers[0]; // Take first one found (should be only one per user ideally)
 
     if (!activeTimer) {
         return (
@@ -169,7 +257,7 @@ export default function LiveTimerWidget({ userId }: LiveTimerWidgetProps) {
                     Em Andamento
                 </span>
                 <div className="font-mono text-5xl md:text-6xl font-black text-white tracking-widest tabular-nums drop-shadow-xl">
-                    {formatTime(elapsedSeconds)}
+                    {formatTime(elapsedSeconds[activeTimer.id] || 0)}
                 </div>
             </div>
 
@@ -193,15 +281,12 @@ export default function LiveTimerWidget({ userId }: LiveTimerWidgetProps) {
 
             <div className="relative z-10 flex items-center gap-3 w-full max-w-xs">
                 <button
-                    onClick={handleStopTimer}
+                    onClick={() => handleStopTimer(activeTimer.id, elapsedSeconds[activeTimer.id] || 0)}
                     className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 border border-red-500/20 hover:border-red-500/40 rounded-xl font-bold transition-all transform active:scale-95"
                 >
                     <span className="material-symbols-outlined fill-current">stop</span>
                     Parar
                 </button>
-                {/* Pause button could be implemented if we support "pausing" (which usually means stopping and starting a new entry later) 
-                     For now, let's keep it simple with just STOP as per most time trackers.
-                 */}
             </div>
         </div>
     );

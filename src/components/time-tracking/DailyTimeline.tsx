@@ -3,21 +3,26 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface DailyTimelineProps {
-    userId?: string;
+    userIds?: string[];
+    clientId?: string;
 }
 
-export default function DailyTimeline({ userId }: DailyTimelineProps) {
+export default function DailyTimeline({ userIds, clientId }: DailyTimelineProps) {
     const { user } = useAuth();
     const [loading, setLoading] = useState(true);
     const [logs, setLogs] = useState<any[]>([]);
     const scrollRef = useRef<HTMLDivElement>(null);
     const [currentTime, setCurrentTime] = useState(new Date());
 
-    const targetUserId = userId || user?.id;
+    const targetUserIds = userIds && userIds.length > 0 ? userIds : (user?.id ? [user.id] : []);
+    const isMultiUser = targetUserIds.length > 1;
 
     useEffect(() => {
-        if (targetUserId) {
+        if (targetUserIds.length > 0) {
             fetchDailyLogs();
+        } else {
+            setLogs([]);
+            setLoading(false);
         }
 
         // Auto-scroll to current time or 8 AM on load
@@ -28,7 +33,7 @@ export default function DailyTimeline({ userId }: DailyTimelineProps) {
         // Update current time line every minute
         const interval = setInterval(() => setCurrentTime(new Date()), 60000);
         return () => clearInterval(interval);
-    }, [targetUserId]);
+    }, [JSON.stringify(targetUserIds), clientId]);
 
     const fetchDailyLogs = async () => {
         setLoading(true);
@@ -45,19 +50,32 @@ export default function DailyTimeline({ userId }: DailyTimelineProps) {
                     start_time,
                     end_time,
                     duration_seconds,
+                    user:users (
+                        full_name,
+                        avatar_url,
+                        email
+                    ),
                     task:tasks (
                         title,
                         project:projects(name),
-                        client:clients(name)
+                        client:clients(id, name)
                     )
                 `)
-                .eq('user_id', targetUserId)
+                .in('user_id', targetUserIds)
                 .gte('start_time', start.toISOString())
                 .lte('start_time', end.toISOString())
                 .order('start_time');
 
             if (error) throw error;
-            setLogs(data || []);
+
+            // Client side filter
+            const filteredData = data?.filter((log: any) => {
+                if (!log.task) return false;
+                if (clientId && log.task.client?.id !== clientId) return false;
+                return true;
+            });
+
+            setLogs(filteredData || []);
         } catch (error) {
             console.error('Error fetching timeline:', error);
         } finally {
@@ -86,6 +104,7 @@ export default function DailyTimeline({ userId }: DailyTimelineProps) {
                 <h3 className="text-white text-lg font-bold flex items-center gap-2">
                     <span className="material-symbols-outlined text-primary">schedule</span>
                     Linha do Tempo (Hoje)
+                    {isMultiUser && <span className="text-xs font-normal text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full ml-2">(Equipe)</span>}
                 </h3>
             </div>
 
@@ -123,13 +142,27 @@ export default function DailyTimeline({ userId }: DailyTimelineProps) {
                     return (
                         <div
                             key={log.id}
-                            className="absolute left-16 right-4 rounded-lg bg-primary/20 border-l-4 border-primary p-2 text-xs overflow-hidden hover:bg-primary/30 transition-colors cursor-pointer group z-10"
+                            className="absolute left-16 right-4 rounded-lg bg-primary/20 border-l-4 border-primary p-2 text-xs overflow-hidden hover:bg-primary/30 transition-colors cursor-pointer group z-10 flex flex-col justify-between"
                             style={{ top: `${top}px`, height: `${height}px` }}
-                            onClick={() => alert('Detalhes do log: ' + log.task?.title)} // Placeholder for simple interactions
+                            onClick={() => alert(`Tarefa: ${log.task?.title}\nUsuário: ${log.user?.full_name}`)}
                         >
-                            <div className="font-bold text-white truncate">{log.task?.title}</div>
+                            <div className="flex items-start justify-between gap-2 w-full">
+                                <div className="font-bold text-white truncate flex-1">{log.task?.title}</div>
+                                {isMultiUser && log.user && (
+                                    <div className="shrink-0 flex items-center justify-center p-0.5 bg-background-dark rounded-full" title={log.user.full_name}>
+                                        {log.user.avatar_url ? (
+                                            <img src={log.user.avatar_url} className="w-5 h-5 rounded-full" alt={log.user.full_name} />
+                                        ) : (
+                                            <div className="w-5 h-5 rounded-full bg-gray-700 flex items-center justify-center text-[8px] text-white font-bold">
+                                                {log.user.full_name?.charAt(0)}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
                             {height > 30 && (
-                                <div className="text-gray-300 truncate">
+                                <div className="text-gray-300 truncate text-[10px] mt-0.5">
                                     {log.task?.client?.name} • {new Date(log.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {log.end_time ? new Date(log.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Agora'}
                                 </div>
                             )}

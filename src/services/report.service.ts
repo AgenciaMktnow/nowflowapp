@@ -90,7 +90,30 @@ export const reportService = {
                 }
             }
 
-            // 1. Fetch Time Logs with Task and User details
+            // 1. Fetch Users List for Hierarchy Initialization (Show 0h users)
+            // We need to fetch users that match the current filters to show them even if no logs exist.
+            let usersQuery = supabase
+                .from('users')
+                .select('id, full_name, avatar_url, weekly_capacity_hours')
+                .eq('status', 'ACTIVE'); // Only active users
+
+            if (filters.userId && filters.userId !== 'all') {
+                usersQuery = usersQuery.eq('id', filters.userId);
+            }
+            if (teamUserIds !== null) {
+                if (teamUserIds.length > 0) {
+                    usersQuery = usersQuery.in('id', teamUserIds);
+                } else {
+                    // Force empty result behavior if team is empty
+                    usersQuery = usersQuery.in('id', ['00000000-0000-0000-0000-000000000000']);
+                }
+            }
+
+            const { data: filterUsers, error: userError } = await usersQuery;
+            if (userError) console.error('Error fetching users for report:', userError);
+
+
+            // 2. Fetch Time Logs with Task and User details
             // We need to fetch ALL logs for the period to calculate metrics
             // Filters (Team/Client) apply to the WHERE clause
             let query = supabase
@@ -143,11 +166,11 @@ export const reportService = {
                 throw error;
             }
 
-            if (!logs) return { hierarchy: [], timeline: [], categories: [] };
+            const safeLogs = logs || [];
 
             // Client Side Filtering for Task Properties (Client Filter)
             // We filter logs here because applying filter on nested 'task' via Supabase is complex without flatter structure
-            const filteredLogs = logs.filter((log: any) => {
+            const filteredLogs = safeLogs.filter((log: any) => {
                 if (filters.clientId) {
                     // Only keep logs where task belongs to client OR logs tied to client (future feature)
                     if (log.task?.client_id !== filters.clientId) return false;
@@ -158,12 +181,33 @@ export const reportService = {
             // --- Hierarchical Aggregation (User -> Client -> Task) ---
             const userMap = new Map<string, any>();
 
+            // A. Initialize All Users (Ensure 0h users appear)
+            if (filterUsers) {
+                filterUsers.forEach(u => {
+                    userMap.set(u.id, {
+                        userId: u.id,
+                        userName: u.full_name || 'Usuário Sem Nome',
+                        avatarUrl: u.avatar_url,
+                        weeklyCapacity: u.weekly_capacity_hours || 40,
+                        totalHours: 0,
+                        timerHours: 0,
+                        manualHours: 0,
+                        totalSeconds: 0,
+                        manualSeconds: 0,
+                        timerSeconds: 0,
+                        clients: new Map<string, any>()
+                    });
+                });
+            }
+
+            // B. Populate with Logs
             filteredLogs.forEach((log: any) => {
                 const userId = log.user_id;
                 // Allow processing even if task is missing (orphan log)
                 if (!userId) return;
 
                 if (!userMap.has(userId)) {
+                    // Should not happen if filteredUsers is correct, but safe fallback
                     userMap.set(userId, {
                         userId,
                         userName: log.user?.full_name || 'Usuário Desconhecido',

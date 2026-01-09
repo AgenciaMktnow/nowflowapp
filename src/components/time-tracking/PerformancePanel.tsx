@@ -3,21 +3,25 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface PerformancePanelProps {
-    userId?: string;
+    userIds?: string[];
+    clientId?: string;
 }
 
-export default function PerformancePanel({ userId }: PerformancePanelProps) {
+export default function PerformancePanel({ userIds, clientId }: PerformancePanelProps) {
     const { user } = useAuth();
     const [stats, setStats] = useState<{ client: string, color: string, percentage: number, hours: number }[]>([]);
     const [totalHours, setTotalHours] = useState(0);
 
-    const targetUserId = userId || user?.id;
+    const targetUserIds = userIds && userIds.length > 0 ? userIds : (user?.id ? [user.id] : []);
 
     useEffect(() => {
-        if (targetUserId) {
+        if (targetUserIds.length > 0) {
             fetchStats();
+        } else {
+            setStats([]);
+            setTotalHours(0);
         }
-    }, [targetUserId]);
+    }, [JSON.stringify(targetUserIds), clientId]);
 
     const fetchStats = async () => {
         try {
@@ -25,23 +29,30 @@ export default function PerformancePanel({ userId }: PerformancePanelProps) {
             const start = new Date();
             start.setDate(start.getDate() - 7);
 
-            const { data } = await supabase
+            const { data, error } = await supabase
                 .from('time_logs')
                 .select(`
                     duration_seconds,
                     task:tasks (
-                        client:clients(name)
+                        client:clients(id, name)
                     )
                 `)
-                .eq('user_id', targetUserId)
+                .in('user_id', targetUserIds)
                 .gte('start_time', start.toISOString())
                 .not('duration_seconds', 'is', null);
 
             if (data) {
+                // Client-side filtering
+                const filteredData = data.filter((log: any) => {
+                    if (!log.task) return false;
+                    if (clientId && log.task.client?.id !== clientId) return false;
+                    return true;
+                });
+
                 const clientMap: Record<string, number> = {};
                 let total = 0;
 
-                data.forEach((log: any) => {
+                filteredData.forEach((log: any) => {
                     const clientName = log.task?.client?.name || 'Sem Cliente';
                     const seconds = log.duration_seconds || 0;
                     clientMap[clientName] = (clientMap[clientName] || 0) + seconds;
@@ -86,7 +97,7 @@ export default function PerformancePanel({ userId }: PerformancePanelProps) {
             <div className="flex-1 flex flex-col items-center justify-center gap-8">
                 {/* Donut Chart */}
                 <div
-                    className="size-48 rounded-full relative flex items-center justify-center"
+                    className="size-48 rounded-full relative flex items-center justify-center transition-all duration-500"
                     style={{ background: finalGradient }}
                 >
                     <div className="size-36 bg-surface-dark rounded-full flex flex-col items-center justify-center z-10">

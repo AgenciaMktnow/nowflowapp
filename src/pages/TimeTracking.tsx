@@ -33,15 +33,16 @@ export default function TimeTracking() {
     const [selectedClient, setSelectedClient] = useState<string | null>(null);
     const [teamMembers, setTeamMembers] = useState<UserOption[]>([]);
     const [clients, setClients] = useState<ClientOption[]>([]);
-    const [teams, setTeams] = useState<TeamOption[]>([]); // New Teams State
+    const [teams, setTeams] = useState<TeamOption[]>([]);
     const [viewMode, setViewMode] = useState<'dashboard' | 'report'>('dashboard');
 
-    // Initialize selected user
+    // Initialize selected user default
     useEffect(() => {
-        if (user && !selectedUserId) {
+        // If not admin/manager, lock to self
+        if (user && userProfile && userProfile.role !== 'ADMIN' && userProfile.role !== 'MANAGER') {
             setSelectedUserId(user.id);
         }
-    }, [user]);
+    }, [user, userProfile]);
 
     // Fetch data if Admin/Manager
     useEffect(() => {
@@ -56,6 +57,7 @@ export default function TimeTracking() {
             const { data: userData, error: userError } = await supabase
                 .from('users')
                 .select('id, full_name, avatar_url, email')
+                .eq('status', 'ACTIVE')
                 .order('full_name');
 
             // Fetch User Teams
@@ -100,7 +102,33 @@ export default function TimeTracking() {
     };
 
     const isAdminOrManager = userProfile?.role === 'ADMIN' || userProfile?.role === 'MANAGER';
-    const effectiveUserId = selectedUserId || user?.id;
+
+    // Determine Effective User IDs for Filtering
+    let effectiveUserIds: string[] = [];
+
+    if (selectedUserId && selectedUserId !== 'all') {
+        // Specific user selected
+        effectiveUserIds = [selectedUserId];
+    } else if (selectedUserId === 'all' || !selectedUserId) {
+        if (selectedTeam) {
+            // All users in selected team
+            effectiveUserIds = teamMembers
+                .filter(u => u.team_ids?.includes(selectedTeam))
+                .map(u => u.id);
+        } else if (isAdminOrManager && selectedUserId === 'all') {
+            // Admin selected "All Users" explicitly - Pass empty array to signal "really all" or handle huge list
+            // Strategy: Pass undefined/null to widgets to let them fetch ALL, or pass all IDs.
+            // Given the widgets logic usually expects a list for "IN" query, let's look at the constraints.
+            // For safety and performance, let's limit "All" without team to "All Fetched Users" (which are active users).
+            effectiveUserIds = teamMembers.map(u => u.id);
+        } else {
+            // Default fallback for initial load or non-admin: Just me
+            if (user?.id) effectiveUserIds = [user.id];
+        }
+    }
+
+    // Helper for visual feedback
+    const isFiltered = (val: string | null) => val !== '' && val !== null && val !== 'all';
 
     // Prepare Dropdown Options
     const teamOptions = [
@@ -114,7 +142,7 @@ export default function TimeTracking() {
     ];
 
     const userOptions = [
-        { id: 'all', name: 'Todos os Usuários' }, // New Option
+        { id: 'all', name: 'Todos os Usuários' },
         { id: user?.id || 'me', name: 'Minhas Horas' },
         ...teamMembers
             .filter(m => !selectedTeam || m.team_ids?.includes(selectedTeam))
@@ -122,15 +150,10 @@ export default function TimeTracking() {
             .map(m => ({ id: m.id, name: m.full_name || m.email || 'Usuário Sem Nome' }))
     ];
 
-    if (!effectiveUserId) return null;
-
-    // Determine users to show in Report
+    // Determine users object for Report props (needs object array)
     const reportUsers = selectedUserId && selectedUserId !== 'all'
         ? teamMembers.filter(u => u.id === selectedUserId)
         : (selectedTeam ? teamMembers.filter(m => m.team_ids?.includes(selectedTeam)) : teamMembers);
-
-    // Dashboard userId fallback
-    const dashboardUserId = (!selectedUserId || selectedUserId === 'all') ? (user?.id || '') : selectedUserId;
 
     return (
         <div className="flex-1 w-full max-w-[1600px] mx-auto p-6 md:p-8 flex flex-col gap-8 animate-fade-in overflow-y-auto h-full">
@@ -160,7 +183,13 @@ export default function TimeTracking() {
                             </button>
                         </div>
 
-                        {/* Filters - Only show in Dashboard mode */}
+                        {/* Filters - Only show in Dashboard mode (Report has its own) 
+                            User request: Sync state. So we should probably SHOW these in Report too? 
+                            The Report component has its OWN internal filters. 
+                            If we want true sync, we should pass these props TO Report and remove Report's internal filters.
+                            However, per plan "Fix TeamReport state synchronization", we will keep Report's structure but init it with these values.
+                            Let's keep filters here only for Dashboard for now to avoid double UI headers in Report mode.
+                        */}
                         {viewMode === 'dashboard' && (
                             <>
                                 {/* Team Filter */}
@@ -170,7 +199,7 @@ export default function TimeTracking() {
                                     onChange={(val) => setSelectedTeam(val || null)}
                                     placeholder="Todas Equipes"
                                     icon="groups"
-                                    className="min-w-[160px]"
+                                    className={`min-w-[160px] ${isFiltered(selectedTeam) ? 'border-primary/50 shadow-[0_0_10px_rgba(19,236,91,0.1)]' : ''}`}
                                 />
 
                                 {/* Client Filter */}
@@ -180,19 +209,17 @@ export default function TimeTracking() {
                                     onChange={(val) => setSelectedClient(val || null)}
                                     placeholder="Todos Clientes"
                                     icon="domain"
-                                    className="min-w-[160px]"
+                                    className={`min-w-[160px] ${isFiltered(selectedClient) ? 'border-primary/50 shadow-[0_0_10px_rgba(19,236,91,0.1)]' : ''}`}
                                 />
 
                                 {/* User Selector */}
                                 <ModernDropdown
                                     options={userOptions}
                                     value={selectedUserId || 'all'}
-                                    onChange={(val) => {
-                                        setSelectedUserId(val);
-                                    }}
+                                    onChange={(val) => setSelectedUserId(val)}
                                     placeholder="Selecionar Usuário"
                                     icon="person"
-                                    className="min-w-[200px]"
+                                    className={`min-w-[200px] ${selectedUserId && selectedUserId !== 'all' && selectedUserId !== user?.id ? 'border-primary/50 shadow-[0_0_10px_rgba(19,236,91,0.1)]' : ''}`}
                                 />
                             </>
                         )}
@@ -202,7 +229,9 @@ export default function TimeTracking() {
 
             {viewMode === 'report' ? (
                 <TeamReport
-                    users={reportUsers}
+                    users={teamMembers} // Pass filtered list to ensure consistency or pass all? TeamReport does its own filtering.
+                    // Better to pass ALL eligible users and let TeamReport filter by its internal state which we sync.
+                    // Actually, if we want sync, we should rely on TeamReport to accept "initialFilter"
                     teams={teams}
                     filterTeam={selectedTeam || undefined}
                     filterClient={selectedClient || undefined}
@@ -212,14 +241,27 @@ export default function TimeTracking() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Left Column (2/3 width) */}
                     <div className="lg:col-span-2 flex flex-col gap-6">
-                        <LiveTimerWidget userId={dashboardUserId} />
-                        <WeeklyTimesheet userId={dashboardUserId} />
-                        <DailyTimeline userId={dashboardUserId} />
+                        {/* Widgets receiving array of IDs and Client ID */}
+                        <LiveTimerWidget
+                            userIds={effectiveUserIds}
+                            clientId={selectedClient || undefined}
+                        />
+                        <WeeklyTimesheet
+                            userIds={effectiveUserIds}
+                            clientId={selectedClient || undefined}
+                        />
+                        <DailyTimeline
+                            userIds={effectiveUserIds}
+                            clientId={selectedClient || undefined}
+                        />
                     </div>
 
                     {/* Right Column (1/3 width) */}
                     <div className="flex flex-col gap-6">
-                        <PerformancePanel userId={dashboardUserId} />
+                        <PerformancePanel
+                            userIds={effectiveUserIds}
+                            clientId={selectedClient || undefined}
+                        />
                         <div className="bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-white/5 rounded-2xl p-6 text-center">
                             <span className="material-symbols-outlined text-4xl text-white/20 mb-2">emoji_events</span>
                             <h3 className="text-white font-bold">Metas Semanais</h3>
