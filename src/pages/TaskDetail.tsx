@@ -1498,7 +1498,7 @@ export default function TaskDetail() {
                         <div className="flex bg-surface-dark border border-border-dark border-b-0 rounded-t-xl px-2 pt-2 gap-1 sm:gap-2 overflow-x-auto custom-scrollbar-horizontal">
                             {[
                                 { id: 'overview', label: 'Visão Geral', icon: 'description' },
-                                { id: 'execution', label: 'Execução', icon: 'checklist', badge: checklistItems.filter(i => !i.completed).length || null },
+                                { id: 'execution', label: 'Checklist', icon: 'checklist', badge: checklistItems.filter(i => !i.completed).length || null },
                                 { id: 'comments', label: 'Comentários', icon: 'chat', badge: comments.length },
                                 { id: 'files', label: 'Arquivos', icon: 'attach_file', badge: attachments.length },
                                 { id: 'history', label: 'Histórico', icon: 'history' },
@@ -1601,7 +1601,7 @@ export default function TaskDetail() {
                                     <div className="flex items-center justify-between mb-6">
                                         <h3 className="text-white text-lg font-bold flex items-center gap-2">
                                             <span className="material-symbols-outlined text-primary">checklist</span>
-                                            Checklist de Execução
+                                            Checklist
                                         </h3>
                                         <div className="flex items-center gap-3">
                                             <span className="text-sm font-semibold text-text-muted tabular-nums">{completionPercentage}%</span>
