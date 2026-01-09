@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { settingsService, type SystemSettings } from '../../services/settings.service';
 import ModernDropdown from '../../components/ModernDropdown';
 import { useSettings } from '../../contexts/SettingsContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function GeneralSettings() {
     const { refreshSettings } = useSettings();
@@ -78,6 +79,9 @@ export default function GeneralSettings() {
         }
     };
 
+    const { userProfile } = useAuth();
+    const isAdmin = userProfile?.role === 'ADMIN';
+
     if (loading) return <div className="p-8 text-center text-primary">Carregando configurações...</div>;
 
     const getNeonBorderClass = (hasValue: boolean) =>
@@ -87,6 +91,13 @@ export default function GeneralSettings() {
 
     return (
         <div className="space-y-8 animate-fade-in-up pb-32">
+            {!isAdmin && (
+                <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 flex items-center gap-3 text-yellow-500">
+                    <span className="material-symbols-outlined">lock</span>
+                    <p className="text-sm font-medium">Apenas administradores podem alterar as configurações do sistema. Você está em modo de visualização.</p>
+                </div>
+            )}
+
             {/* Section: Identidade da Empresa */}
             <section className="bg-surface-dark p-6 rounded-xl border border-primary/20 shadow-sm relative overflow-hidden group hover:border-primary/40 transition-all duration-500">
                 <div className="absolute top-0 left-0 w-1 h-full bg-primary/50 shadow-[0_0_15px_rgba(0,255,0,0.1)]"></div>
@@ -118,8 +129,10 @@ export default function GeneralSettings() {
                                 {/* Logo Dark */}
                                 {/* Logo Main */}
                                 <div
-                                    onClick={() => fileInputRefDark.current?.click()}
-                                    className={`h-28 border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all duration-300 group/upload ${getNeonBorderClass(!!settings.logo_dark_url)}`}
+                                    onClick={() => isAdmin && fileInputRefDark.current?.click()}
+                                    className={`h-28 border border-dashed rounded-xl flex flex-col items-center justify-center transition-all duration-300 group/upload 
+                                        ${getNeonBorderClass(!!settings.logo_dark_url)} 
+                                        ${isAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
                                 >
                                     <input
                                         type="file"
@@ -127,6 +140,7 @@ export default function GeneralSettings() {
                                         className="hidden"
                                         accept="image/*"
                                         onChange={(e) => handleFileUpload(e, 'logo-dark')}
+                                        disabled={!isAdmin}
                                     />
                                     {settings.logo_dark_url ? (
                                         <img src={settings.logo_dark_url} alt="Logo" className="h-10 object-contain mb-2" />
@@ -138,8 +152,10 @@ export default function GeneralSettings() {
 
                                 {/* Favicon */}
                                 <div
-                                    onClick={() => fileInputRefFavicon.current?.click()}
-                                    className={`h-28 border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all duration-300 group/upload ${getNeonBorderClass(!!settings.favicon_url)}`}
+                                    onClick={() => isAdmin && fileInputRefFavicon.current?.click()}
+                                    className={`h-28 border border-dashed rounded-xl flex flex-col items-center justify-center transition-all duration-300 group/upload 
+                                        ${getNeonBorderClass(!!settings.favicon_url)}
+                                        ${isAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
                                 >
                                     <input
                                         type="file"
@@ -147,6 +163,7 @@ export default function GeneralSettings() {
                                         className="hidden"
                                         accept="image/png, image/ico, image/svg+xml"
                                         onChange={(e) => handleFileUpload(e, 'favicon')}
+                                        disabled={!isAdmin}
                                     />
                                     {settings.favicon_url ? (
                                         <img src={settings.favicon_url} alt="Favicon" className="size-8 object-contain mb-2" />
@@ -161,16 +178,18 @@ export default function GeneralSettings() {
                         {/* Theme Selector */}
                         <div>
                             <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2 transition-colors">Tema do Sistema</label>
-                            <ModernDropdown
-                                options={[
-                                    { id: 'DARK', name: 'Dark (Neon Green)' },
-                                    { id: 'LIGHT', name: 'Light (Clean Blue)' }
-                                ]}
-                                value={settings.theme_preference || 'DARK'}
-                                onChange={(val) => handleChange('theme_preference', val)}
-                                icon="palette"
-                                placeholder="Selecione o tema"
-                            />
+                            <div className={!isAdmin ? 'opacity-60 pointer-events-none' : ''}>
+                                <ModernDropdown
+                                    options={[
+                                        { id: 'DARK', name: 'Dark (Neon Green)' },
+                                        { id: 'LIGHT', name: 'Light (Clean Blue)' }
+                                    ]}
+                                    value={settings.theme_preference || 'DARK'}
+                                    onChange={(val) => isAdmin && handleChange('theme_preference', val)}
+                                    icon="palette"
+                                    placeholder="Selecione o tema"
+                                />
+                            </div>
                             <p className="text-[10px] text-text-muted mt-2">Escolha a aparência do sistema.</p>
                         </div>
                     </div>
@@ -211,7 +230,8 @@ export default function GeneralSettings() {
                                 type="number"
                                 value={settings.daily_journey_hours}
                                 onChange={e => handleChange('daily_journey_hours', parseFloat(e.target.value))}
-                                className="w-full bg-background-dark/50 border border-white/10 rounded-lg pl-4 pr-16 py-3 text-white text-lg font-medium focus:outline-none focus:border-primary/50 focus:shadow-[0_0_15px_rgba(0,255,0,0.1)] transition-all duration-300"
+                                disabled={!isAdmin}
+                                className={`w-full bg-background-dark/50 border border-white/10 rounded-lg pl-4 pr-16 py-3 text-white text-lg font-medium focus:outline-none focus:border-primary/50 focus:shadow-[0_0_15px_rgba(0,255,0,0.1)] transition-all duration-300 ${!isAdmin ? 'opacity-60 cursor-not-allowed' : ''}`}
                             />
                             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-text-muted text-[10px] font-bold tracking-wider pointer-events-none">HORAS</span>
                         </div>
@@ -225,7 +245,8 @@ export default function GeneralSettings() {
                                 type="number"
                                 value={settings.focus_goal_hours}
                                 onChange={e => handleChange('focus_goal_hours', parseFloat(e.target.value))}
-                                className="w-full bg-background-dark/50 border border-white/10 rounded-lg pl-4 pr-16 py-3 text-white text-lg font-medium focus:outline-none focus:border-primary/50 focus:shadow-[0_0_15px_rgba(0,255,0,0.1)] transition-all duration-300"
+                                disabled={!isAdmin}
+                                className={`w-full bg-background-dark/50 border border-white/10 rounded-lg pl-4 pr-16 py-3 text-white text-lg font-medium focus:outline-none focus:border-primary/50 focus:shadow-[0_0_15px_rgba(0,255,0,0.1)] transition-all duration-300 ${!isAdmin ? 'opacity-60 cursor-not-allowed' : ''}`}
                             />
                             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-text-muted text-[10px] font-bold tracking-wider pointer-events-none">HORAS</span>
                         </div>
@@ -252,7 +273,8 @@ export default function GeneralSettings() {
                                 type="time"
                                 value={settings.business_hours_start}
                                 onChange={e => handleChange('business_hours_start', e.target.value)}
-                                className="w-full bg-background-dark/50 border border-white/10 rounded-lg px-4 py-3 text-white text-lg font-medium focus:outline-none focus:border-primary/50 focus:shadow-[0_0_15px_rgba(0,255,0,0.1)] transition-all duration-300 [color-scheme:dark]"
+                                disabled={!isAdmin}
+                                className={`w-full bg-background-dark/50 border border-white/10 rounded-lg px-4 py-3 text-white text-lg font-medium focus:outline-none focus:border-primary/50 focus:shadow-[0_0_15px_rgba(0,255,0,0.1)] transition-all duration-300 [color-scheme:dark] ${!isAdmin ? 'opacity-60 cursor-not-allowed' : ''}`}
                             />
                         </div>
                         <div className="group/input">
@@ -261,7 +283,8 @@ export default function GeneralSettings() {
                                 type="time"
                                 value={settings.business_hours_end}
                                 onChange={e => handleChange('business_hours_end', e.target.value)}
-                                className="w-full bg-background-dark/50 border border-white/10 rounded-lg px-4 py-3 text-white text-lg font-medium focus:outline-none focus:border-primary/50 focus:shadow-[0_0_15px_rgba(0,255,0,0.1)] transition-all duration-300 [color-scheme:dark]"
+                                disabled={!isAdmin}
+                                className={`w-full bg-background-dark/50 border border-white/10 rounded-lg px-4 py-3 text-white text-lg font-medium focus:outline-none focus:border-primary/50 focus:shadow-[0_0_15px_rgba(0,255,0,0.1)] transition-all duration-300 [color-scheme:dark] ${!isAdmin ? 'opacity-60 cursor-not-allowed' : ''}`}
                             />
                         </div>
                     </div>
@@ -273,7 +296,8 @@ export default function GeneralSettings() {
                                 <select
                                     value={settings.first_day_of_week}
                                     onChange={e => handleChange('first_day_of_week', e.target.value)}
-                                    className="w-full bg-background-dark/50 border border-white/10 rounded-lg px-4 py-3 text-white appearance-none focus:outline-none focus:border-primary/50 focus:shadow-[0_0_15px_rgba(0,255,0,0.1)] transition-all duration-300"
+                                    disabled={!isAdmin}
+                                    className={`w-full bg-background-dark/50 border border-white/10 rounded-lg px-4 py-3 text-white appearance-none focus:outline-none focus:border-primary/50 focus:shadow-[0_0_15px_rgba(0,255,0,0.1)] transition-all duration-300 ${!isAdmin ? 'opacity-60 cursor-not-allowed' : ''}`}
                                 >
                                     <option value="MONDAY">Segunda-feira</option>
                                     <option value="SUNDAY">Domingo</option>
@@ -289,7 +313,8 @@ export default function GeneralSettings() {
                                 <select
                                     value={settings.timezone}
                                     onChange={e => handleChange('timezone', e.target.value)}
-                                    className="w-full bg-background-dark/50 border border-white/10 rounded-lg px-4 py-3 text-white appearance-none focus:outline-none focus:border-primary/50 focus:shadow-[0_0_15px_rgba(0,255,0,0.1)] transition-all duration-300"
+                                    disabled={!isAdmin}
+                                    className={`w-full bg-background-dark/50 border border-white/10 rounded-lg px-4 py-3 text-white appearance-none focus:outline-none focus:border-primary/50 focus:shadow-[0_0_15px_rgba(0,255,0,0.1)] transition-all duration-300 ${!isAdmin ? 'opacity-60 cursor-not-allowed' : ''}`}
                                 >
                                     <option value="America/Sao_Paulo">Brasília (GMT-3)</option>
                                     <option value="UTC">UTC</option>
@@ -304,15 +329,17 @@ export default function GeneralSettings() {
             </section>
 
             {/* Fixed Save Button - Elegant & Refined */}
-            <div className="fixed bottom-8 right-8 z-50">
-                <button
-                    onClick={handleSave}
-                    className="flex items-center gap-2 bg-primary hover:bg-primary-light text-background-dark font-bold py-3 px-6 rounded-full shadow-[0_4px_20px_rgba(0,255,0,0.2)] hover:shadow-[0_4px_25px_rgba(0,255,0,0.3)] transition-all hover:scale-105 active:scale-95 border border-primary/20"
-                >
-                    <span className="material-symbols-outlined font-bold">save</span>
-                    Salvar Configurações
-                </button>
-            </div>
+            {isAdmin && (
+                <div className="fixed bottom-8 right-8 z-50">
+                    <button
+                        onClick={handleSave}
+                        className="flex items-center gap-2 bg-primary hover:bg-primary-light text-background-dark font-bold py-3 px-6 rounded-full shadow-[0_4px_20px_rgba(0,255,0,0.2)] hover:shadow-[0_4px_25px_rgba(0,255,0,0.3)] transition-all hover:scale-105 active:scale-95 border border-primary/20"
+                    >
+                        <span className="material-symbols-outlined font-bold">save</span>
+                        Salvar Configurações
+                    </button>
+                </div>
+            )}
         </div >
     );
 }
