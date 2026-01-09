@@ -181,7 +181,8 @@ export default function TeamManagement() {
                         user_id: authData.user.id,
                         user_email: selectedUser.email,
                         user_full_name: selectedUser.full_name,
-                        user_role: selectedUser.role.toUpperCase()
+                        user_role: selectedUser.role.toUpperCase(),
+                        user_needs_password_change: true // Force password setup on first login
                     });
 
                 if (error) throw error;

@@ -5,6 +5,7 @@ import Layout from './components/Layout';
 import Login from './pages/Login';
 import SignUp from './pages/SignUp';
 import ResetPassword from './pages/ResetPassword';
+import SetupPassword from './pages/SetupPassword';
 import AuthCallback from './pages/AuthCallback';
 import Dashboard from './pages/Dashboard';
 import Projects from './pages/Projects';
@@ -29,10 +30,23 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   // Check if we are in a recovery flow (hash contains type=recovery)
   const isRecovery = window.location.hash.includes('type=recovery');
 
+  const location = useLocation();
+  const { userProfile } = useAuth(); // Need profile to check flag
+
   if (loading || isRecovery) return <div className="flex min-h-screen items-center justify-center bg-background-dark text-white">Carregando...</div>;
 
   if (!session) {
     return <Navigate to="/login" replace />;
+  }
+
+  // FORCE Setup Password Flow
+  if (userProfile?.needs_password_change && location.pathname !== '/setup-password') {
+    return <Navigate to="/setup-password" replace />;
+  }
+
+  // Prevent accessing Setup Password if already done
+  if (!userProfile?.needs_password_change && location.pathname === '/setup-password') {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;
@@ -74,7 +88,13 @@ function App() {
           <Routes>
             <Route path="/" element={<RootHandler />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<SignUp />} />            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/signup" element={<SignUp />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/setup-password" element={
+              <ProtectedRoute>
+                <SetupPassword />
+              </ProtectedRoute>
+            } />
             <Route path="/auth/callback" element={<AuthCallback />} />
 
             {/* Protected Routes with Layout */}

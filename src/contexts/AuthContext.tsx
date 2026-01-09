@@ -12,6 +12,7 @@ export interface UserProfile {
     avatar_url: string;
     role: 'ADMIN' | 'MANAGER' | 'MEMBER' | 'CLIENT';
     organization_id: string;
+    needs_password_change?: boolean;
 }
 
 interface AuthContextType {
