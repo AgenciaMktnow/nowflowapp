@@ -1,7 +1,6 @@
 
 import { supabase } from '../lib/supabase';
 
-
 export interface TraceabilityRow {
     taskId: string;
     taskTitle: string;
@@ -62,8 +61,34 @@ export const reportService = {
         endDate: Date;
     }) {
         try {
-            const startIso = filters.startDate.toISOString();
-            const endIso = filters.endDate.toISOString();
+            // FIX: TIMEZONE ADJUSTMENT (GMT-3)
+            // Ensure we cover the full range of the selected days in Local Time.
+            // Start: 00:00:00 Local -> Add buffer to ensure we catch everything
+            const start = new Date(filters.startDate);
+            start.setHours(0, 0, 0, 0);
+
+            // End: 23:59:59 Local
+            const end = new Date(filters.endDate);
+            end.setHours(23, 59, 59, 999);
+
+            const startIso = start.toISOString();
+            const endIso = end.toISOString();
+
+            // 0. PRE-FILTER BY TEAM (If Team Selected)
+            // Fix: We must fetch users OF THAT TEAM first, then filter logs by those user_ids.
+            let teamUserIds: string[] | null = null;
+            if (filters.teamId) {
+                const { data: teamMembers } = await supabase
+                    .from('user_teams')
+                    .select('user_id')
+                    .eq('team_id', filters.teamId);
+
+                if (teamMembers) {
+                    teamUserIds = teamMembers.map(tm => tm.user_id);
+                } else {
+                    teamUserIds = []; // Empty team
+                }
+            }
 
             // 1. Fetch Time Logs with Task and User details
             // We need to fetch ALL logs for the period to calculate metrics
@@ -84,13 +109,29 @@ export const reportService = {
                         title, 
                         estimated_time, 
                         category, 
-                        client_id
+                        client_id,
+                        task_number
                     )
                 `)
                 .gte('start_time', startIso)
                 .lte('start_time', endIso);
 
-            // Fetch Clients for Names (Avoid nested join 406)
+            // Apply Filters
+            if (filters.userId && filters.userId !== 'all') {
+                query = query.eq('user_id', filters.userId);
+            }
+
+            // Apply Team Filter (via user_id IN list)
+            if (teamUserIds !== null) {
+                if (teamUserIds.length > 0) {
+                    query = query.in('user_id', teamUserIds);
+                } else {
+                    // Team selected but empty, return empty result
+                    return { hierarchy: [], timeline: [], categories: [] };
+                }
+            }
+
+            // Fetch Clients for Names (Avoid nested join issues)
             const { data: clientsData } = await supabase.from('clients').select('id, name');
             const clientNameMap = new Map<string, string>();
             clientsData?.forEach((c: any) => clientNameMap.set(c.id, c.name));
@@ -102,17 +143,15 @@ export const reportService = {
                 throw error;
             }
 
-            // Removed debug log to reduce console noise in production
-            // console.log('Raw Logs from Supabase:', logs?.length, logs?.[0]);
+            if (!logs) return { hierarchy: [], timeline: [], categories: [] };
 
-            if (!logs) return { traceability: [], fidelity: [], timeline: [], categories: [] };
-
-            // Client Side Filtering (if needed for exact IDs)
+            // Client Side Filtering for Task Properties (Client Filter)
+            // We filter logs here because applying filter on nested 'task' via Supabase is complex without flatter structure
             const filteredLogs = logs.filter((log: any) => {
-                if (filters.clientId && log.task?.client_id !== filters.clientId) return false;
-                if (filters.userId && log.user_id !== filters.userId) return false;
-                // Team filtering would happen if we fetched users teams. 
-                // We'll trust the UI passes the right context or we filter later.
+                if (filters.clientId) {
+                    // Only keep logs where task belongs to client OR logs tied to client (future feature)
+                    if (log.task?.client_id !== filters.clientId) return false;
+                }
                 return true;
             });
 
@@ -157,9 +196,9 @@ export const reportService = {
                 }
 
                 // Client Grouping
-                // Fallback for missing task/client
-                const clientId = log.task?.client_id || 'no-client';
-                const clientName = clientNameMap.get(clientId) || (log.task ? 'Sem Cliente' : 'Item Removido/Desconhecido');
+                // Handle Orphan Logs (Task Deleted -> Set Null)
+                const clientId = log.task?.client_id || 'orphaned';
+                const clientName = clientNameMap.get(clientId) || (log.task ? 'Sem Cliente' : 'Tarefas Removidas');
 
                 if (!userNode.clients.has(clientId)) {
                     userNode.clients.set(clientId, {
@@ -176,8 +215,8 @@ export const reportService = {
                 clientNode.totalSeconds += duration;
 
                 // Task Grouping
-                const taskId = log.task?.id || 'no-task-' + log.id; // unique fallback if no task
-                const taskTitle = log.task?.title || 'Sem Título / Removida';
+                const taskId = log.task?.id || 'orphan-' + (log.id || Math.random());
+                const taskTitle = log.task?.title || `(Tarefa Removida) ${log.description || ''}`;
                 const taskNumber = log.task?.task_number || 0;
 
                 if (!clientNode.tasks.has(taskId)) {
@@ -224,7 +263,7 @@ export const reportService = {
                 return user;
             }).sort((a, b) => b.totalHours - a.totalHours);
 
-            // Timeline for Heatmap (Separate, optional but good to keep if user opens chart)
+            // Timeline for Heatmap
             const timeline = filteredLogs.map((log: any) => ({
                 type: log.is_manual ? 'MANUAL' : 'TIMER',
                 startTime: log.start_time,
@@ -245,8 +284,6 @@ export const reportService = {
                 timeline,
                 categories
             };
-
-
 
         } catch (err) {
             console.error('ReportService Error:', err);
