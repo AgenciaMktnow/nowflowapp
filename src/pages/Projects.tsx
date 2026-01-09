@@ -55,7 +55,7 @@ export default function Projects() {
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [editTaskNumber, setEditTaskNumber] = useState<string | undefined>(undefined);
 
-    const [activeTeamLogs, setActiveTeamLogs] = useState<Record<string, { user_name: string }>>({});
+    const [activeTeamLogs, setActiveTeamLogs] = useState<Record<string, { user_name: string, user_id: string }>>({});
 
     const [searchParams] = useSearchParams();
     const queryProjectId = searchParams.get('projectId');
@@ -225,15 +225,15 @@ export default function Projects() {
     useEffect(() => {
         // Debounce could be added here if needed, but for now direct call
         fetchTasks();
-        
+
         // Listen for task updates from TaskDetail page
         const handleTaskUpdate = () => {
             console.log('📡 Task update event received, refreshing Kanban...');
             fetchTasks();
         };
-        
+
         window.addEventListener('taskUpdated', handleTaskUpdate);
-        
+
         return () => {
             window.removeEventListener('taskUpdated', handleTaskUpdate);
         };
@@ -367,14 +367,14 @@ export default function Projects() {
         try {
             const { data: logs } = await supabase
                 .from('time_logs')
-                .select(`task_id, user:users(full_name)`)
+                .select(`task_id, user_id, user:users(full_name)`)
                 .is('end_time', null);
 
             if (logs) {
-                const activeMap: Record<string, { user_name: string }> = {};
+                const activeMap: Record<string, { user_name: string, user_id: string }> = {};
                 logs.forEach((log: any) => {
                     if (log.task_id && log.user?.full_name) {
-                        activeMap[log.task_id] = { user_name: log.user.full_name };
+                        activeMap[log.task_id] = { user_name: log.user.full_name, user_id: log.user_id };
                     }
                 });
                 setActiveTeamLogs(activeMap);
@@ -840,7 +840,7 @@ export default function Projects() {
                                                                                 columnVariant={column.variant}
                                                                                 isOverdue={!!isOverdue}
                                                                                 clientsList={clients}
-                                                                                activeTeamLog={!!activeTeamLogs[task.id]}
+                                                                                activeTeamLog={activeTeamLogs[task.id]?.user_id === user?.id}
                                                                                 onEdit={() => handleEdit(task)}
                                                                                 onClone={handleCloneSuccess}
                                                                                 onUpdate={handleUpdateList}
