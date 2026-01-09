@@ -21,8 +21,8 @@ const scrollbarStyles = `
 
 type Activity = {
     id: string;
-    activity_type: string;
-    content: string;
+    action_type: string;
+    details: any;
     created_at: string;
     user: {
         full_name: string;
@@ -31,7 +31,6 @@ type Activity = {
         full_name: string;
         avatar_url?: string;
     }[];
-    metadata?: any;
 };
 
 type ActivityFeedProps = {
@@ -88,10 +87,9 @@ export default function ActivityFeed({ taskId }: ActivityFeedProps) {
                 .from('task_activities')
                 .select(`
                     id,
-                    activity_type,
-                    content,
+                    action_type,
+                    details,
                     created_at,
-                    metadata,
                     user:users(full_name, avatar_url)
                 `)
                 .eq('task_id', taskId)
@@ -112,11 +110,20 @@ export default function ActivityFeed({ taskId }: ActivityFeedProps) {
             case 'TIMER_START': return 'play_arrow';
             case 'TIMER_STOP': return 'stop';
             case 'ATTACHMENT_ADD': return 'attach_file';
+            case 'ATTACHMENT_REMOVE': return 'delete';
             case 'COMMENT': return 'chat_bubble_outline';
             case 'ASSIGNEE_CHANGE': return 'person_add';
+            case 'ASSIGNED': return 'person_add';
+            case 'UNASSIGNED': return 'person_remove';
             case 'CHECKLIST_COMPLETE': return 'check_box';
+            case 'CHECKLIST_UNCOMPLETE': return 'check_box_outline_blank';
             case 'RETURN_TASK': return 'replay';
             case 'HANDOVER': return 'keyboard_return';
+            case 'PRIORITY_CHANGE': return 'priority_high';
+            case 'DUE_DATE_CHANGE': return 'event';
+            case 'MY_PART': return 'handshake';
+            case 'REOPENED': return 'restart_alt';
+            case 'CREATED': return 'add_circle';
             default: return 'info';
         }
     };
@@ -128,6 +135,8 @@ export default function ActivityFeed({ taskId }: ActivityFeedProps) {
             case 'TIMER_STOP': return 'text-orange-400 bg-orange-400/10';
             case 'ATTACHMENT_ADD': return 'text-purple-400 bg-purple-400/10';
             case 'RETURN_TASK': return 'text-red-400 bg-red-400/10';
+            case 'REOPENED': return 'text-pink-400 bg-pink-400/10';
+            case 'MY_PART': return 'text-emerald-400 bg-emerald-400/10';
             default: return 'text-text-muted-dark bg-surface-dark';
         }
     };
@@ -144,6 +153,18 @@ export default function ActivityFeed({ taskId }: ActivityFeedProps) {
         return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
     };
 
+    const getMessage = (activity: Activity) => {
+        const { action_type, details } = activity;
+        if (action_type === 'STATUS_CHANGE') return `Moveu de ${details.from} para ${details.to}`;
+        if (action_type === 'COMMENT') return 'Comentou na tarefa';
+        if (action_type === 'ASSIGNED') return `Atribuiu a ${details.assigned_to}`;
+        if (action_type === 'UNASSIGNED') return `Removeu ${details.removed_user}`;
+        if (action_type === 'CHECKLIST_COMPLETE') return `Concluiu "${details.content_snippet}"`;
+        if (action_type === 'REOPENED') return 'Reabriu a tarefa';
+        if (action_type === 'MY_PART') return details.status === 'delivered' ? 'Entregou a parte dele' : 'Cancelou a entrega';
+        return details?.content_snippet || details?.content || 'Realizou uma ação';
+    };
+
     if (loading) return <div className="text-center py-4 text-text-muted-dark text-xs">Carregando atividades...</div>;
 
     if (activities.length === 0) return <div className="text-center py-4 text-text-muted-dark text-xs">Nenhuma atividade recente.</div>;
@@ -152,11 +173,7 @@ export default function ActivityFeed({ taskId }: ActivityFeedProps) {
         <div className="space-y-4">
             <style>{scrollbarStyles}</style>
             <h3 className="text-xs font-bold text-text-muted-dark uppercase tracking-wider mb-2">Atividade Recente</h3>
-            {/* Scrollable Container */}
             <div className="space-y-4 relative max-h-[320px] overflow-y-auto pr-2 custom-scrollbar">
-                {/* Vertical Line Fixed Position Logic needs adjustment if inside scroll, keeping inside for now but line might break. 
-                    Better to keep line relative to content. 
-                */}
                 <div className="absolute left-4 top-2 bottom-2 w-px bg-border-dark z-0"></div>
 
                 {activities.map((activity) => {
@@ -174,26 +191,19 @@ export default function ActivityFeed({ taskId }: ActivityFeedProps) {
 
                             <div className="flex-1 bg-surface-dark/50 border border-border-dark/50 rounded-lg p-3 hover:bg-surface-dark transition-colors">
                                 <div className="flex items-center gap-2 mb-1">
-                                    <span className={`material-symbols-outlined text-[16px] p-1 rounded-full ${getActivityColor(activity.activity_type)}`}>
-                                        {getActivityIcon(activity.activity_type)}
+                                    <span className={`material-symbols-outlined text-[16px] p-1 rounded-full ${getActivityColor(activity.action_type)}`}>
+                                        {getActivityIcon(activity.action_type)}
                                     </span>
                                     <span className="text-sm font-semibold text-white">
                                         {user?.full_name}
                                     </span>
-                                    <span className="text-xs text-text-muted-dark font-normal">
-                                        {activity.content}
+                                    <span className="text-xs text-text-muted-dark font-normal line-clamp-2">
+                                        {getMessage(activity)}
                                     </span>
                                 </div>
                                 <div className="text-[10px] text-slate-500 pl-8">
                                     {timeAgo(activity.created_at)}
                                 </div>
-
-                                {/* Metadata Details (Optional) */}
-                                {activity.metadata?.reason && (
-                                    <div className="mt-2 text-xs text-text-muted-dark italic bg-black/20 p-2 rounded ml-8 border-l-2 border-red-400/50">
-                                        "{activity.metadata.reason}"
-                                    </div>
-                                )}
                             </div>
                         </div>
                     );

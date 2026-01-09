@@ -25,14 +25,19 @@ export const logActivity = async (
     metadata?: any
 ) => {
     try {
+        // Prepare details JSON
+        const details = {
+            ...metadata,
+            content_snippet: content // Store raw content if needed for fallback
+        };
+
         const { error } = await supabase
             .from('task_activities')
             .insert({
                 task_id: taskId,
                 user_id: userId,
-                activity_type: type,
-                content: content,
-                metadata: metadata || {}
+                action_type: type, // Now using the correct new column
+                details: details   // Using the JSONB details column
             });
 
         if (error) {

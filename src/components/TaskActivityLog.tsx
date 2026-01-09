@@ -7,7 +7,7 @@ interface Activity {
     id: string;
     task_id: string;
     user_id: string;
-    action_type: 'CREATED' | 'STATUS_CHANGE' | 'ASSIGNED' | 'UNASSIGNED' | 'MY_PART' | 'REOPENED';
+    action_type: string;
     details: any;
     created_at: string;
     user?: {
@@ -97,8 +97,28 @@ const TaskActivityLog = ({ taskId }: TaskActivityLogProps) => {
                 }
             case 'REOPENED':
                 return <span className="text-purple-400 font-bold"><b>{actorName}</b> reabriu a tarefa! 🔄</span>;
+
+            // --- NEW ACTIONS ---
+            case 'CHECKLIST_COMPLETE':
+                return <span className="text-gray-300"><b>{actorName}</b> marcou <i>"{details.content_snippet}"</i> como feito.</span>;
+            case 'CHECKLIST_UNCOMPLETE':
+                return <span className="text-gray-300"><b>{actorName}</b> desmarcou <i>"{details.content_snippet}"</i>.</span>;
+            case 'ATTACHMENT_ADD':
+                return <span className="text-gray-300"><b>{actorName}</b> anexou um arquivo. 📎</span>;
+            case 'ATTACHMENT_REMOVE':
+                return <span className="text-gray-300"><b>{actorName}</b> removeu um anexo.</span>;
+            case 'PRIORITY_CHANGE':
+                return <span className="text-gray-300"><b>{actorName}</b> alterou a prioridade para <b>{details.content_snippet}</b>.</span>;
+            case 'DUE_DATE_CHANGE':
+                return <span className="text-gray-300"><b>{actorName}</b> alterou o prazo para <b>{details.content_snippet}</b>.</span>;
+            case 'RETURN_TASK':
+                return <span className="text-red-400 font-bold"><b>{actorName}</b> devolveu e tarefa. Motivo: "{details.content_snippet || 'Não informado'}"</span>;
+            case 'COMMENT':
+                return <span className="text-gray-300"><b>{actorName}</b> comentou na tarefa.</span>;
             default:
-                return <span className="text-gray-300"><b>{actorName}</b> realizou uma ação.</span>;
+                // Fallback for legacy "SYSTEM_LEGACY" or unknown types
+                if (action_type === 'SYSTEM_LEGACY') return <span className="text-gray-400 italic"><b>{actorName}</b> realizou uma ação (sistema).</span>;
+                return <span className="text-gray-300"><b>{actorName}</b> realizou uma ação ({action_type}).</span>;
         }
     };
 
