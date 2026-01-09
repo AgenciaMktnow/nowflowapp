@@ -421,6 +421,7 @@ export default function NewTask({ isDrawer = false, taskNumber: propTaskNumber, 
             // DEBUG: Log all IDs before submission
             console.log('=== TASK SUBMISSION DEBUG ===');
             console.log('User ID (created_by):', user?.id, 'Type:', typeof user?.id);
+            console.log('Organization ID:', userProfile?.organization_id);
             console.log('Client ID:', clientId, 'Type:', typeof clientId);
             console.log('Project ID:', projectId, 'Type:', typeof projectId);
             console.log('Workflow ID:', workflowId, 'Type:', typeof workflowId);
@@ -485,6 +486,7 @@ export default function NewTask({ isDrawer = false, taskNumber: propTaskNumber, 
                 workflow_id: workflowId || null,
                 assignee_id: assigneeIds[0], // Legacy/Primary assignee
                 created_by: !taskId ? user?.id : undefined, // Only on create
+                organization_id: userProfile?.organization_id, // Mandatory for policies
                 board_ids: selectedBoardIds, // Multi-Board Link
                 attachments: clonedAttachments.length > 0 ? clonedAttachments : undefined
             };
