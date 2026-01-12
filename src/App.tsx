@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
-import SignUp from './pages/SignUp';
+import Signup from './pages/Signup';
 import ResetPassword from './pages/ResetPassword';
 import SetupPassword from './pages/SetupPassword';
 import AuthCallback from './pages/AuthCallback';
@@ -88,7 +88,7 @@ function App() {
           <Routes>
             <Route path="/" element={<RootHandler />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<SignUp />} />
+            <Route path="/signup" element={<Signup />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/setup-password" element={
               <ProtectedRoute>
