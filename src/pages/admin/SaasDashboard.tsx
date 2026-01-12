@@ -5,14 +5,21 @@ import { QuotaProgressBar } from '../../components/admin/QuotaProgressBar';
 import CostTooltip from '../../components/admin/CostTooltip';
 import Header from '../../components/layout/Header/Header';
 import { toast } from 'sonner';
+import RevenueGrowthChart from '../../components/admin/RevenueGrowthChart';
+import UserGrowthChart from '../../components/admin/UserGrowthChart';
+import FeatureUsageChart from '../../components/admin/FeatureUsageChart';
+import BroadcastModal from '../../components/admin/BroadcastModal';
 
 export default function SaasDashboard() {
     const [metrics, setMetrics] = useState<SaasMetric[]>([]);
     const [systemStats, setSystemStats] = useState<SystemStats | null>(null);
+    const [growthData, setGrowthData] = useState<any[]>([]);
+    const [featureUsage, setFeatureUsage] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('');
     const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'infrastructure' | 'financial'>('infrastructure');
+    const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState(false);
 
     useEffect(() => {
         loadMetrics();
@@ -20,9 +27,11 @@ export default function SaasDashboard() {
 
     const loadMetrics = async () => {
         setLoading(true);
-        const [metricsRes, statsRes] = await Promise.all([
+        const [metricsRes, statsRes, growthRes, featureRes] = await Promise.all([
             adminService.getSaasMetrics(),
-            adminService.getSystemStats()
+            adminService.getSystemStats(),
+            adminService.getGrowthTrends(),
+            adminService.getFeatureUsage()
         ]);
 
         if (metricsRes.error) {
@@ -37,6 +46,14 @@ export default function SaasDashboard() {
             // Mock data if fetch fails (fallback/dev mode)
             // or simply keep null
             console.log("Stats fetch unavailable or null");
+        }
+
+        if (growthRes && growthRes.data) {
+            setGrowthData(growthRes.data);
+        }
+
+        if (featureRes && featureRes.data) {
+            setFeatureUsage(featureRes.data);
         }
 
         setLoading(false);
@@ -70,11 +87,26 @@ export default function SaasDashboard() {
             <Header
                 title="SaaS Console"
                 rightElement={
-                    <div className="flex items-center gap-2 bg-surface-mixed px-3 py-1.5 rounded-lg border border-white/5">
-                        <span className="text-text-subtle text-[10px] uppercase font-bold tracking-widest">Total ARR</span>
-                        <span className="text-sm font-bold text-white">R$ --</span>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setIsBroadcastModalOpen(true)}
+                            className="bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 px-3 py-1.5 rounded-lg flex items-center gap-2 transition-all mr-2"
+                            title="Enviar Broadcast Geral"
+                        >
+                            <span className="material-symbols-outlined text-[18px]">campaign</span>
+                            <span className="text-xs font-bold uppercase tracking-wider">Broadcast</span>
+                        </button>
+                        <div className="flex items-center gap-2 bg-surface-mixed px-3 py-1.5 rounded-lg border border-white/5">
+                            <span className="text-text-subtle text-[10px] uppercase font-bold tracking-widest">Total ARR</span>
+                            <span className="text-sm font-bold text-white">R$ --</span>
+                        </div>
                     </div>
                 }
+            />
+
+            <BroadcastModal
+                isOpen={isBroadcastModalOpen}
+                onClose={() => setIsBroadcastModalOpen(false)}
             />
 
             <div className="p-8 max-w-[1600px] mx-auto">
@@ -321,7 +353,7 @@ export default function SaasDashboard() {
                             </div>
                         </div>
 
-                        {/* Modal Detail X-Ray */}
+
                         <OrgDetailsModal
                             orgId={selectedOrgId}
                             onClose={() => setSelectedOrgId(null)}
@@ -399,6 +431,39 @@ export default function SaasDashboard() {
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Churn Risk */}
+                            <div className="bg-surface-panel border border-red-500/20 rounded-2xl p-6 relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="p-2 bg-red-500/10 rounded-lg text-red-400 animate-pulse">
+                                        <span className="material-symbols-outlined text-2xl">warning</span>
+                                    </div>
+                                    <div>
+                                        <div className="text-[10px] font-bold uppercase text-text-subtle tracking-wider">Risco de Churn</div>
+                                        <div className="text-2xl font-bold text-white font-display">
+                                            {metrics.filter(m => {
+                                                const health = Math.min(100, Math.max(0, (m.tasks_last_7d * 5) + (m.user_count > 0 ? 50 : 0)));
+                                                return health < 30 && m.status === 'active';
+                                            }).length} <span className="text-sm font-normal text-text-muted">Empresas</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-red-400 uppercase font-bold tracking-widest bg-red-500/10 inline-block px-2 py-1 rounded border border-red-500/20">
+                                    Atenção Necessária
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Charts Section */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                            <RevenueGrowthChart data={growthData} isLoading={loading} />
+                            <UserGrowthChart data={growthData} isLoading={loading} />
+                        </div>
+
+                        {/* Feature Heatmap */}
+                        <div className="mb-8">
+                            <FeatureUsageChart data={featureUsage} isLoading={loading} />
                         </div>
 
                         {/* Profitability Table */}
@@ -413,6 +478,7 @@ export default function SaasDashboard() {
                                             <th className="p-4 text-[10px] font-bold uppercase text-text-subtle tracking-wider text-center">Status Pgto</th>
                                             <th className="p-4 text-[10px] font-bold uppercase text-text-subtle tracking-wider text-right">Custo Infra</th>
                                             <th className="p-4 text-[10px] font-bold uppercase text-text-subtle tracking-wider text-right">Margem Líquida</th>
+                                            <th className="p-4 text-[10px] font-bold uppercase text-text-subtle tracking-wider text-center">Saúde (Churn Risk)</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -421,7 +487,18 @@ export default function SaasDashboard() {
                                             const storageCost = (org.storage_size_mb / 1024) * 0.50;
                                             const userCost = org.user_count * 0.50;
                                             const totalCost = storageCost + userCost;
+
+                                            // Margin Calc
                                             const margin = revenue > 0 ? ((revenue - totalCost) / revenue * 100) : 0;
+
+                                            // Health Score Calculation
+                                            // Mock active_users (random for demo if missing) or use a logic
+                                            // Ideally backend should provide `active_users_30d` in metrics list. 
+                                            // Since it's missing in `SaasMetric` type currently, we'll mock it or use tasks_last_7d as proxy
+                                            const healthScore = Math.min(100, Math.max(0, (org.tasks_last_7d * 5) + (org.user_count > 0 ? 50 : 0)));
+
+                                            // Logic: 5 pts per task last 7d, +50 base if has users. Cap at 100.
+                                            // Simple proxy since we don't have detailed activity in the list view yet.
 
                                             return (
                                                 <tr
@@ -493,6 +570,20 @@ export default function SaasDashboard() {
                                                                     'text-white'}`}>
                                                             {margin.toFixed(1)}%
                                                         </span>
+                                                    </td>
+                                                    <td className="p-4 text-center">
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            {/* Health Bar */}
+                                                            <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                                                <div
+                                                                    className={`h-full rounded-full ${healthScore > 70 ? 'bg-green-400 shadow-[0_0_10px_rgba(74,222,128,0.5)]' : healthScore > 30 ? 'bg-yellow-400' : 'bg-red-500 animate-pulse'}`}
+                                                                    style={{ width: `${healthScore}%` }}
+                                                                ></div>
+                                                            </div>
+                                                            <span className={`text-[10px] font-bold ${healthScore < 30 ? 'text-red-400' : 'text-text-muted'}`}>
+                                                                {healthScore}%
+                                                            </span>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             );

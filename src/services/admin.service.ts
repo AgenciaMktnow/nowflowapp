@@ -55,7 +55,41 @@ export const adminService = {
             console.error('Error fetching system stats:', error);
             return { data: null, error };
         }
-        return { data: data[0] as SystemStats, error: null }; // RPC returns an array of one row
+        return { data: data[0] as SystemStats, error: null };
+    },
+
+    // New: Growth Trends
+    async getGrowthTrends(days: number = 30): Promise<{ data: any[] | null; error: Error | null }> {
+        const { data, error } = await supabase.rpc('get_growth_trends', { days_limit: days });
+        if (error) {
+            console.error('Error fetching growth trends:', error);
+            return { data: null, error };
+        }
+        return { data, error: null };
+    },
+
+    // New: Feature Usage
+    async getFeatureUsage(): Promise<{ data: { feature_name: string; usage_count: number }[] | null; error: Error | null }> {
+        const { data, error } = await supabase.rpc('get_feature_usage_stats');
+        if (error) {
+            console.error('Error fetching feature usage:', error);
+            return { data: null, error };
+        }
+        return { data, error: null };
+    },
+
+    // New: Send Broadcast
+    async sendBroadcast(title: string, message: string, type: 'info' | 'warning' | 'error' | 'success' = 'info'): Promise<{ error: Error | null }> {
+        const { error } = await supabase
+            .from('system_announcements')
+            .insert({
+                title,
+                message,
+                type,
+                is_active: true
+            });
+
+        return { error };
     },
 
     // 1. Get All SaaS Metrics

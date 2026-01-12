@@ -4,6 +4,7 @@ import Sidebar from './Sidebar';
 // import { useSettings } from '../contexts/SettingsContext';
 import { useAuth } from '../contexts/AuthContext';
 import AutoPauseAlert from './modals/AutoPauseAlert';
+import BroadcastReceiver from './BroadcastReceiver';
 
 export default function Layout() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -25,6 +26,7 @@ export default function Layout() {
         <div className="flex h-screen w-full bg-background-dark text-white font-display overflow-hidden print:h-auto print:overflow-visible">
             {/* Auto Pause Alert Overlay */}
             <AutoPauseAlert />
+            <BroadcastReceiver />
 
             {/* God Mode Banner */}
             {isImpersonating && (
