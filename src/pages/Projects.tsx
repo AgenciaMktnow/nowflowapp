@@ -349,6 +349,16 @@ export default function Projects() {
         // const taskProject = projects.find(p => p.id === task.project_id);
 
         // 1. Strict Logic Checks
+
+        // ISOLATION: Foreign Column Filter
+        // If a task has a column_id, but that column does NOT exist in the current board's columns,
+        // it means the task belongs to another board. Hide it.
+        // Exception: If no board is selected (All Boards view), we don't hide.
+        if (selectedBoard && task.column_id) {
+            const belongsToCurrentBoard = columns.some(c => c.id === task.column_id);
+            if (!belongsToCurrentBoard) return false;
+        }
+
         // Note: Backend handles Board/Team member logic (User-Centric) AND Client Many-to-Many logic.
         // We trust the backend for Client/Board/Team filtering. Only Project ID drills down strictly on task.
         if (selectedProject && task.project_id !== selectedProject) return false;
