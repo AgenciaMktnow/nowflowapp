@@ -69,20 +69,35 @@ BEGIN
         LIMIT 10
     ) t;
 
-    -- 5. Cost Estimation (Mock Algo)
-    -- Base $29 + $0.10 per MB storage + $5 per Active User
-    v_cost_est := 29.00 + (v_storage_bytes / 1024 / 1024 * 0.10) + (v_users_active_30d * 5.00);
+    -- 5. Cost Estimation (Refined Logic)
+    -- Storage: R$ 0.20 per GB (S3 Standard approx)
+    -- Compute/DB: R$ 2.00 Base + R$ 0.50 per Active User
+    v_cost_est := 2.00 + ((v_storage_bytes::numeric / 1024 / 1024 / 1024) * 0.20) + (v_users_active_30d * 0.50);
 
+    -- 6. Plan Value Estimator
+    DECLARE
+        v_plan_type TEXT;
+        v_plan_value NUMERIC;
+    BEGIN
+        SELECT plan_type INTO v_plan_type FROM public.organizations WHERE id = target_org_id;
+        
+        IF v_plan_type = 'ENTERPRISE' THEN v_plan_value := 997.00;
+        ELSIF v_plan_type = 'PRO' THEN v_plan_value := 197.00;
+        ELSE v_plan_value := 0.00; -- TRIAL / FREE
+        END IF;
 
-    RETURN jsonb_build_object(
-        'db_rows', v_db_rows,
-        'task_count', v_task_count,
-        'comment_count', v_comment_count,
-        'storage_mb', round((v_storage_bytes::numeric / 1024 / 1024), 2),
-        'active_users_30d', v_users_active_30d,
-        'estimated_cost', round(v_cost_est, 2),
-        'recent_logs', COALESCE(v_recent_logs, '[]'::jsonb)
-    );
+        RETURN jsonb_build_object(
+            'db_rows', v_db_rows,
+            'task_count', v_task_count,
+            'comment_count', v_comment_count,
+            'storage_mb', round((v_storage_bytes::numeric / 1024 / 1024), 2),
+            'active_users_30d', v_users_active_30d,
+            'estimated_cost', round(v_cost_est, 2),
+            'plan_value', v_plan_value,
+            'profit_margin', round(v_plan_value - v_cost_est, 2),
+            'recent_logs', COALESCE(v_recent_logs, '[]'::jsonb)
+        );
+    END;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
