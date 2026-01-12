@@ -10,6 +10,7 @@ import AuthCallback from './pages/AuthCallback';
 import Dashboard from './pages/Dashboard';
 import Projects from './pages/Projects';
 import CreateProject from './pages/CreateProject';
+import SaasDashboard from './pages/admin/SaasDashboard';
 import TimeTracking from './pages/TimeTracking';
 
 import NewTask from './pages/NewTask';
@@ -114,6 +115,7 @@ function App() {
               <Route path="tasks/:id/edit" element={<NewTask />} />
               <Route path="time-tracking" element={<TimeTracking />} />
               <Route path="profile" element={<Profile />} />
+              <Route path="admin/saas" element={<SaasDashboard />} />
               <Route path="settings/*" element={<Settings />} />
             </Route>
             <Route path="*" element={<NotFound />} />
