@@ -476,24 +476,26 @@ export default function SaasDashboard() {
                                                             })()}
                                                         </div>
                                                     </td>
-                                                    <td className="p-4 text-right text-text-muted group relative">
-                                                        <span className="cursor-help">R$ {totalCost.toFixed(2)}</span>
-                                                        {/* Cost Breakdown Tooltip */}
-                                                        <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block z-10 w-64">
-                                                            <div className="bg-surface-panel border border-primary/30 rounded-xl p-3 shadow-2xl">
-                                                                <div className="text-[10px] font-bold uppercase text-text-subtle tracking-wider mb-2">Decomposição de Custos</div>
-                                                                <div className="space-y-1.5 text-xs">
-                                                                    <div className="flex justify-between items-center">
-                                                                        <span className="text-text-muted">Usuários ({org.user_count} × R$ 0,50)</span>
-                                                                        <span className="font-bold text-white">R$ {userCost.toFixed(2)}</span>
-                                                                    </div>
-                                                                    <div className="flex justify-between items-center">
-                                                                        <span className="text-text-muted">Storage ({(org.storage_size_mb / 1024).toFixed(2)}GB × R$ 0,50)</span>
-                                                                        <span className="font-bold text-white">R$ {storageCost.toFixed(2)}</span>
-                                                                    </div>
-                                                                    <div className="border-t border-white/10 pt-1.5 mt-1.5 flex justify-between items-center">
-                                                                        <span className="text-primary font-bold">Total</span>
-                                                                        <span className="font-bold text-primary">R$ {totalCost.toFixed(2)}</span>
+                                                    <td className="p-4 text-right text-text-muted relative">
+                                                        <div className="group inline-block">
+                                                            <span className="cursor-help">R$ {totalCost.toFixed(2)}</span>
+                                                            {/* Cost Breakdown Tooltip */}
+                                                            <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block z-50 w-64">
+                                                                <div className="bg-surface-panel border border-primary/30 rounded-xl p-3 shadow-2xl">
+                                                                    <div className="text-[10px] font-bold uppercase text-text-subtle tracking-wider mb-2">Decomposição de Custos</div>
+                                                                    <div className="space-y-1.5 text-xs">
+                                                                        <div className="flex justify-between items-center">
+                                                                            <span className="text-text-muted">Usuários ({org.user_count} × R$ 0,50)</span>
+                                                                            <span className="font-bold text-white">R$ {userCost.toFixed(2)}</span>
+                                                                        </div>
+                                                                        <div className="flex justify-between items-center">
+                                                                            <span className="text-text-muted">Storage ({(org.storage_size_mb / 1024).toFixed(2)}GB × R$ 0,50)</span>
+                                                                            <span className="font-bold text-white">R$ {storageCost.toFixed(2)}</span>
+                                                                        </div>
+                                                                        <div className="border-t border-white/10 pt-1.5 mt-1.5 flex justify-between items-center">
+                                                                            <span className="text-primary font-bold">Total</span>
+                                                                            <span className="font-bold text-primary">R$ {totalCost.toFixed(2)}</span>
+                                                                        </div>
                                                                     </div>
                                                                 </div>
                                                             </div>
