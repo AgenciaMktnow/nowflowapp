@@ -11,11 +11,13 @@ export default function Layout() {
 
     // God Mode Detection
     const impersonatedOrgId = localStorage.getItem('impersonate_org_id');
+    const impersonatedOrgName = localStorage.getItem('impersonate_org_name');
     const isSuperAdmin = ['neto@mktnow.com.br', 'duqueneto@gmail.com', 'duqueneto@gmail.com.br'].includes(userProfile?.email || '');
     const isImpersonating = impersonatedOrgId && isSuperAdmin;
 
     const handleExitGodMode = () => {
         localStorage.removeItem('impersonate_org_id');
+        localStorage.removeItem('impersonate_org_name');
         window.location.href = '/admin/saas';
     };
 
@@ -28,7 +30,7 @@ export default function Layout() {
                         <div className="flex items-center gap-3">
                             <span className="material-symbols-outlined text-amber-400 text-xl animate-pulse">visibility</span>
                             <span className="text-sm font-bold text-amber-100">
-                                🕵️‍♂️ GOD MODE: Visualizando conta <span className="text-amber-300">{impersonatedOrgId.slice(0, 8)}...</span>
+                                🕵️‍♂️ GOD MODE: Visualizando conta <span className="text-amber-300">{impersonatedOrgName || 'Desconhecida'}</span>
                             </span>
                         </div>
                         <button
