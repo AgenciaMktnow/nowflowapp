@@ -42,7 +42,22 @@ export interface OrgDetails {
     max_storage_mb?: number;
 }
 
+export interface SystemStats {
+    db_size_bytes: number;
+    storage_size_bytes: number;
+}
+
 export const adminService = {
+    // 0. Get Global System Stats
+    async getSystemStats(): Promise<{ data: SystemStats | null; error: Error | null }> {
+        const { data, error } = await supabase.rpc('get_system_stats');
+        if (error) {
+            console.error('Error fetching system stats:', error);
+            return { data: null, error };
+        }
+        return { data: data[0] as SystemStats, error: null }; // RPC returns an array of one row
+    },
+
     // 1. Get All SaaS Metrics
     async getSaasMetrics(): Promise<{ data: SaasMetric[] | null; error: Error | null }> {
         const { data, error } = await supabase.rpc('get_saas_metrics');

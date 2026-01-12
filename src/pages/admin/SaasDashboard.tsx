@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { adminService, type SaasMetric } from '../../services/admin.service';
+import { adminService, type SaasMetric, type SystemStats } from '../../services/admin.service';
 import OrgDetailsModal from '../../components/admin/OrgDetailsModal';
 import { QuotaProgressBar } from '../../components/admin/QuotaProgressBar';
 import { toast } from 'sonner';
 
 export default function SaasDashboard() {
     const [metrics, setMetrics] = useState<SaasMetric[]>([]);
+    const [systemStats, setSystemStats] = useState<SystemStats | null>(null);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('');
     const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
@@ -16,12 +17,25 @@ export default function SaasDashboard() {
 
     const loadMetrics = async () => {
         setLoading(true);
-        const { data, error } = await adminService.getSaasMetrics();
-        if (error) {
+        const [metricsRes, statsRes] = await Promise.all([
+            adminService.getSaasMetrics(),
+            adminService.getSystemStats()
+        ]);
+
+        if (metricsRes.error) {
             toast.error('Acesso Negado ou Erro ao carregar dados.');
-        } else if (data) {
-            setMetrics(data);
+        } else if (metricsRes.data) {
+            setMetrics(metricsRes.data);
         }
+
+        if (statsRes.data) {
+            setSystemStats(statsRes.data);
+        } else {
+            // Mock data if fetch fails (fallback/dev mode)
+            // or simply keep null
+            console.log("Stats fetch unavailable or null");
+        }
+
         setLoading(false);
     };
 
@@ -68,10 +82,82 @@ export default function SaasDashboard() {
                     </h1>
                     <p className="text-text-subtle mt-1">Visão geral de todas as organizações e performance do sistema.</p>
                 </div>
-                <div className="flex gap-4">
-                    <div className="flex items-center gap-2 bg-background-card px-4 py-2 rounded-xl border border-border-green/30">
-                        <span className="text-text-subtle text-xs uppercase font-bold">Total ARR (Est.)</span>
-                        <span className="text-xl font-bold text-white">R$ --</span>
+            </div>
+
+            {/* Global Infrastructure Status - Energy Board */}
+            <div className="mb-8 bg-[#121214] border border-white/10 rounded-2xl p-6 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+
+                <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-green-500">memory</span>
+                    Status Global da Infraestrutura
+                </h2>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                    {/* Database Health */}
+                    <div className="flex flex-col gap-4">
+                        <div className="flex justify-between items-end">
+                            <div className="flex items-center gap-2">
+                                <span className="material-symbols-outlined text-blue-400">database</span>
+                                <div>
+                                    <div className="text-xs font-bold uppercase text-text-subtle">Database Size</div>
+                                    <div className="text-2xl font-bold text-white">
+                                        {systemStats ? (systemStats.db_size_bytes / 1024 / 1024).toFixed(1) : '--'} <span className="text-sm font-normal text-text-muted">MB</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-xs text-text-muted mb-1">Limite Plano Free</div>
+                                <div className="text-sm font-bold text-white">500 MB</div>
+                            </div>
+                        </div>
+                        <QuotaProgressBar
+                            current={systemStats ? (systemStats.db_size_bytes / 1024 / 1024) : 0}
+                            max={500}
+                            label="MB"
+                            showText={false}
+                        />
+                        <div className="flex justify-between text-xs">
+                            <span className="text-text-muted">Custo Excedente: $0.125/GB</span>
+                            {systemStats && (systemStats.db_size_bytes / 1024 / 1024) > 500 ? (
+                                <span className="text-red-400 font-bold animate-pulse">Upgrade Requerido</span>
+                            ) : (
+                                <span className="text-green-400">Dentro da Cota</span>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Storage Health */}
+                    <div className="flex flex-col gap-4">
+                        <div className="flex justify-between items-end">
+                            <div className="flex items-center gap-2">
+                                <span className="material-symbols-outlined text-orange-400">cloud_upload</span>
+                                <div>
+                                    <div className="text-xs font-bold uppercase text-text-subtle">Storage Size</div>
+                                    <div className="text-2xl font-bold text-white">
+                                        {systemStats ? (systemStats.storage_size_bytes / 1024 / 1024).toFixed(1) : '--'} <span className="text-sm font-normal text-text-muted">MB</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-xs text-text-muted mb-1">Limite Plano Free</div>
+                                <div className="text-sm font-bold text-white">1024 MB</div>
+                            </div>
+                        </div>
+                        <QuotaProgressBar
+                            current={systemStats ? (systemStats.storage_size_bytes / 1024 / 1024) : 0}
+                            max={1024}
+                            label="MB"
+                            showText={false}
+                        />
+                        <div className="flex justify-between text-xs">
+                            <span className="text-text-muted">Custo Excedente: $0.021/GB</span>
+                            {systemStats && (systemStats.storage_size_bytes / 1024 / 1024) > 1024 ? (
+                                <span className="text-red-400 font-bold animate-pulse">Upgrade Requerido</span>
+                            ) : (
+                                <span className="text-green-400">Dentro da Cota</span>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>

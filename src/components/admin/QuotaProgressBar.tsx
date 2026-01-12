@@ -25,8 +25,8 @@ export function QuotaProgressBar({ current, max, label, showText = true, compact
 
     // Color Logic
     let colorClass = 'bg-primary'; // Greenish
-    if (percentage >= 100) colorClass = 'bg-red-500';
-    else if (percentage >= 80) colorClass = 'bg-yellow-500';
+    if (percentage >= 90) colorClass = 'bg-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]';
+    else if (percentage >= 70) colorClass = 'bg-yellow-500';
 
     return (
         <div className="flex flex-col w-full max-w-[120px]">
