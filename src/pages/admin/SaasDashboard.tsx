@@ -51,16 +51,6 @@ export default function SaasDashboard() {
         }
     };
 
-    const handleStatusChange = async (e: React.MouseEvent, orgId: string, currentPlan: string, newStatus: string) => {
-        e.stopPropagation();
-        const { error } = await adminService.updateOrgPlan(orgId, currentPlan, newStatus);
-        if (error) toast.error('Erro ao atualizar status');
-        else {
-            toast.success(`Status atualizado para ${newStatus}`);
-            loadMetrics();
-        }
-    };
-
     // Derived KPIs
     const totalOrgs = metrics.length;
     const totalUsers = metrics.reduce((acc, curr) => acc + curr.user_count, 0);
