@@ -44,7 +44,7 @@ export default function CostTooltip({ totalCost, userCount, userCost, storageMB,
                         transform: 'translateY(-100%)'
                     }}
                 >
-                    <div className="bg-surface-panel border border-primary/30 rounded-xl p-3 shadow-2xl pointer-events-auto">
+                    <div className="bg-[#05110A] border border-primary/30 rounded-xl p-3 shadow-2xl pointer-events-auto">
                         <div className="text-[10px] font-bold uppercase text-text-subtle tracking-wider mb-2">Decomposição de Custos</div>
                         <div className="space-y-1.5 text-xs">
                             <div className="flex justify-between items-center">
