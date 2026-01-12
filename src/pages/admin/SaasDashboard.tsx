@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { adminService, SaasMetric } from '../../services/admin.service';
+import { adminService, type SaasMetric } from '../../services/admin.service';
+import OrgDetailsModal from '../../components/admin/OrgDetailsModal';
 import { toast } from 'sonner';
 
 export default function SaasDashboard() {
     const [metrics, setMetrics] = useState<SaasMetric[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('');
+    const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
 
     useEffect(() => {
         loadMetrics();
@@ -22,7 +24,8 @@ export default function SaasDashboard() {
         setLoading(false);
     };
 
-    const handlePlanChange = async (orgId: string, newPlan: string, currentStatus: string) => {
+    const handlePlanChange = async (e: React.MouseEvent, orgId: string, newPlan: string, currentStatus: string) => {
+        e.stopPropagation();
         const { error } = await adminService.updateOrgPlan(orgId, newPlan, currentStatus);
         if (error) toast.error('Erro ao atualizar plano');
         else {
@@ -31,7 +34,8 @@ export default function SaasDashboard() {
         }
     };
 
-    const handleStatusChange = async (orgId: string, currentPlan: string, newStatus: string) => {
+    const handleStatusChange = async (e: React.MouseEvent, orgId: string, currentPlan: string, newStatus: string) => {
+        e.stopPropagation();
         const { error } = await adminService.updateOrgPlan(orgId, currentPlan, newStatus);
         if (error) toast.error('Erro ao atualizar status');
         else {
@@ -120,9 +124,13 @@ export default function SaasDashboard() {
                         </thead>
                         <tbody>
                             {filteredMetrics.map((org) => (
-                                <tr key={org.org_id} className="border-b border-border-green/10 hover:bg-white/5 transition-colors">
+                                <tr
+                                    key={org.org_id}
+                                    onClick={() => setSelectedOrgId(org.org_id)}
+                                    className="border-b border-border-green/10 hover:bg-white/5 transition-colors cursor-pointer group"
+                                >
                                     <td className="p-4">
-                                        <div className="font-bold text-white">{org.org_name}</div>
+                                        <div className="font-bold text-white group-hover:text-primary transition-colors">{org.org_name}</div>
                                         <div className="text-xs text-text-subtle font-mono">{org.org_id.slice(0, 8)}...</div>
                                     </td>
                                     <td className="p-4 text-text-light text-sm">{org.owner_email}</td>
@@ -152,14 +160,14 @@ export default function SaasDashboard() {
                                     <td className="p-4 text-right">
                                         <div className="flex justify-end gap-2">
                                             <button
-                                                onClick={() => handlePlanChange(org.org_id, 'ENTERPRISE', org.status)}
+                                                onClick={(e) => handlePlanChange(e, org.org_id, 'ENTERPRISE', org.status)}
                                                 className="text-xs text-text-subtle hover:text-white border border-transparent hover:border-white/20 px-2 py-1 rounded"
                                                 title="Promover para Enterprise"
                                             >
                                                 👑
                                             </button>
                                             <button
-                                                onClick={() => handleStatusChange(org.org_id, org.plan_type, org.status === 'active' ? 'suspended' : 'active')}
+                                                onClick={(e) => handleStatusChange(e, org.org_id, org.plan_type, org.status === 'active' ? 'suspended' : 'active')}
                                                 className="text-xs text-text-subtle hover:text-red-400 border border-transparent hover:border-red-400/20 px-2 py-1 rounded"
                                                 title={org.status === 'active' ? 'Suspender' : 'Reativar'}
                                             >
@@ -173,6 +181,12 @@ export default function SaasDashboard() {
                     </table>
                 </div>
             </div>
+
+            {/* Modal Detail X-Ray */}
+            <OrgDetailsModal
+                orgId={selectedOrgId}
+                onClose={() => setSelectedOrgId(null)}
+            />
         </div>
     );
 }

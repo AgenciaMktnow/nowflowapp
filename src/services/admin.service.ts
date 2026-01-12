@@ -43,5 +43,15 @@ export const adminService = {
         }
 
         return { error: null };
+    },
+
+    // 3. Get Org Details (X-Ray)
+    async getOrgDetails(orgId: string): Promise<{ data: any | null; error: Error | null }> {
+        const { data, error } = await supabase.rpc('get_org_details', { target_org_id: orgId });
+        if (error) {
+            console.error('Error fetching org details:', error);
+            return { data: null, error };
+        }
+        return { data, error: null };
     }
 };
