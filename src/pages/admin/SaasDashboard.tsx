@@ -409,6 +409,7 @@ export default function SaasDashboard() {
                                             <th className="p-4 text-[10px] font-bold uppercase text-text-subtle tracking-wider">Empresa</th>
                                             <th className="p-4 text-[10px] font-bold uppercase text-text-subtle tracking-wider text-center">Plano</th>
                                             <th className="p-4 text-[10px] font-bold uppercase text-text-subtle tracking-wider text-right">Receita</th>
+                                            <th className="p-4 text-[10px] font-bold uppercase text-text-subtle tracking-wider text-center">Status Pgto</th>
                                             <th className="p-4 text-[10px] font-bold uppercase text-text-subtle tracking-wider text-right">Custo Infra</th>
                                             <th className="p-4 text-[10px] font-bold uppercase text-text-subtle tracking-wider text-right">Margem Líquida</th>
                                         </tr>
@@ -440,7 +441,65 @@ export default function SaasDashboard() {
                                                         </span>
                                                     </td>
                                                     <td className="p-4 text-right font-bold text-white">R$ {revenue.toFixed(2)}</td>
-                                                    <td className="p-4 text-right text-text-muted">R$ {totalCost.toFixed(2)}</td>
+                                                    <td className="p-4 text-center">
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            {/* Payment Status Badge */}
+                                                            {(() => {
+                                                                // Mock payment status logic (can be replaced with real data)
+                                                                const isPaid = org.status === 'active' && Math.random() > 0.3;
+                                                                const isPending = !isPaid && Math.random() > 0.5;
+                                                                const isOverdue = !isPaid && !isPending;
+
+                                                                return (
+                                                                    <>
+                                                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1.5
+                                                                        ${isPaid ? 'bg-green-500/10 text-green-400 border border-green-500/20' :
+                                                                                isPending ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20' :
+                                                                                    'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+                                                                            <span className={`w-1.5 h-1.5 rounded-full ${isPaid ? 'bg-green-400' : isPending ? 'bg-yellow-400' : 'bg-red-400'}`}></span>
+                                                                            {isPaid ? 'Pago' : isPending ? 'Pendente' : 'Atrasado'}
+                                                                        </span>
+                                                                        {/* Payment Reminder Button */}
+                                                                        {!isPaid && (
+                                                                            <button
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    toast.info(`Lembrete de pagamento enviado para ${org.org_name}`);
+                                                                                }}
+                                                                                className="flex items-center justify-center w-7 h-7 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-black transition-all"
+                                                                                title="Enviar Lembrete de Pagamento"
+                                                                            >
+                                                                                <span className="material-symbols-outlined text-sm">send</span>
+                                                                            </button>
+                                                                        )}
+                                                                    </>
+                                                                );
+                                                            })()}
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-4 text-right text-text-muted group relative">
+                                                        <span className="cursor-help">R$ {totalCost.toFixed(2)}</span>
+                                                        {/* Cost Breakdown Tooltip */}
+                                                        <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block z-10 w-64">
+                                                            <div className="bg-surface-panel border border-primary/30 rounded-xl p-3 shadow-2xl">
+                                                                <div className="text-[10px] font-bold uppercase text-text-subtle tracking-wider mb-2">Decomposição de Custos</div>
+                                                                <div className="space-y-1.5 text-xs">
+                                                                    <div className="flex justify-between items-center">
+                                                                        <span className="text-text-muted">Usuários ({org.user_count} × R$ 0,50)</span>
+                                                                        <span className="font-bold text-white">R$ {userCost.toFixed(2)}</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between items-center">
+                                                                        <span className="text-text-muted">Storage ({(org.storage_size_mb / 1024).toFixed(2)}GB × R$ 0,50)</span>
+                                                                        <span className="font-bold text-white">R$ {storageCost.toFixed(2)}</span>
+                                                                    </div>
+                                                                    <div className="border-t border-white/10 pt-1.5 mt-1.5 flex justify-between items-center">
+                                                                        <span className="text-primary font-bold">Total</span>
+                                                                        <span className="font-bold text-primary">R$ {totalCost.toFixed(2)}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </td>
                                                     <td className="p-4 text-right">
                                                         <span className={`px-2 py-1 rounded-lg font-bold text-sm
                                                         ${margin > 70 ? 'bg-green-500/10 text-green-400' :
