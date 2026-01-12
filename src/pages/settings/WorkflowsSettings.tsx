@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
 import { boardService } from '../../services/board.service';
+import { teamService } from '../../services/team.service';
 import NewWorkflowModal, { type WorkflowStep } from '../../components/NewWorkflowModal';
 
 interface Workflow {
@@ -19,13 +20,26 @@ interface Board {
 export default function WorkflowsSettings() {
     const [workflows, setWorkflows] = useState<Workflow[]>([]);
     const [boards, setBoards] = useState<Board[]>([]);
+    const [teams, setTeams] = useState<{ id: string; name: string }[]>([]);
+    const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
+    const [dataLoading, setDataLoading] = useState(false);
     const [isWorkflowModalOpen, setIsWorkflowModalOpen] = useState(false);
     const [editingWorkflow, setEditingWorkflow] = useState<Workflow | null>(null);
 
     useEffect(() => {
-        fetchWorkflows();
-        fetchBoards();
+        fetchData();
     }, []);
+
+    const fetchData = async () => {
+        setDataLoading(true);
+        await Promise.all([
+            fetchWorkflows(),
+            fetchBoards(),
+            fetchTeams(),
+            fetchUsers()
+        ]);
+        setDataLoading(false);
+    };
 
     const fetchWorkflows = async () => {
         const { data } = await supabase.from('workflows').select('*').order('created_at');
@@ -35,6 +49,25 @@ export default function WorkflowsSettings() {
     const fetchBoards = async () => {
         const { data } = await boardService.getBoards();
         if (data) setBoards(data);
+    };
+
+    const fetchTeams = async () => {
+        const { data } = await teamService.getTeams();
+        if (data) setTeams(data);
+    };
+
+    const fetchUsers = async () => {
+        const { data } = await supabase
+            .from('users')
+            .select('id, full_name, email')
+            .order('full_name');
+
+        if (data) {
+            setUsers(data.map(u => ({
+                id: u.id,
+                name: u.full_name || u.email || 'Usuário sem nome'
+            })));
+        }
     };
 
     const handleSaveWorkflow = async (name: string, _description: string, steps: WorkflowStep[], boardId: string) => {
@@ -158,9 +191,10 @@ export default function WorkflowsSettings() {
                 }}
                 onSave={handleSaveWorkflow}
                 initialData={editingWorkflow || undefined}
-                availableTeams={[]}
-                availableUsers={[]}
+                availableTeams={teams}
+                availableUsers={users}
                 availableBoards={boards}
+                isLoading={dataLoading}
             />
         </div>
     );

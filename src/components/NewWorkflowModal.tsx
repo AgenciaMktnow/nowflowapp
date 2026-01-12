@@ -31,6 +31,7 @@ interface NewWorkflowModalProps {
     availableTeams: Team[];
     availableUsers: User[];
     availableBoards: Board[];
+    isLoading?: boolean;
     initialData?: {
         name: string;
         description?: string;
@@ -46,11 +47,21 @@ export default function NewWorkflowModal({
     availableTeams,
     availableUsers,
     availableBoards,
+    isLoading = false,
     initialData
 }: NewWorkflowModalProps) {
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [boardId, setBoardId] = useState('');
+
+    // ... (rest of state initialization)
+    // We need to keep the state initialization logic intact, so I will target the props definition and then jump to the render part in a separate chunk or if it fits. 
+    // Actually, I can just update the props destructuring here.
+
+    // ...
+
+    // (Jumping to render part in the ReplacementChunks array to be safe and clean)
+
 
     // Initial State with 3 default steps as per HTML reference but dynamic
     const [steps, setSteps] = useState<WorkflowStep[]>([
@@ -262,37 +273,26 @@ export default function NewWorkflowModal({
                                                 </div>
                                                 <div className="md:col-span-3">
                                                     <label className="text-[10px] text-text-subtle uppercase font-bold mb-1.5 block">Tipo de Responsável</label>
-                                                    <select
+                                                    <ModernDropdown
                                                         value={step.responsibleType}
-                                                        onChange={(e) => handleUpdateStep(index, 'responsibleType', e.target.value as 'team' | 'user')}
-                                                        className="w-full bg-background-dark border border-border-green rounded-lg px-3 py-2.5 text-white text-sm focus:border-primary focus:ring-0 transition-colors cursor-pointer appearance-none"
-                                                    >
-                                                        <option value="team">Equipe</option>
-                                                        <option value="user">Usuário</option>
-                                                    </select>
+                                                        onChange={(val) => handleUpdateStep(index, 'responsibleType', val as 'team' | 'user')}
+                                                        options={[
+                                                            { id: 'team', name: 'Equipe' },
+                                                            { id: 'user', name: 'Usuário' }
+                                                        ]}
+                                                        placeholder="Selecione..."
+                                                    />
                                                 </div>
                                                 <div className="md:col-span-4">
                                                     <label className="text-[10px] text-text-subtle uppercase font-bold mb-1.5 block">Atribuir a</label>
                                                     <div className="relative">
-                                                        <select
+                                                        <ModernDropdown
                                                             value={step.assignee}
-                                                            onChange={(e) => handleUpdateStep(index, 'assignee', e.target.value)}
-                                                            className="w-full bg-background-dark border border-border-green rounded-lg px-3 py-2.5 text-white text-sm focus:border-primary focus:ring-0 transition-colors cursor-pointer appearance-none"
-                                                        >
-                                                            <option value="" disabled>Selecione...</option>
-                                                            {step.responsibleType === 'team' ? (
-                                                                availableTeams.map(team => (
-                                                                    <option key={team.id} value={team.name}>{team.name}</option>
-                                                                ))
-                                                            ) : (
-                                                                availableUsers.map(user => (
-                                                                    <option key={user.id} value={user.name}>{user.name}</option>
-                                                                ))
-                                                            )}
-                                                        </select>
-                                                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-text-subtle">
-                                                            <span className="material-symbols-outlined text-[16px]">expand_more</span>
-                                                        </div>
+                                                            onChange={(val) => handleUpdateStep(index, 'assignee', val)}
+                                                            options={step.responsibleType === 'team' ? availableTeams : availableUsers}
+                                                            disabled={isLoading}
+                                                            placeholder={isLoading ? 'Carregando...' : 'Selecione...'}
+                                                        />
                                                     </div>
                                                 </div>
                                             </div>
