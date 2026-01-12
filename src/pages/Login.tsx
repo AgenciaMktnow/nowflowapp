@@ -101,22 +101,24 @@ export default function Login() {
                 <div className="w-[90vw] sm:w-full sm:max-w-md space-y-4">
                     {/* Branding Header */}
                     <div className="flex flex-col items-center text-center">
-                        {settings.logo_dark_url ? (
-                            <img
-                                src={settings.logo_dark_url}
-                                alt="Logo"
-                                className="max-h-12 w-auto mb-4 object-contain"
-                            />
-                        ) : (
-                            <>
-                                <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 shadow-[0_0_15px_rgba(19,236,91,0.15)]">
-                                    <span className="material-symbols-outlined text-4xl text-primary">all_inclusive</span>
-                                </div>
-                                <h1 className="text-4xl font-black leading-tight tracking-[-0.033em] text-white">
-                                    {settings.company_name || 'Nowflow'}
-                                </h1>
-                            </>
-                        )}
+                        <Link to="/" className="block hover:opacity-80 transition-opacity">
+                            {settings.logo_dark_url ? (
+                                <img
+                                    src={settings.logo_dark_url}
+                                    alt="Logo"
+                                    className="max-h-12 w-auto mb-4 object-contain mx-auto"
+                                />
+                            ) : (
+                                <>
+                                    <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 shadow-[0_0_15px_rgba(19,236,91,0.15)] mx-auto">
+                                        <span className="material-symbols-outlined text-4xl text-primary">all_inclusive</span>
+                                    </div>
+                                    <h1 className="text-4xl font-black leading-tight tracking-[-0.033em] text-white text-center">
+                                        {settings.company_name || 'Nowflow'}
+                                    </h1>
+                                </>
+                            )}
+                        </Link>
                         <p className="mt-2 text-base font-normal text-text-secondary">
                             Produtividade em sincronia.
                         </p>

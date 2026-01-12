@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
-import { useSettings } from '../contexts/SettingsContext';
+// import { useSettings } from '../contexts/SettingsContext';
 import { useAuth } from '../contexts/AuthContext';
+import AutoPauseAlert from './modals/AutoPauseAlert';
 
 export default function Layout() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const { settings } = useSettings();
     const { userProfile } = useAuth();
 
     // God Mode Detection
@@ -23,6 +23,9 @@ export default function Layout() {
 
     return (
         <div className="flex h-screen w-full bg-background-dark text-white font-display overflow-hidden print:h-auto print:overflow-visible">
+            {/* Auto Pause Alert Overlay */}
+            <AutoPauseAlert />
+
             {/* God Mode Banner */}
             {isImpersonating && (
                 <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 border-b border-amber-500/30 backdrop-blur-sm">
@@ -60,15 +63,11 @@ export default function Layout() {
                     className="flex-1 flex justify-center cursor-pointer"
                     onClick={() => window.location.href = '/dashboard'}
                 >
-                    {settings.logo_dark_url ? (
-                        <img
-                            src={settings.logo_dark_url}
-                            alt="Logo"
-                            className="max-h-8 w-auto object-contain"
-                        />
-                    ) : (
-                        <span className="font-bold text-lg tracking-tight">NowFlow</span>
-                    )}
+                    <img
+                        src="/Logo-nowflow-banco.png"
+                        alt="Logo"
+                        className="max-h-8 w-auto object-contain"
+                    />
                 </div>
             </div>
 

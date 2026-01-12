@@ -6,7 +6,7 @@ export interface Task {
     task_number: number;
     title: string;
     description?: string;
-    status: 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'WAITING_CLIENT' | 'REVIEW' | 'DONE';
+    status: 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'WAITING_CLIENT' | 'REVIEW' | 'DONE' | 'PAUSED';
     priority: 'LOW' | 'MEDIUM' | 'HIGH';
     due_date?: string;
     project_id?: string;
@@ -341,44 +341,15 @@ export const taskService = {
 
     async startTimer(taskId: string, userId: string): Promise<{ data: any | null; error: Error | null }> {
         try {
-            const now = new Date().toISOString();
+            // New Atomic Implementation via RPC
+            const { data, error } = await supabase.rpc('start_task_timer', {
+                p_task_id: taskId,
+                p_user_id: userId
+            });
 
-            // 1. Check/Stop active timer (Atomic-like Auto-Switch)
-            const { data: activeLogs } = await supabase
-                .from('time_logs')
-                .select('id')
-                .eq('user_id', userId)
-                .is('end_time', null)
-                .limit(1);
+            if (error) throw error;
 
-            const activeLog = activeLogs && activeLogs.length > 0 ? activeLogs[0] : null;
-
-            if (activeLog) {
-                const { error: stopError } = await supabase
-                    .from('time_logs')
-                    .update({ end_time: now })
-                    .eq('id', activeLog.id);
-
-                if (stopError) throw stopError;
-            }
-
-            // 2. Start new timer
-            const { data: newLog, error: startError } = await supabase
-                .from('time_logs')
-                .insert({
-                    user_id: userId,
-                    task_id: taskId,
-                    start_time: now
-                })
-                .select()
-                .single();
-
-            if (startError) throw startError;
-
-            // 3. Update task status to IN_PROGRESS
-            await supabase.from('tasks').update({ status: 'IN_PROGRESS' }).eq('id', taskId);
-
-            return { data: newLog, error: null };
+            return { data, error: null };
         } catch (error: any) {
             return { data: null, error: mapTaskError(error) };
         }

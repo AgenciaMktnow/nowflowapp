@@ -69,9 +69,9 @@ export default function Signup() {
                 {/* Header */}
                 <div className="text-center">
                     <div className="mb-6 flex justify-center">
-                        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/30 shadow-[0_0_30px_-5px_rgba(0,255,127,0.3)]">
-                            <span className="material-symbols-outlined text-4xl text-primary">rocket_launch</span>
-                        </div>
+                        <Link to="/" className="hover:opacity-80 transition-opacity">
+                            <img src="/Logo-nowflow-banco.png" alt="NowFlow Logo" className="h-12 w-auto object-contain" />
+                        </Link>
                     </div>
                     <h2 className="text-3xl font-bold tracking-tight text-white font-display">
                         Comece grátis no NowFlow

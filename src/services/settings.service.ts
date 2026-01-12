@@ -12,8 +12,13 @@ export interface SystemSettings {
     timezone: string;
     focus_goal_hours: number;
     daily_journey_hours: number;
+    weekly_workload_hours?: number;
     theme_preference: 'DARK' | 'LIGHT';
     favicon_url?: string;
+    // Auto-Pause Settings
+    timer_auto_pause_enabled?: boolean;
+    timer_max_hours?: number;
+    timer_action?: 'PAUSE_AND_NOTIFY' | 'NOTIFY_ADMIN';
 }
 
 export const settingsService = {

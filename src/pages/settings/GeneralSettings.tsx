@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { settingsService, type SystemSettings } from '../../services/settings.service';
 import ModernDropdown from '../../components/ModernDropdown';
@@ -61,10 +61,7 @@ export default function GeneralSettings() {
 
     if (loading) return <div className="p-8 text-center text-primary">Carregando configurações...</div>;
 
-    const getNeonBorderClass = (hasValue: boolean) =>
-        hasValue
-            ? 'border-primary shadow-[0_0_15px_rgba(0,255,0,0.3)] bg-surface-card'
-            : 'border-white/10 hover:border-primary/50 bg-surface-card/50 hover:bg-surface-card';
+
 
     return (
         <div className="space-y-8 animate-fade-in-up pb-32">
