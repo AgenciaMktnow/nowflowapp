@@ -139,14 +139,13 @@ export default function CreateTask() {
                             </div>
                             <div className="flex flex-col gap-2">
                                 <label className="text-sm font-semibold text-slate-300 flex items-center gap-1">
-                                    Prazo <span className="text-primary">*</span>
+                                    Prazo <span className="text-slate-500 text-[10px] font-normal">(Opcional)</span>
                                 </label>
                                 <div className="relative group">
                                     <input
                                         type="date"
                                         value={dueDate}
                                         onChange={(e) => setDueDate(e.target.value)}
-                                        required
                                         className="w-full h-14 bg-surface-dark border border-input-border rounded-xl px-4 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-medium [color-scheme:dark]"
                                         placeholder="DD/MM/AAAA"
                                     />

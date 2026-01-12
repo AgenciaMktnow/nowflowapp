@@ -19,6 +19,7 @@ interface Task {
     client_id?: string;
     board_ids?: string[];
     attachments?: any[];
+    is_continuous?: boolean;
 }
 
 interface TaskCardProps {
@@ -133,10 +134,19 @@ const TaskCard = ({ task, index, columnVariant, isOverdue, clientsList, activeTe
                                         </span>
                                     </div>
                                 ) : (
-                                    <div className="flex items-center gap-1 text-[11px] text-text-muted" title="Tarefa Contínua">
-                                        <span className="material-symbols-outlined text-[14px]">all_inclusive</span>
-                                        <span>Contínua</span>
-                                    </div>
+                                    <>
+                                        {task.is_continuous ? (
+                                            <div className="flex items-center gap-1 text-[11px] text-text-muted" title="Tarefa Contínua (Sem Prazo por Estratégia)">
+                                                <span className="material-symbols-outlined text-[14px]">all_inclusive</span>
+                                                <span>Contínua</span>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-1 text-[11px] text-amber-500/80" title="Sem Prazo Definido (Atenção: Data Esquecida)">
+                                                <span className="material-symbols-outlined text-[14px]">warning</span>
+                                                <span>Sem Prazo</span>
+                                            </div>
+                                        )}
+                                    </>
                                 )}
                             </div>
 
@@ -208,8 +218,9 @@ const TaskCard = ({ task, index, columnVariant, isOverdue, clientsList, activeTe
                         </div>
                     </div>
                 </div>
-            )}
-        </Draggable>
+            )
+            }
+        </Draggable >
     );
 };
 

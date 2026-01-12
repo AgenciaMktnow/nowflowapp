@@ -35,6 +35,7 @@ type Task = {
     category: string;
     task_number: number;
     time_logs?: { duration_seconds: number | null }[];
+    is_continuous?: boolean;
 };
 
 type Client = {
@@ -730,10 +731,19 @@ export default function Dashboard() {
                                                             </span>
                                                         </div>
                                                     ) : (
-                                                        <div className="flex items-center gap-1 text-[11px] text-text-muted" title="Tarefa Contínua">
-                                                            <span className="material-symbols-outlined text-sm">all_inclusive</span>
-                                                            <span>Contínua</span>
-                                                        </div>
+                                                        <>
+                                                            {task.is_continuous ? (
+                                                                <div className="flex items-center gap-1 text-[11px] text-text-muted" title="Tarefa Contínua">
+                                                                    <span className="material-symbols-outlined text-sm">all_inclusive</span>
+                                                                    <span>Contínua</span>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex items-center gap-1 text-[11px] text-amber-500/80" title="Sem Prazo Definido">
+                                                                    <span className="material-symbols-outlined text-sm">warning</span>
+                                                                    <span>Sem Prazo</span>
+                                                                </div>
+                                                            )}
+                                                        </>
                                                     )}
                                                 </div>
 
@@ -854,10 +864,19 @@ export default function Dashboard() {
                                                     </span>
                                                 </div>
                                             ) : (
-                                                <div className="flex items-center gap-1 text-[11px] text-text-muted" title="Tarefa Contínua">
-                                                    <span className="material-symbols-outlined text-sm">all_inclusive</span>
-                                                    <span>Contínua</span>
-                                                </div>
+                                                <>
+                                                    {task.is_continuous ? (
+                                                        <div className="flex items-center gap-1 text-[11px] text-text-muted" title="Tarefa Contínua">
+                                                            <span className="material-symbols-outlined text-sm">all_inclusive</span>
+                                                            <span>Contínua</span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center gap-1 text-[11px] text-amber-500/80" title="Sem Prazo Definido">
+                                                            <span className="material-symbols-outlined text-sm">warning</span>
+                                                            <span>Sem Prazo</span>
+                                                        </div>
+                                                    )}
+                                                </>
                                             )}
                                         </div>
                                         {task.assignee ? (

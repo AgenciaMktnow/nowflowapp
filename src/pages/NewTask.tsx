@@ -337,7 +337,12 @@ export default function NewTask({ isDrawer = false, taskNumber: propTaskNumber, 
                 setDueDate(data.due_date.split('T')[0]);
                 setIsOngoing(false);
             } else {
-                setIsOngoing(true);
+                // If no date, check is_continuous. 
+                // Migration set old nulls to true, so this aligns.
+                setIsOngoing(!!data.is_continuous);
+                // Note: If is_continuous is false AND date is null, it means "Forgotten Date" (Warning state).
+                // In Edit Mode, we represent this as: Date field empty, Toggle OFF (so user sees they need to add date OR turn toggle on).
+                if (!data.is_continuous) setIsOngoing(false);
             }
 
             if (data.task_assignees && data.task_assignees.length > 0) {
@@ -373,8 +378,8 @@ export default function NewTask({ isDrawer = false, taskNumber: propTaskNumber, 
             assigneeIds.length === 0;
 
         // 2. Validate Business Logic (Description/Date are not marked * but logic requires them currently)
+        // Due Date is now OPTIONAL.
         const missingLogic =
-            (!isOngoing && !dueDate) ||
             !description;
 
         if (missingMandatory || missingLogic) {
@@ -480,7 +485,8 @@ export default function NewTask({ isDrawer = false, taskNumber: propTaskNumber, 
                 description,
                 status: status, // Use flexible status state
                 priority: priority,
-                due_date: isOngoing ? null : dueDate,
+                due_date: isOngoing ? null : (dueDate || null),
+                is_continuous: isOngoing, // <--- NEW: Persist distinction
                 client_id: clientId,
                 project_id: projectId,
                 workflow_id: workflowId || null,
@@ -780,11 +786,11 @@ export default function NewTask({ isDrawer = false, taskNumber: propTaskNumber, 
                             <div className="flex items-center justify-between pl-1">
                                 <label className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
                                     <span className="material-symbols-outlined text-[16px]">calendar_today</span>
-                                    Prazo <span className="text-primary">*</span>
+                                    Prazo <span className="text-[10px] text-gray-600 font-normal normal-case">(Opcional)</span>
                                 </label>
                                 {/* Modern Toggle Switch */}
                                 <div className="flex items-center gap-2">
-                                    <span className="text-[10px] text-gray-500 font-medium uppercase tracking-tight">Contínua</span>
+                                    <span className="text-[10px] text-gray-500 font-medium uppercase tracking-tight">Tarefa Contínua</span>
                                     <button
                                         type="button"
                                         onClick={() => setIsOngoing(!isOngoing)}

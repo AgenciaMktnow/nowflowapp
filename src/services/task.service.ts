@@ -29,6 +29,7 @@ export interface Task {
     task_assignees?: { user_id: string; completed_at?: string }[];
     comments_count?: number; // Virtual field often joined
     attachments?: any[];
+    is_continuous?: boolean;
 }
 
 export type CreateTaskDTO = Omit<Task, 'id' | 'task_number' | 'created_at' | 'project' | 'assignee' | 'comments_count' | 'task_assignees' | 'board_ids'> & {

@@ -39,23 +39,50 @@ export const boardService = {
     },
 
     async createBoard(board: Partial<Board>, memberIds: string[]): Promise<{ data: Board | null; error: Error | null }> {
-        // 1. Create Board
-        const { data, error } = await supabase
-            .from('boards')
-            .insert([{
-                name: board.name,
-                description: board.description,
-                color: board.color
-            }])
-            .select()
+        // 1. Get current user
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return { data: null, error: new Error('Usuário não autenticado') };
+
+        // 2. Get user's org
+        const { data: userProfile } = await supabase
+            .from('users')
+            .select('organization_id')
+            .eq('id', user.id)
             .single();
 
-        if (error) return { data: null, error };
+        if (!userProfile?.organization_id) return { data: null, error: new Error('Organização não encontrada') };
 
-        // 2. Add Members
+        // 3. Create Board (Quota Check is enforced by DB Trigger here)
+        const { data, error } = await supabase
+            .from('boards')
+            .insert({
+                name: board.name,
+                description: board.description,
+                color: board.color,
+                organization_id: userProfile.organization_id,
+                created_by: user.id
+            })
+            .select() // Returning * so we have the ID
+            .single();
+
+        if (error) {
+            // Handle Quota Limit
+            if (error.message.includes('PLAN_LIMIT_REACHED')) {
+                return { data: null, error: new Error('Limite de quadros atingido. Faça upgrade do plano.') };
+            }
+            if (error.message.includes('ACCOUNT_SUSPENDED')) {
+                return { data: null, error: new Error('Conta suspensa. Contate o suporte.') };
+            }
+            console.error('Error creating board:', error);
+            return { data: null, error };
+        }
+
+        const boardId = data.id;
+
+        // 4. Add Members
         if (memberIds.length > 0) {
             const membersData = memberIds.map(userId => ({
-                board_id: data.id,
+                board_id: boardId,
                 user_id: userId
             }));
             const { error: membersError } = await supabase
@@ -64,11 +91,10 @@ export const boardService = {
 
             if (membersError) {
                 console.error('Error adding members:', membersError);
-                // Continue anyway, it's not critical for the board structure
             }
         }
 
-        // 3. Persist Default Columns (Fix for disappearing columns)
+        // 5. Create Default Columns
         const defaultColumns = [
             { title: 'A Fazer', variant: 'default', count_color: 'bg-background-dark text-text-muted-dark', position: 0 },
             { title: 'Em Andamento', variant: 'progress', count_color: 'bg-primary/20 text-green-300', position: 1 },
@@ -76,8 +102,8 @@ export const boardService = {
             { title: 'Concluído', variant: 'done', count_color: 'bg-primary/10 text-primary', position: 3 }
         ];
 
-        const columnsData = defaultColumns.map(col => ({
-            board_id: data.id,
+        const columnsData = defaultColumns.map((col: any) => ({
+            board_id: boardId,
             title: col.title,
             variant: col.variant,
             count_color: col.count_color,

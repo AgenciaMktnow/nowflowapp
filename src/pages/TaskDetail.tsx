@@ -73,6 +73,7 @@ type Task = {
         }
     }[];
     board_ids?: string[];
+    is_continuous?: boolean;
 };
 
 type Comment = {
@@ -1293,11 +1294,13 @@ export default function TaskDetail() {
         };
     };
 
-    const formatDate = (dateString: string) => {
-        if (!dateString) return 'Tarefa Contínua';
+    const formatDate = (taskData: any) => {
+        if (!taskData.due_date) {
+            return taskData.is_continuous ? 'Tarefa Contínua' : 'Sem Prazo';
+        }
         // Fix Timezone Off-by-One Error:
         // Parse date parts manually to avoid browser timezone shift (UTC midnight -> Local previous day)
-        const datePart = dateString.split('T')[0];
+        const datePart = taskData.due_date.split('T')[0];
         const [year, month, day] = datePart.split('-').map(Number);
         const date = new Date(year, month - 1, day);
 
@@ -1447,8 +1450,8 @@ export default function TaskDetail() {
                                             {task.priority === 'HIGH' ? 'Alta' : task.priority === 'MEDIUM' ? 'Média' : 'Baixa'}
                                         </span>
                                         <span className="flex items-center gap-1 text-text-muted bg-surface-dark px-1.5 py-0.5 rounded border border-border-dark">
-                                            <span className="material-symbols-outlined text-[14px]">calendar_today</span>
-                                            {formatDate(task.due_date)}
+                                            <span className="material-symbols-outlined text-[14px]">{task.due_date ? 'calendar_today' : (task.is_continuous ? 'all_inclusive' : 'warning')}</span>
+                                            {formatDate(task)}
                                         </span>
                                         {task.workflow && (
                                             <span className="flex items-center gap-1 text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20">

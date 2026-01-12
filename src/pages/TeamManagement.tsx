@@ -263,7 +263,15 @@ export default function TeamManagement() {
             fetchUsers(); // Refresh list to assume consistency
         } catch (error: any) {
             console.error('Error saving user:', error);
-            alert(`Erro ao salvar usuário: ${error?.message || 'Tente novamente.'}`);
+            const msg = error?.message || '';
+
+            if (msg.includes('PLAN_LIMIT_REACHED')) {
+                toast.error('Limite de usuários atingido no seu plano atual. Faça um upgrade para adicionar mais membros.');
+            } else if (msg.includes('ACCOUNT_SUSPENDED')) {
+                toast.error('Sua conta está suspensa. Entre em contato com o suporte.');
+            } else {
+                toast.error(`Erro ao salvar usuário: ${msg}`);
+            }
         }
     };
 

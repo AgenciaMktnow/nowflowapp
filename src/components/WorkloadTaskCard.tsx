@@ -88,10 +88,19 @@ const WorkloadTaskCard = ({ task, index, onClick }: WorkloadTaskCardProps) => {
                                     </span>
                                 </div>
                             ) : (
-                                <div className="flex items-center gap-1 text-white/20" title="Sem prazo definido">
-                                    <span className="material-symbols-outlined text-[12px]">all_inclusive</span>
-                                    <span className="text-[10px]">Contínua</span>
-                                </div>
+                                <>
+                                    {task.is_continuous ? (
+                                        <div className="flex items-center gap-1 text-white/20" title="Tarefa Contínua">
+                                            <span className="material-symbols-outlined text-[12px]">all_inclusive</span>
+                                            <span className="text-[10px]">Contínua</span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-1 text-amber-500/50" title="Sem Prazo Definido">
+                                            <span className="material-symbols-outlined text-[12px]">warning</span>
+                                            <span className="text-[10px]">Sem Prazo</span>
+                                        </div>
+                                    )}
+                                </>
                             )}
 
                             {/* Estimated Time (Workload Context) */}
@@ -103,8 +112,9 @@ const WorkloadTaskCard = ({ task, index, onClick }: WorkloadTaskCardProps) => {
                         </div>
                     </div>
                 </div>
-            )}
-        </Draggable>
+            )
+            }
+        </Draggable >
     );
 };
 

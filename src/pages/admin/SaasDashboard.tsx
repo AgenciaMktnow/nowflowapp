@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { adminService, type SaasMetric } from '../../services/admin.service';
 import OrgDetailsModal from '../../components/admin/OrgDetailsModal';
+import { QuotaProgressBar } from '../../components/admin/QuotaProgressBar';
 import { toast } from 'sonner';
 
 export default function SaasDashboard() {
@@ -150,8 +151,16 @@ export default function SaasDashboard() {
                                             {org.status}
                                         </span>
                                     </td>
-                                    <td className="p-4 text-center text-text-muted">{org.user_count}</td>
-                                    <td className="p-4 text-center text-text-muted">{org.board_count}</td>
+                                    <td className="p-4 text-center text-text-muted">
+                                        <div className="flex justify-center">
+                                            <QuotaProgressBar current={org.user_count} max={org.max_users} label="users" compact />
+                                        </div>
+                                    </td>
+                                    <td className="p-4 text-center text-text-muted">
+                                        <div className="flex justify-center">
+                                            <QuotaProgressBar current={org.board_count} max={org.max_boards} label="boards" compact />
+                                        </div>
+                                    </td>
                                     <td className="p-4 text-center">
                                         <span className={`font-bold ${org.tasks_last_7d === 0 ? 'text-red-400' : 'text-white'}`}>
                                             {org.tasks_last_7d}

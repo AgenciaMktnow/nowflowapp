@@ -1,10 +1,82 @@
--- =========================================================================================
--- SUPER ADMIN: ORGANIZATION DETAILS ("X-RAY")
--- RPC for deep-dive metrics per organization
--- =========================================================================================
+-- Update RPCs to return Limits for UI Progress Bars
 
 BEGIN;
 
+-- 1. Update get_saas_metrics (Dashboard)
+-- MUST DROP first because return type (TABLE columns) changed
+DROP FUNCTION IF EXISTS public.get_saas_metrics();
+
+CREATE OR REPLACE FUNCTION public.get_saas_metrics()
+RETURNS TABLE (
+    org_id UUID,
+    org_name TEXT,
+    plan_type TEXT,
+    status TEXT,
+    created_at TIMESTAMPTZ,
+    trial_ends_at TIMESTAMPTZ,
+    owner_email TEXT,
+    user_count BIGINT,
+    board_count BIGINT,
+    task_count BIGINT,
+    tasks_last_7d BIGINT,
+    storage_size_mb NUMERIC,
+    max_users INT,
+    max_boards INT,
+    max_storage_mb NUMERIC
+) AS $$
+BEGIN
+    -- Security Check
+    IF NOT public.is_super_admin() THEN
+        RAISE EXCEPTION 'Access Denied: Super Admin Only';
+    END IF;
+
+    RETURN QUERY
+    SELECT 
+        o.id as org_id,
+        o.name as org_name,
+        o.plan_type,
+        o.subscription_status as status,
+        o.created_at,
+        o.trial_ends_at,
+        -- Get First Admin Email
+        (
+            SELECT u.email 
+            FROM public.users u 
+            WHERE u.organization_id = o.id AND u.role = 'ADMIN' 
+            LIMIT 1
+        ) as owner_email,
+        -- Counts
+        (SELECT count(*) FROM public.users u WHERE u.organization_id = o.id) as user_count,
+        (SELECT count(*) FROM public.boards b WHERE b.organization_id = o.id) as board_count,
+        (SELECT count(*) FROM public.tasks t WHERE t.organization_id = o.id) as task_count,
+        -- Engagement (Tasks created in last 7 days)
+        (
+            SELECT count(*) 
+            FROM public.tasks t 
+            WHERE t.organization_id = o.id 
+            AND t.created_at > (now() - interval '7 days')
+        ) as tasks_last_7d,
+        -- Storage Estimator
+        0.0 as storage_size_mb,
+        
+        -- LIMITS
+        o.max_users,
+        o.max_boards,
+        CASE 
+            WHEN o.plan_type = 'ENTERPRISE' THEN 1048576.0 -- 1TB
+            WHEN o.plan_type = 'PRO' THEN 51200.0 -- 50GB
+            ELSE 2048.0 -- 2GB (Free)
+        END as max_storage_mb
+
+    FROM 
+        public.organizations o
+    ORDER BY 
+        o.created_at DESC;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+-- 2. Update get_org_details (X-Ray)
 CREATE OR REPLACE FUNCTION public.get_org_details(target_org_id UUID)
 RETURNS JSONB AS $$
 DECLARE
@@ -24,6 +96,9 @@ DECLARE
     v_plan_type TEXT;
     v_status TEXT;
     v_created_at TIMESTAMPTZ;
+    v_trial_ends_at TIMESTAMPTZ;
+    v_max_users INT;
+    v_max_boards INT;
 
     -- Financials
     v_cost_est NUMERIC := 0.0;
@@ -38,11 +113,17 @@ BEGIN
     SELECT 
         o.plan_type, 
         o.subscription_status, 
-        o.created_at 
+        o.created_at,
+        o.trial_ends_at,
+        o.max_users,
+        o.max_boards
     INTO 
         v_plan_type, 
         v_status, 
-        v_created_at 
+        v_created_at, 
+        v_trial_ends_at,
+        v_max_users,
+        v_max_boards
     FROM public.organizations o
     WHERE o.id = target_org_id;
 
@@ -121,6 +202,7 @@ BEGIN
         'plan_type', v_plan_type,
         'status', v_status,
         'created_at', v_created_at,
+        'trial_ends_at', v_trial_ends_at,
         'total_users', v_total_users,
         'board_count', v_board_count,
         'task_count', v_task_count,
@@ -131,7 +213,14 @@ BEGIN
         'estimated_cost', round(v_cost_est, 2),
         'plan_value', v_plan_value,
         'profit_margin', round(v_plan_value - v_cost_est, 2),
-        'recent_logs', COALESCE(v_recent_logs, '[]'::jsonb)
+        'recent_logs', COALESCE(v_recent_logs, '[]'::jsonb),
+        'max_users', v_max_users,
+        'max_boards', v_max_boards,
+        'max_storage_mb', CASE 
+            WHEN v_plan_type = 'ENTERPRISE' THEN 1048576.0 
+            WHEN v_plan_type = 'PRO' THEN 51200.0 
+            ELSE 2048.0 
+        END
     );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

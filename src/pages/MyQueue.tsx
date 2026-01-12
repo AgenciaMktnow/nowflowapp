@@ -45,6 +45,7 @@ type Task = {
     board_id?: string; // Resolved effective board ID
     task_boards?: { board_id: string }[];
     column_id?: string;
+    is_continuous?: boolean;
 };
 
 export default function MyQueue() {
@@ -742,9 +743,9 @@ export default function MyQueue() {
                                                                     </div>
 
                                                                     {/* Due Date - Always render for alignment */}
-                                                                    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium min-w-[90px] justify-center ${task.due_date ? (new Date(task.due_date).getTime() < new Date().setHours(0, 0, 0, 0) ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-white/5 text-text-secondary border border-white/5') : 'bg-white/5 text-text-muted border border-white/5'}`}>
-                                                                        <span className="material-symbols-outlined text-sm">{task.due_date ? 'calendar_today' : 'all_inclusive'}</span>
-                                                                        <span>{task.due_date ? new Date(task.due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' }) : 'Contínua'}</span>
+                                                                    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium min-w-[90px] justify-center ${task.due_date ? (new Date(task.due_date).getTime() < new Date().setHours(0, 0, 0, 0) ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-white/5 text-text-secondary border border-white/5') : (task.is_continuous ? 'bg-white/5 text-text-muted border border-white/5' : 'bg-amber-500/10 text-amber-500 border border-amber-500/20')}`}>
+                                                                        <span className="material-symbols-outlined text-sm">{task.due_date ? 'calendar_today' : (task.is_continuous ? 'all_inclusive' : 'warning')}</span>
+                                                                        <span>{task.due_date ? new Date(task.due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' }) : (task.is_continuous ? 'Contínua' : 'Sem Prazo')}</span>
                                                                     </div>
 
                                                                     {/* Assignee Avatar - Always render for alignment */}
@@ -819,6 +820,6 @@ export default function MyQueue() {
                 taskNumber={editTaskNumber || undefined}
                 onSuccess={handleDrawerSuccess}
             />
-        </div>
+        </div >
     );
 }
