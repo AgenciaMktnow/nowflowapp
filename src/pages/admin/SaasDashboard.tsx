@@ -476,12 +476,12 @@ export default function SaasDashboard() {
                                                             })()}
                                                         </div>
                                                     </td>
-                                                    <td className="p-4 text-right text-text-muted relative">
-                                                        <div className="group inline-block">
+                                                    <td className="p-4 text-right text-text-muted">
+                                                        <div className="group inline-block relative">
                                                             <span className="cursor-help">R$ {totalCost.toFixed(2)}</span>
                                                             {/* Cost Breakdown Tooltip */}
-                                                            <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block z-50 w-64">
-                                                                <div className="bg-surface-panel border border-primary/30 rounded-xl p-3 shadow-2xl">
+                                                            <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block w-64 pointer-events-none" style={{ zIndex: 9999 }}>
+                                                                <div className="bg-surface-panel border border-primary/30 rounded-xl p-3 shadow-2xl pointer-events-auto">
                                                                     <div className="text-[10px] font-bold uppercase text-text-subtle tracking-wider mb-2">Decomposição de Custos</div>
                                                                     <div className="space-y-1.5 text-xs">
                                                                         <div className="flex justify-between items-center">
