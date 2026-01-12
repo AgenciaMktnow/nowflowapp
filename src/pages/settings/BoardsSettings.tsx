@@ -190,9 +190,15 @@ export default function BoardsSettings() {
 
                             {/* Stats & Members */}
                             <div className="pl-3 mt-auto pt-4 border-t border-[#23482f] flex items-center justify-between">
-                                <div className="flex items-center gap-2 text-text-muted text-xs font-medium bg-black/20 px-2 py-1 rounded-md">
-                                    <span className="material-symbols-outlined text-[16px]">folder_open</span>
-                                    {board.active_projects_count} Projetos
+                                <div className="flex gap-3">
+                                    <div className="flex items-center gap-1.5 text-text-muted text-xs font-medium bg-black/20 px-2 py-1 rounded-md" title="Total de Clientes">
+                                        <span className="material-symbols-outlined text-[16px]">business_center</span>
+                                        {board.active_clients_count || 0}
+                                    </div>
+                                    <div className="flex items-center gap-1.5 text-text-muted text-xs font-medium bg-black/20 px-2 py-1 rounded-md" title="Total de Usuários">
+                                        <span className="material-symbols-outlined text-[16px]">group</span>
+                                        {board.members?.length || 0}
+                                    </div>
                                 </div>
 
                                 <div className="flex items-center -space-x-2">

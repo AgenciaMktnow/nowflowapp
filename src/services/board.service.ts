@@ -8,6 +8,7 @@ export interface Board {
     color: string;
     created_at: string;
     active_projects_count?: number;
+    active_clients_count?: number;
     members?: UserProfile[];
 }
 
@@ -20,7 +21,8 @@ export const boardService = {
                 members:board_members(
                     user:users(*)
                 ),
-                projects:projects(count)
+                projects:projects(count),
+                clients:clients(count)
             `)
             .order('name');
 
@@ -32,7 +34,8 @@ export const boardService = {
         const formattedData = data.map((board: any) => ({
             ...board,
             members: board.members.map((m: any) => m.user),
-            active_projects_count: board.projects?.[0]?.count || 0 // Assuming simple count for now, filters to be refined if needed
+            active_projects_count: board.projects?.[0]?.count || 0,
+            active_clients_count: board.clients?.[0]?.count || 0
         }));
 
         return { data: formattedData, error: null };
