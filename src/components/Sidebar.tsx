@@ -67,7 +67,7 @@ export default function Sidebar({ onMobileClose }: { onMobileClose?: () => void 
                             {/* Logo Icon */}
                             <div className="flex items-center justify-center shrink-0">
                                 <img
-                                    src={isCollapsed ? '/4_Favicon.png' : '/Logo-nowflow-banco.png'}
+                                    src={isCollapsed ? '/3_PNG_Isotipo_Fundo_Claro.png' : '/Logo-nowflow-banco.png'}
                                     alt="Logo"
                                     className={`transition-all duration-300 object-contain ${isCollapsed ? 'h-8 w-8' : 'max-h-10 w-auto'}`}
                                 />
