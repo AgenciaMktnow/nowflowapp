@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
-import Signup from './pages/Signup';
+import Signup from './pages/SignUp';
 import ResetPassword from './pages/ResetPassword';
 import SetupPassword from './pages/SetupPassword';
 import AuthCallback from './pages/AuthCallback';
