@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import { useState, useEffect } from 'react';
 import { adminService, type SaasMetric, type SystemStats } from '../../services/admin.service';
 import OrgDetailsModal from '../../components/admin/OrgDetailsModal';
 import { QuotaProgressBar } from '../../components/admin/QuotaProgressBar';
+import CostTooltip from '../../components/admin/CostTooltip';
 import Header from '../../components/layout/Header/Header';
 import { toast } from 'sonner';
 
