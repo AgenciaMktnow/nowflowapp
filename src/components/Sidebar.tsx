@@ -1,11 +1,16 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSettings } from '../contexts/SettingsContext';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Sidebar({ onMobileClose }: { onMobileClose?: () => void }) {
     const navigate = useNavigate();
     const location = useLocation();
     const { settings } = useSettings();
+    const { user } = useAuth(); // Get user for email check
+
+    // Super Admin Check (Matches SQL Logic)
+    const isSuperAdmin = ['neto@mktnow.com.br', 'duqueneto@gmail.com', 'duqueneto@gmail.com.br'].includes(user?.email || '');
 
     // Initialize from localStorage or default to false (expanded)
     const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -27,6 +32,10 @@ export default function Sidebar({ onMobileClose }: { onMobileClose?: () => void 
         { icon: 'add_task', label: 'Nova Tarefa', path: '/tasks/new' },
         { icon: 'schedule', label: 'Time Tracking', path: '/time-tracking' },
     ];
+
+    if (isSuperAdmin) {
+        menuItems.push({ icon: 'admin_panel_settings', label: 'SaaS Console', path: '/admin/saas' });
+    }
 
     const isActive = (path: string) => location.pathname === path;
 
