@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { adminService, type SaasMetric, type SystemStats } from '../../services/admin.service';
 import OrgDetailsModal from '../../components/admin/OrgDetailsModal';
 import { QuotaProgressBar } from '../../components/admin/QuotaProgressBar';
@@ -477,29 +478,13 @@ export default function SaasDashboard() {
                                                         </div>
                                                     </td>
                                                     <td className="p-4 text-right text-text-muted">
-                                                        <div className="group inline-block relative">
-                                                            <span className="cursor-help">R$ {totalCost.toFixed(2)}</span>
-                                                            {/* Cost Breakdown Tooltip */}
-                                                            <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block w-64 pointer-events-none" style={{ zIndex: 9999 }}>
-                                                                <div className="bg-surface-panel border border-primary/30 rounded-xl p-3 shadow-2xl pointer-events-auto">
-                                                                    <div className="text-[10px] font-bold uppercase text-text-subtle tracking-wider mb-2">Decomposição de Custos</div>
-                                                                    <div className="space-y-1.5 text-xs">
-                                                                        <div className="flex justify-between items-center">
-                                                                            <span className="text-text-muted">Usuários ({org.user_count} × R$ 0,50)</span>
-                                                                            <span className="font-bold text-white">R$ {userCost.toFixed(2)}</span>
-                                                                        </div>
-                                                                        <div className="flex justify-between items-center">
-                                                                            <span className="text-text-muted">Storage ({(org.storage_size_mb / 1024).toFixed(2)}GB × R$ 0,50)</span>
-                                                                            <span className="font-bold text-white">R$ {storageCost.toFixed(2)}</span>
-                                                                        </div>
-                                                                        <div className="border-t border-white/10 pt-1.5 mt-1.5 flex justify-between items-center">
-                                                                            <span className="text-primary font-bold">Total</span>
-                                                                            <span className="font-bold text-primary">R$ {totalCost.toFixed(2)}</span>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
+                                                        <CostTooltip
+                                                            totalCost={totalCost}
+                                                            userCount={org.user_count}
+                                                            userCost={userCost}
+                                                            storageMB={org.storage_size_mb}
+                                                            storageCost={storageCost}
+                                                        />
                                                     </td>
                                                     <td className="p-4 text-right">
                                                         <span className={`px-2 py-1 rounded-lg font-bold text-sm
