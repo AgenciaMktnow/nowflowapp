@@ -448,7 +448,6 @@ export default function SaasDashboard() {
                                                                 // Mock payment status logic (can be replaced with real data)
                                                                 const isPaid = org.status === 'active' && Math.random() > 0.3;
                                                                 const isPending = !isPaid && Math.random() > 0.5;
-                                                                const isOverdue = !isPaid && !isPending;
 
                                                                 return (
                                                                     <>
