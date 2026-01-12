@@ -863,6 +863,62 @@ export default function Projects() {
                                         );
                                     })}
                                     {provided.placeholder}
+
+                                    {/* SAFETY NET: Lost & Found Column */}
+                                    {/* Calculates tasks that were NOT rendered in any of the above columns */}
+                                    {(() => {
+                                        const unmappedTasks = filteredTasks.filter(t => {
+                                            // Iterate over all columns to see if it would have been caught
+                                            const matched = columns.some(column => {
+                                                if (column.id.startsWith('def-')) {
+                                                    return column.statuses.includes(t.status);
+                                                }
+                                                if (t.column_id === column.id) return true;
+                                                if (!t.column_id && column.statuses.includes(t.status)) {
+                                                    const primaryColumn = columns.find(c => c.statuses.includes(t.status));
+                                                    return primaryColumn?.id === column.id;
+                                                }
+                                                return false;
+                                            });
+                                            return !matched && matched !== null; // Explicit check
+                                        });
+
+                                        if (unmappedTasks.length === 0) return null;
+
+                                        return (
+                                            <div className="w-[85vw] md:w-[300px] flex-shrink-0 flex flex-col max-h-full bg-red-500/10 rounded-xl border border-red-500/30 snap-center">
+                                                <div className="p-3 flex items-center justify-between sticky top-0 bg-inherit rounded-t-xl z-10 border-b border-red-500/30">
+                                                    <div className="flex flex-col gap-1 flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2">
+                                                            <h3 className="font-bold text-red-400 text-sm uppercase tracking-wider truncate">Sem Coluna</h3>
+                                                            <span className="bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded text-[10px] font-bold">{unmappedTasks.length}</span>
+                                                        </div>
+                                                        <div className="text-[10px] text-red-400/70 flex items-center gap-1">
+                                                            <span className="material-symbols-outlined text-[12px]">warning</span>
+                                                            Tarefas órfãs identificadas
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
+                                                    {unmappedTasks.map((task, index) => (
+                                                        <TaskCard
+                                                            key={task.id}
+                                                            task={task as any}
+                                                            index={index}
+                                                            columnVariant="default"
+                                                            isOverdue={false}
+                                                            clientsList={clients}
+                                                            activeTeamLog={activeTeamLogs[task.id]?.user_id === user?.id}
+                                                            onEdit={() => handleEdit(task)}
+                                                            onClone={handleCloneSuccess}
+                                                            onUpdate={handleUpdateList}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             )}
                         </Droppable>

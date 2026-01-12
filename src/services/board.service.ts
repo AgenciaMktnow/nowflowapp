@@ -64,8 +64,32 @@ export const boardService = {
 
             if (membersError) {
                 console.error('Error adding members:', membersError);
-                return { data, error: membersError }; // Return error even if board created
+                // Continue anyway, it's not critical for the board structure
             }
+        }
+
+        // 3. Persist Default Columns (Fix for disappearing columns)
+        const defaultColumns = [
+            { title: 'A Fazer', variant: 'default', count_color: 'bg-background-dark text-text-muted-dark', position: 0 },
+            { title: 'Em Andamento', variant: 'progress', count_color: 'bg-primary/20 text-green-300', position: 1 },
+            { title: 'Em Revisão', variant: 'review', count_color: 'bg-background-dark text-text-muted-dark', position: 2 },
+            { title: 'Concluído', variant: 'done', count_color: 'bg-primary/10 text-primary', position: 3 }
+        ];
+
+        const columnsData = defaultColumns.map(col => ({
+            board_id: data.id,
+            title: col.title,
+            variant: col.variant,
+            count_color: col.count_color,
+            position: col.position
+        }));
+
+        const { error: columnsError } = await supabase
+            .from('board_columns')
+            .insert(columnsData);
+
+        if (columnsError) {
+            console.error('Error creating default columns:', columnsError);
         }
 
         return { data, error: null };
