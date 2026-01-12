@@ -42,28 +42,29 @@ export default function CostTooltip({ totalCost, userCount, userCost, storageMB,
                         left: `${position.left}px`,
                         zIndex: 99999,
                         transform: 'translateY(-100%)'
-                            >
-                            <div className="bg-[#05110A] border border-primary/30 rounded-xl p-6 shadow-2xl pointer-events-auto w-72">
-                                <div className="text-[9px] font-bold uppercase text-text-subtle tracking-[0.2em] mb-4">Decomposição de Custos</div>
-                                <div className="space-y-3 text-xs">
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-text-muted">Usuários ({userCount} × R$ 0,50)</span>
-                                        <span className="font-bold text-white">R$ {userCost.toFixed(2)}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-text-muted">Storage ({(storageMB / 1024).toFixed(2)}GB × R$ 0,50)</span>
-                                        <span className="font-bold text-white">R$ {storageCost.toFixed(2)}</span>
-                                    </div>
-                                    <div className="border-t border-white/5 pt-3 mt-3 flex justify-between items-center">
-                                        <span className="text-primary font-bold">Total</span>
-                                        <span className="font-bold text-primary">R$ {totalCost.toFixed(2)}</span>
-                                    </div>
-                                </div>
+                    }}
+                >
+                    <div className="bg-[#05110A] border border-primary/30 rounded-xl p-6 shadow-2xl pointer-events-auto w-72">
+                        <div className="text-[9px] font-bold uppercase text-text-subtle tracking-[0.2em] mb-4">Decomposição de Custos</div>
+                        <div className="space-y-3 text-xs">
+                            <div className="flex justify-between items-center">
+                                <span className="text-text-muted">Usuários ({userCount} × R$ 0,50)</span>
+                                <span className="font-bold text-white">R$ {userCost.toFixed(2)}</span>
                             </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-text-muted">Storage ({(storageMB / 1024).toFixed(2)}GB × R$ 0,50)</span>
+                                <span className="font-bold text-white">R$ {storageCost.toFixed(2)}</span>
+                            </div>
+                            <div className="border-t border-white/5 pt-3 mt-3 flex justify-between items-center">
+                                <span className="text-primary font-bold">Total</span>
+                                <span className="font-bold text-primary">R$ {totalCost.toFixed(2)}</span>
+                            </div>
+                        </div>
+                    </div>
                 </div >,
-        document.body
+                document.body
             )
-}
+            }
         </>
     );
 }
