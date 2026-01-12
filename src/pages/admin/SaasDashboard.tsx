@@ -199,31 +199,33 @@ export default function SaasDashboard() {
                     </div>
                 </div>
 
-                {/* Filter */}
-                <div className="mb-6">
-                    <input
-                        type="text"
-                        placeholder="Buscar por Empresa ou Email do Dono..."
-                        className="w-full max-w-md bg-background-card border border-border-green/30 rounded-xl px-4 py-2 text-white placeholder-text-subtle focus:outline-none focus:border-primary"
-                        value={filter}
-                        onChange={e => setFilter(e.target.value)}
-                    />
+                {/* Header Actions & Filter */}
+                <div className="mb-6 flex justify-between items-center">
+                    <div className="relative w-full max-w-sm group">
+                        <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-muted group-focus-within:text-primary transition-colors">search</span>
+                        <input
+                            type="text"
+                            placeholder="Buscar empresa ou email..."
+                            className="w-full bg-[#1A1D21] border border-white/5 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white placeholder-text-muted focus:outline-none focus:border-primary/50 transition-all font-medium"
+                            value={filter}
+                            onChange={e => setFilter(e.target.value)}
+                        />
+                    </div>
                 </div>
 
                 {/* Data Grid */}
-                <div className="bg-background-card rounded-2xl border border-border-green/20 overflow-hidden">
+                <div className="bg-background-card rounded-2xl border border-border-green/20 overflow-hidden shadow-sm">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="border-b border-border-green/20 bg-white/5">
-                                    <th className="p-4 text-xs font-bold uppercase text-text-subtle">Empresa</th>
-                                    <th className="p-4 text-xs font-bold uppercase text-text-subtle">Dono (Admin)</th>
-                                    <th className="p-4 text-xs font-bold uppercase text-text-subtle text-center">Plano</th>
-                                    <th className="p-4 text-xs font-bold uppercase text-text-subtle text-center">Status</th>
-                                    <th className="p-4 text-xs font-bold uppercase text-text-subtle text-center">Usuários</th>
-                                    <th className="p-4 text-xs font-bold uppercase text-text-subtle text-center">Quadros</th>
-                                    <th className="p-4 text-xs font-bold uppercase text-text-subtle text-center">Tarefas (7d)</th>
-                                    <th className="p-4 text-xs font-bold uppercase text-text-subtle text-right">Ações</th>
+                                <tr className="border-b border-white/5 bg-white/[0.02]">
+                                    <th className="p-4 text-[10px] font-bold uppercase text-text-subtle tracking-wider">Empresa</th>
+                                    <th className="p-4 text-[10px] font-bold uppercase text-text-subtle tracking-wider">Dono (Admin)</th>
+                                    <th className="p-4 text-[10px] font-bold uppercase text-text-subtle tracking-wider text-center">Cadastro</th>
+                                    <th className="p-4 text-[10px] font-bold uppercase text-text-subtle tracking-wider text-center">Plano</th>
+                                    <th className="p-4 text-[10px] font-bold uppercase text-text-subtle tracking-wider text-center">Status</th>
+                                    <th className="p-4 text-[10px] font-bold uppercase text-text-subtle tracking-wider text-center">Uso</th>
+                                    <th className="p-4 text-[10px] font-bold uppercase text-text-subtle tracking-wider text-right">Ações</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -231,59 +233,62 @@ export default function SaasDashboard() {
                                     <tr
                                         key={org.org_id}
                                         onClick={() => setSelectedOrgId(org.org_id)}
-                                        className="border-b border-border-green/10 hover:bg-white/5 transition-colors cursor-pointer group"
+                                        className="border-b border-border-green/5 hover:bg-white/5 transition-colors cursor-pointer group"
                                     >
                                         <td className="p-4">
-                                            <div className="font-bold text-white group-hover:text-primary transition-colors">{org.org_name}</div>
-                                            <div className="text-xs text-text-subtle font-mono">{org.org_id.slice(0, 8)}...</div>
+                                            <div className="font-bold text-white text-sm group-hover:text-primary transition-colors">{org.org_name}</div>
+                                            <div className="text-[10px] text-text-subtle font-mono mt-0.5 opacity-50">{org.org_id.slice(0, 8)}...</div>
                                         </td>
                                         <td className="p-4 text-text-light text-sm">{org.owner_email}</td>
+                                        <td className="p-4 text-center text-xs text-text-muted">
+                                            {new Date(org.created_at).toLocaleDateString()}
+                                        </td>
                                         <td className="p-4 text-center">
-                                            <span className={`px-2 py-1 rounded text-xs font-bold 
-                                            ${org.plan_type === 'ENTERPRISE' ? 'bg-purple-500/20 text-purple-400' :
-                                                    org.plan_type === 'PRO' ? 'bg-primary/20 text-primary' :
-                                                        'bg-gray-700 text-gray-400'}`}>
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider
+                                            ${org.plan_type === 'ENTERPRISE' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' :
+                                                    org.plan_type === 'PRO' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
+                                                        'bg-white/5 text-gray-400 border border-white/10'}`}>
                                                 {org.plan_type}
                                             </span>
                                         </td>
                                         <td className="p-4 text-center">
-                                            <span className={`px-2 py-1 rounded text-xs font-bold capitalize
-                                            ${org.status === 'active' ? 'text-green-400' :
-                                                    org.status === 'trialing' ? 'text-yellow-400' :
-                                                        'text-red-400'}`}>
+                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1.5
+                                            ${org.status === 'active' ? 'bg-green-500/10 text-green-400 border border-green-500/20' :
+                                                    org.status === 'trialing' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
+                                                        'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+                                                <span className={`w-1.5 h-1.5 rounded-full ${org.status === 'active' ? 'bg-green-400' : org.status === 'trialing' ? 'bg-blue-400' : 'bg-red-400'}`}></span>
                                                 {org.status}
                                             </span>
                                         </td>
                                         <td className="p-4 text-center text-text-muted">
-                                            <div className="flex justify-center">
-                                                <QuotaProgressBar current={org.user_count} max={org.max_users} label="users" compact />
+                                            <div className="flex flex-col gap-1 items-center">
+                                                <div className="w-24">
+                                                    <QuotaProgressBar current={org.user_count} max={org.max_users} label="users" compact showText={false} />
+                                                </div>
+                                                <span className="text-[10px] opacity-60">{org.user_count} users</span>
                                             </div>
-                                        </td>
-                                        <td className="p-4 text-center text-text-muted">
-                                            <div className="flex justify-center">
-                                                <QuotaProgressBar current={org.board_count} max={org.max_boards} label="boards" compact />
-                                            </div>
-                                        </td>
-                                        <td className="p-4 text-center">
-                                            <span className={`font-bold ${org.tasks_last_7d === 0 ? 'text-red-400' : 'text-white'}`}>
-                                                {org.tasks_last_7d}
-                                            </span>
                                         </td>
                                         <td className="p-4 text-right">
-                                            <div className="flex justify-end gap-2">
+                                            <div className="flex justify-end gap-2" onClick={e => e.stopPropagation()}>
+                                                <button
+                                                    onClick={() => {
+                                                        if (confirm(`Acessar a conta de ${org.org_name}?`)) {
+                                                            localStorage.setItem('impersonate_org_id', org.org_id);
+                                                            window.location.href = '/dashboard';
+                                                        }
+                                                    }}
+                                                    className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-black transition-all"
+                                                    title="Acessar Conta (Impersonate)"
+                                                >
+                                                    <span className="material-symbols-outlined text-lg">visibility</span>
+                                                </button>
+
                                                 <button
                                                     onClick={(e) => handlePlanChange(e, org.org_id, 'ENTERPRISE', org.status)}
-                                                    className="text-xs text-text-subtle hover:text-white border border-transparent hover:border-white/20 px-2 py-1 rounded"
+                                                    className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-white/10 text-text-subtle hover:text-yellow-400 transition-all"
                                                     title="Promover para Enterprise"
                                                 >
-                                                    👑
-                                                </button>
-                                                <button
-                                                    onClick={(e) => handleStatusChange(e, org.org_id, org.plan_type, org.status === 'active' ? 'suspended' : 'active')}
-                                                    className="text-xs text-text-subtle hover:text-red-400 border border-transparent hover:border-red-400/20 px-2 py-1 rounded"
-                                                    title={org.status === 'active' ? 'Suspender' : 'Reativar'}
-                                                >
-                                                    🚫
+                                                    <span className="material-symbols-outlined text-lg">workspace_premium</span>
                                                 </button>
                                             </div>
                                         </td>

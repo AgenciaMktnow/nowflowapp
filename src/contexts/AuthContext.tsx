@@ -39,6 +39,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const { data, error } = await authService.getUserProfile(userId);
 
             if (!error && data) {
+                // Check for Impersonation (God Mode)
+                const impersonatedOrgId = localStorage.getItem('impersonate_org_id');
+                const isSuperAdminEmail = ['neto@mktnow.com.br', 'duqueneto@gmail.com', 'duqueneto@gmail.com.br'].includes(data.email || '');
+
+                if (impersonatedOrgId && isSuperAdminEmail) {
+                    console.warn(`🕵️‍♂️ GOD MODE ACTIVE: Impersonating Org ${impersonatedOrgId}`);
+                    (data as any).organization_id = impersonatedOrgId;
+                    (data as any).role = 'ADMIN'; // Force Admin role in the target org
+                }
+
                 console.log("User profile loaded:", data.email, "| Org:", (data as any).organization_id, "| Role:", (data as any).role);
                 setUserProfile(data as UserProfile);
             } else {
