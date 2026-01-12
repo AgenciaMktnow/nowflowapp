@@ -547,8 +547,8 @@ export default function ClientManagement() {
 
                 {/* --- CARD ESQUERDA --- */}
                 <div className="space-y-6">
-                    <section className="bg-surface-dark p-6 rounded-xl border border-primary/20 relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-1 h-full bg-primary/50"></div>
+                    <section className="bg-surface-dark p-6 rounded-xl border border-primary/20 relative">
+                        <div className="absolute top-0 left-0 w-1 h-full bg-primary/50 rounded-l-xl"></div>
                         <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
                             <span className="material-symbols-outlined text-primary">person</span>
                             Dados Principais
