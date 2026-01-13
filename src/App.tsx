@@ -13,6 +13,11 @@ import Projects from './pages/Projects';
 import CreateProject from './pages/CreateProject';
 import SaasDashboard from './pages/admin/SaasDashboard';
 import TimeTracking from './pages/TimeTracking';
+import Roadmap from './pages/Roadmap';
+import Contact from './pages/Contact';
+import Legal from './pages/Legal';
+import About from './pages/About';
+import Security from './pages/Security';
 
 import NewTask from './pages/NewTask';
 import TaskDetail from './pages/TaskDetail';
@@ -84,6 +89,11 @@ function App() {
             <Route path="/" element={<RootHandler />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/roadmap" element={<Roadmap />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/legal" element={<Legal />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/security" element={<Security />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/setup-password" element={
               <ProtectedRoute>

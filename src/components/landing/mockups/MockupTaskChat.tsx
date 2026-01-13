@@ -41,25 +41,25 @@ export function MockupTaskChat() {
     // Simplification for the demo: Just run once on mount, then reset.
 
     return (
-        <div className="w-full bg-[#1A1A1A] border border-white/10 rounded-xl overflow-hidden shadow-2xl flex flex-col h-[320px]">
+        <div className="w-full bg-[#102216] border border-white/10 rounded-xl overflow-hidden shadow-2xl flex flex-col h-[320px]">
             {/* Header */}
-            <div className="h-10 border-b border-white/5 px-4 flex items-center justify-between bg-[#0B0E0F]">
-                <span className="text-xs font-bold text-text-muted uppercase">Chat da Tarefa #2024</span>
+            <div className="h-10 border-b border-white/5 px-4 flex items-center justify-between bg-[#102216]">
+                <span className="text-xs font-bold text-[#92c9a4] uppercase">Chat da Tarefa #2024</span>
                 <div className="flex -space-x-1">
                     <div className="w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center text-[8px] text-white">JD</div>
-                    <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center text-[8px] text-[#0B0E0F]">EU</div>
+                    <div className="w-5 h-5 rounded-full bg-[#13ec5b] flex items-center justify-center text-[8px] text-[#102216]">EU</div>
                 </div>
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 p-4 space-y-4 overflow-y-auto bg-gradient-to-b from-[#161616] to-[#0B0E0F]">
-                <div className="text-center text-[10px] text-text-muted/30 my-2">Hoje</div>
+            <div className="flex-1 p-4 space-y-4 overflow-y-auto bg-gradient-to-b from-[#183925]/30 to-[#102216]">
+                <div className="text-center text-[10px] text-[#92c9a4]/30 my-2">Hoje</div>
 
                 {messages.map(msg => (
                     <div key={msg.id} className={`flex ${msg.sender === 'me' ? 'justify-end' : 'justify-start'}`}>
                         <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${msg.sender === 'me'
-                                ? 'bg-primary text-[#0B0E0F] rounded-br-none'
-                                : 'bg-white/10 text-white rounded-bl-none'
+                            ? 'bg-[#13ec5b] text-[#102216] rounded-br-none'
+                            : 'bg-white/10 text-white rounded-bl-none'
                             } animate-fade-in-up shadow-sm`}>
                             {msg.text}
                             <span className={`block text-[9px] mt-1 opacity-60 ${msg.sender === 'me' ? 'text-black' : 'text-gray-400'} text-right`}>
@@ -72,26 +72,26 @@ export function MockupTaskChat() {
                 {isTyping && (
                     <div className="flex justify-start animate-fade-in">
                         <div className="bg-white/5 rounded-2xl rounded-bl-none px-4 py-3 flex gap-1">
-                            <div className="w-1.5 h-1.5 bg-text-muted/50 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                            <div className="w-1.5 h-1.5 bg-text-muted/50 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                            <div className="w-1.5 h-1.5 bg-text-muted/50 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                            <div className="w-1.5 h-1.5 bg-[#92c9a4]/50 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                            <div className="w-1.5 h-1.5 bg-[#92c9a4]/50 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                            <div className="w-1.5 h-1.5 bg-[#92c9a4]/50 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                         </div>
                     </div>
                 )}
             </div>
 
             {/* Input Area */}
-            <div className="p-3 bg-[#0B0E0F] border-t border-white/5 flex gap-2">
-                <button className="text-text-muted hover:text-white p-2">
+            <div className="p-3 bg-[#102216] border-t border-white/5 flex gap-2">
+                <button className="text-[#92c9a4] hover:text-white p-2">
                     <Paperclip size={18} />
                 </button>
-                <div className="flex-1 bg-white/5 rounded-full h-9 px-4 flex items-center text-sm text-text-muted cursor-not-allowed select-none">
+                <div className="flex-1 bg-white/5 rounded-full h-9 px-4 flex items-center text-sm text-[#92c9a4] cursor-not-allowed select-none">
                     Digite uma mensagem...
                 </div>
-                <button className="w-9 h-9 rounded-full bg-primary/20 text-primary flex items-center justify-center">
+                <button className="w-9 h-9 rounded-full bg-[#13ec5b]/20 text-[#13ec5b] flex items-center justify-center">
                     <Send size={16} />
                 </button>
             </div>
         </div>
     );
-}
+};

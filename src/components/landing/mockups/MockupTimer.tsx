@@ -34,20 +34,20 @@ export function MockupTimer() {
 
     return (
         <div className="w-full h-full flex items-center justify-center p-4">
-            <div className="relative bg-[#0B0E0F] border border-white/10 rounded-2xl p-8 flex flex-col items-center gap-8 shadow-2xl w-full max-w-sm mx-auto">
+            <div className="relative bg-[#102216] border border-white/10 rounded-2xl p-8 flex flex-col items-center gap-8 shadow-2xl w-full max-w-sm mx-auto">
                 {/* Glow Effect when running */}
                 {isRunning && (
-                    <div className="absolute inset-0 bg-primary/5 rounded-2xl animate-pulse pointer-events-none" />
+                    <div className="absolute inset-0 bg-[#13ec5b]/5 rounded-2xl animate-pulse pointer-events-none" />
                 )}
 
                 {/* Header */}
-                <div className="flex items-center gap-2 text-text-muted text-sm uppercase font-bold tracking-widest">
+                <div className="flex items-center gap-2 text-[#92c9a4] text-sm uppercase font-bold tracking-widest">
                     <Clock size={14} />
                     <span>Time Tracking</span>
                 </div>
 
                 {/* Digital Display */}
-                <div className={`text-6xl md:text-7xl font-mono font-bold tabular-nums transition-all ${isRunning ? 'text-primary drop-shadow-[0_0_15px_rgba(19,236,91,0.5)]' : 'text-white/50'}`}>
+                <div className={`text-4xl sm:text-6xl md:text-7xl font-mono font-bold tabular-nums transition-all ${isRunning ? 'text-[#13ec5b] drop-shadow-[0_0_15px_rgba(19,236,91,0.5)]' : 'text-white/50'}`}>
                     {formatTime(seconds)}
                 </div>
 
@@ -59,7 +59,7 @@ export function MockupTimer() {
                             setIsRunning(false);
                             if (intervalRef.current) clearInterval(intervalRef.current);
                         }}
-                        className="w-12 h-12 rounded-full border border-white/10 text-text-muted hover:bg-white/5 hover:text-white flex items-center justify-center transition-all active:scale-95"
+                        className="w-12 h-12 rounded-full border border-white/10 text-[#92c9a4] hover:bg-white/5 hover:text-white flex items-center justify-center transition-all active:scale-95"
                     >
                         <RefreshCw size={20} />
                     </button>
@@ -68,7 +68,7 @@ export function MockupTimer() {
                         onClick={toggleTimer}
                         className={`w-16 h-16 rounded-full flex items-center justify-center transition-all active:scale-95 shadow-lg ${isRunning
                             ? 'bg-red-500/20 text-red-500 border border-red-500/50 hover:bg-red-500/30'
-                            : 'bg-primary text-[#0B0E0F] hover:bg-primary-dark shadow-[0_0_20px_rgba(19,236,91,0.4)]'
+                            : 'bg-[#13ec5b] text-[#102216] hover:bg-[#0ea842] shadow-[0_0_20px_rgba(19,236,91,0.4)]'
                             }`}
                     >
                         {isRunning
@@ -80,7 +80,7 @@ export function MockupTimer() {
 
                 {/* Recent Log Placeholder */}
                 <div className="w-full pt-6 border-t border-white/5">
-                    <div className="flex justify-between items-center text-xs text-text-muted opacity-60">
+                    <div className="flex justify-between items-center text-xs text-[#92c9a4] opacity-60">
                         <span>Última sessão</span>
                         <span>2h 14m</span>
                     </div>
@@ -88,4 +88,4 @@ export function MockupTimer() {
             </div>
         </div>
     );
-}
+};
