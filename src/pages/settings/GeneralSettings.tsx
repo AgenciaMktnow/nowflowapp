@@ -8,6 +8,7 @@ import { usePermissions } from '../../hooks/usePermissions';
 
 export default function GeneralSettings() {
     const { refreshSettings } = useSettings();
+    const { userProfile, isSuperAdmin } = useAuth();
     const { can } = usePermissions();
     const [loading, setLoading] = useState(true);
     const [settings, setSettings] = useState<Partial<SystemSettings>>({
@@ -58,7 +59,6 @@ export default function GeneralSettings() {
         }
     };
 
-    const { userProfile } = useAuth();
     const isAdmin = userProfile?.role === 'ADMIN';
 
     // Permission Checks
@@ -347,6 +347,48 @@ export default function GeneralSettings() {
                     </div>
                 </div>
             </section>
+
+            {/* Section: Assinatura & Plano (SUPER-ADMIN ONLY) */}
+            {isSuperAdmin && (
+                <section className="bg-[#121214] p-6 rounded-xl border border-primary/40 shadow-[0_0_20px_rgba(0,255,0,0.1)] relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-2 bg-primary/10 border-b border-l border-primary/20 rounded-bl-lg text-[10px] font-bold text-primary uppercase tracking-widest">
+                        Acesso Super-Admin
+                    </div>
+
+                    <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
+                            <span className="material-symbols-outlined text-primary">workspace_premium</span>
+                        </div>
+                        Assinatura & Plano da Organização
+                    </h3>
+
+                    <div className="bg-primary/5 border border-primary/10 rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div className="flex items-center gap-4">
+                            <div className="p-4 bg-primary/20 rounded-full text-primary">
+                                <span className="material-symbols-outlined text-3xl">verified</span>
+                            </div>
+                            <div>
+                                <p className="text-xs font-bold text-primary uppercase tracking-widest mb-1">Status Atual</p>
+                                <h4 className="text-2xl font-bold text-white flex items-center gap-2">
+                                    Plano {userProfile?.organization?.plan_type || 'FREE'}
+                                    <span className="px-2 py-0.5 bg-green-500/10 text-green-500 text-[10px] rounded-full border border-green-500/20">ATIVO</span>
+                                </h4>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={() => window.location.href = '/admin/saas'}
+                            className="w-full md:w-auto px-6 py-3 bg-primary text-black font-bold rounded-xl hover:bg-primary-light transition-all flex items-center justify-center gap-2 shadow-lg"
+                        >
+                            <span className="material-symbols-outlined">settings_suggest</span>
+                        </button>
+                    </div>
+                    <p className="mt-4 text-[10px] text-text-muted italic flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[14px]">info</span>
+                        Como Super-Admin, você pode alterar o plano desta e de qualquer outra organização através do Console SaaS.
+                    </p>
+                </section>
+            )}
 
             {/* Fixed Save Button - Elegant & Refined */}
             {isAdmin && (

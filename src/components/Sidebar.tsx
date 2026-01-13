@@ -7,10 +7,7 @@ export default function Sidebar({ onMobileClose }: { onMobileClose?: () => void 
     const navigate = useNavigate();
     const location = useLocation();
     // const { settings } = useSettings(); // Removed as per static asset refactor
-    const { user } = useAuth(); // Get user for email check
-
-    // Super Admin Check (Matches SQL Logic)
-    const isSuperAdmin = ['neto@mktnow.com.br', 'duqueneto@gmail.com', 'duqueneto@gmail.com.br'].includes(user?.email || '');
+    const { isSuperAdmin } = useAuth(); // Get super admin status
 
     // Initialize from localStorage or default to false (expanded)
     const [isCollapsed, setIsCollapsed] = useState(() => {

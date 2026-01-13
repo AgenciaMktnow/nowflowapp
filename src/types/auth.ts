@@ -4,6 +4,7 @@ export interface IUserProfile {
     full_name: string;
     avatar_url: string;
     role: 'ADMIN' | 'MANAGER' | 'MEMBER' | 'CLIENT';
+    is_super_admin?: boolean;
     organization_id: string;
     organization?: {
         id: string;

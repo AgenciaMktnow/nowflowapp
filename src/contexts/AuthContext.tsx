@@ -13,6 +13,7 @@ interface AuthContextType {
     userProfile: IUserProfile | null;
     session: Session | null;
     loading: boolean;
+    isSuperAdmin: boolean;
     signOut: () => Promise<void>;
 }
 
@@ -35,8 +36,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 // Check for Impersonation (God Mode)
                 const impersonatedOrgId = localStorage.getItem('impersonate_org_id');
                 const isSuperAdminEmail = ['neto@mktnow.com.br', 'duqueneto@gmail.com', 'duqueneto@gmail.com.br'].includes(data.email || '');
+                const isSuperAdminFlag = (data as any).is_super_admin === true;
+                const isActuallySuperAdmin = isSuperAdminEmail || isSuperAdminFlag;
 
-                if (impersonatedOrgId && isSuperAdminEmail) {
+                if (impersonatedOrgId && isActuallySuperAdmin) {
                     console.warn(`🕵️‍♂️ GOD MODE ACTIVE: Impersonating Org ${impersonatedOrgId}`);
                     (data as any).organization_id = impersonatedOrgId;
                     (data as any).role = 'ADMIN'; // Force Admin role in the target org
@@ -168,7 +171,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     return (
-        <AuthContext.Provider value={{ user, userProfile, session, loading, signOut }}>
+        <AuthContext.Provider value={{
+            user,
+            userProfile,
+            session,
+            loading,
+            isSuperAdmin: !!userProfile?.is_super_admin || ['neto@mktnow.com.br', 'duqueneto@gmail.com', 'duqueneto@gmail.com.br'].includes(user?.email || ''),
+            signOut
+        }}>
             {!loading ? children : (
                 <div className="flex items-center justify-center h-screen w-full bg-[#102216] text-white">
                     <div className="flex flex-col items-center gap-4">
