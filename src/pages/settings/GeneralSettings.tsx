@@ -4,9 +4,11 @@ import { settingsService, type SystemSettings } from '../../services/settings.se
 import ModernDropdown from '../../components/ModernDropdown';
 import { useSettings } from '../../contexts/SettingsContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { usePermissions } from '../../hooks/usePermissions';
 
 export default function GeneralSettings() {
     const { refreshSettings } = useSettings();
+    const { can } = usePermissions();
     const [loading, setLoading] = useState(true);
     const [settings, setSettings] = useState<Partial<SystemSettings>>({
         company_name: '',
@@ -58,6 +60,14 @@ export default function GeneralSettings() {
 
     const { userProfile } = useAuth();
     const isAdmin = userProfile?.role === 'ADMIN';
+
+    // Permission Checks
+    const canAutoPause = can('auto_pause');
+    const canWorkload = can('workload_management');
+
+    const handleUpgrade = () => {
+        window.open('https://api.whatsapp.com/send?phone=5511999999999&text=Quero%20fazer%20upgrade%20para%20o%20Plano%20PRO%20do%20NowFlow', '_blank');
+    };
 
     if (loading) return <div className="p-8 text-center text-primary">Carregando configurações...</div>;
 
@@ -118,20 +128,34 @@ export default function GeneralSettings() {
             </section >
 
             {/* Section: Regras de Negócio do Timer */}
-            <section className="bg-surface-dark p-6 rounded-xl border border-primary/20 shadow-sm relative overflow-hidden group hover:border-primary/40 transition-all duration-500">
-                <div className="absolute top-0 left-0 w-1 h-full bg-primary/50 shadow-[0_0_15px_rgba(0,255,0,0.1)]"></div>
-
-                <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
-                        <span className="material-symbols-outlined text-primary/80">timer_off</span>
+            <section className={`bg-surface-dark p-6 rounded-xl border shadow-sm relative overflow-hidden transition-all duration-500 ${!canAutoPause ? 'border-white/5 opacity-80' : 'border-primary/20 hover:border-primary/40'}`}>
+                {!canAutoPause && (
+                    <div className="absolute inset-0 bg-background-dark/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
+                        <button onClick={handleUpgrade} className="flex flex-col items-center gap-2 group-lock cursor-pointer hover:scale-105 transition-transform">
+                            <div className="rounded-full bg-background-dark border border-primary/50 p-4 shadow-[0_0_20px_rgba(19,236,91,0.2)]">
+                                <span className="material-symbols-outlined text-primary text-3xl">lock</span>
+                            </div>
+                            <span className="bg-primary text-[#0B0E0F] text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">Recurso PRO</span>
+                            <span className="text-white text-sm font-bold underline decoration-primary decoration-2 underline-offset-4">Fazer Upgrade</span>
+                        </button>
                     </div>
-                    Regras de Negócio do Timer
-                </h3>
+                )}
+                <div className={`absolute top-0 left-0 w-1 h-full ${!canAutoPause ? 'bg-white/10' : 'bg-primary/50 shadow-[0_0_15px_rgba(0,255,0,0.1)]'}`}></div>
+
+                <div className="flex items-center gap-3 mb-6">
+                    <h3 className="text-xl font-bold text-white flex items-center gap-3">
+                        <div className={`p-2 rounded-lg border ${!canAutoPause ? 'bg-white/5 border-white/10' : 'bg-primary/10 border-primary/20'}`}>
+                            <span className={`material-symbols-outlined ${!canAutoPause ? 'text-text-muted' : 'text-primary/80'}`}>timer_off</span>
+                        </div>
+                        Regras de Negócio do Timer
+                    </h3>
+                    {!canAutoPause && <span className="text-[10px] font-bold text-text-muted bg-white/5 px-2 py-0.5 rounded border border-white/10">STARTER/FREE</span>}
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
                     <div className="space-y-6">
                         {/* Toggle Principal */}
-                        <div className="flex items-center justify-between p-4 bg-background-dark/50 rounded-lg border border-white/5 hover:border-white/10 transition-colors">
+                        <div className={`flex items-center justify-between p-4 bg-background-dark/50 rounded-lg border transition-colors ${!canAutoPause ? 'border-white/5' : 'border-white/5 hover:border-white/10'}`}>
                             <div>
                                 <span className="block text-sm font-bold text-white">Ativar Pausa Automática</span>
                                 <span className="text-xs text-text-muted">Monitorar timers excessivamente longos</span>
@@ -141,10 +165,10 @@ export default function GeneralSettings() {
                                     type="checkbox"
                                     className="sr-only peer"
                                     checked={settings.timer_auto_pause_enabled}
-                                    onChange={e => isAdmin && handleChange('timer_auto_pause_enabled', e.target.checked)}
-                                    disabled={!isAdmin}
+                                    onChange={e => isAdmin && canAutoPause && handleChange('timer_auto_pause_enabled', e.target.checked)}
+                                    disabled={!isAdmin || !canAutoPause}
                                 />
-                                <div className={`w-11 h-6 bg-gray-700 rounded-full peer peer-focus:ring-2 peer-focus:ring-primary/50 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary shadow-[0_0_10px_rgba(0,255,0,0.2)] ${!isAdmin ? 'opacity-60' : ''}`}></div>
+                                <div className={`w-11 h-6 bg-gray-700 rounded-full peer peer-focus:ring-2 peer-focus:ring-primary/50 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary shadow-[0_0_10px_rgba(0,255,0,0.2)] ${!isAdmin || !canAutoPause ? 'opacity-60' : ''}`}></div>
                             </label>
                         </div>
 
@@ -155,24 +179,24 @@ export default function GeneralSettings() {
                                 <div className="relative">
                                     <input
                                         type="number"
-                                        className={`w-full bg-background-dark/50 border border-white/10 rounded-lg pl-4 pr-12 py-3 text-white font-mono focus:border-primary/50 focus:ring-1 focus:ring-primary/50 outline-none transition-all ${!isAdmin ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                        className={`w-full bg-background-dark/50 border border-white/10 rounded-lg pl-4 pr-12 py-3 text-white font-mono focus:border-primary/50 focus:ring-1 focus:ring-primary/50 outline-none transition-all ${!isAdmin || !canAutoPause ? 'opacity-60 cursor-not-allowed' : ''}`}
                                         value={settings.timer_max_hours}
                                         onChange={e => handleChange('timer_max_hours', parseInt(e.target.value))}
-                                        disabled={!isAdmin}
+                                        disabled={!isAdmin || !canAutoPause}
                                     />
                                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-text-muted">HRS</span>
                                 </div>
                             </div>
 
                             <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">Ação ao Atingir Limite</label>
-                            <div className={!isAdmin ? 'opacity-60 pointer-events-none' : ''}>
+                            <div className={!isAdmin || !canAutoPause ? 'opacity-60 pointer-events-none' : ''}>
                                 <ModernDropdown
                                     options={[
                                         { id: 'PAUSE_AND_NOTIFY', name: 'Pausar e Notificar Usuário' },
                                         { id: 'NOTIFY_ADMIN', name: 'Apenas Notificar Admin' }
                                     ]}
                                     value={settings.timer_action || 'PAUSE_AND_NOTIFY'}
-                                    onChange={(val) => isAdmin && handleChange('timer_action', val)}
+                                    onChange={(val) => isAdmin && canAutoPause && handleChange('timer_action', val)}
                                     icon="bolt"
                                     placeholder="Selecione a ação"
                                 />
@@ -198,12 +222,23 @@ export default function GeneralSettings() {
             </section>
 
             {/* Section: Calendário */}
-            <section className="bg-surface-dark p-6 rounded-xl border border-primary/20 shadow-sm relative overflow-hidden group hover:border-primary/40 transition-all duration-500">
-                <div className="absolute top-0 left-0 w-1 h-full bg-primary/50 shadow-[0_0_15px_rgba(0,255,0,0.1)]"></div>
+            <section className={`bg-surface-dark p-6 rounded-xl border shadow-sm relative overflow-hidden transition-all duration-500 ${!canWorkload ? 'border-white/5 opacity-80' : 'border-primary/20 hover:border-primary/40'}`}>
+                {!canWorkload && (
+                    <div className="absolute inset-0 bg-background-dark/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
+                        <button onClick={handleUpgrade} className="flex flex-col items-center gap-2 group-lock cursor-pointer hover:scale-105 transition-transform">
+                            <div className="rounded-full bg-background-dark border border-primary/50 p-4 shadow-[0_0_20px_rgba(19,236,91,0.2)]">
+                                <span className="material-symbols-outlined text-primary text-3xl">lock</span>
+                            </div>
+                            <span className="bg-primary text-[#0B0E0F] text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">Recurso PRO</span>
+                            <span className="text-white text-sm font-bold underline decoration-primary decoration-2 underline-offset-4">Fazer Upgrade</span>
+                        </button>
+                    </div>
+                )}
+                <div className={`absolute top-0 left-0 w-1 h-full ${!canWorkload ? 'bg-white/10' : 'bg-primary/50 shadow-[0_0_15px_rgba(0,255,0,0.1)]'}`}></div>
 
                 <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
-                        <span className="material-symbols-outlined text-primary/80">calendar_clock</span>
+                    <div className={`p-2 rounded-lg border ${!canWorkload ? 'bg-white/5 border-white/10' : 'bg-primary/10 border-primary/20'}`}>
+                        <span className={`material-symbols-outlined ${!canWorkload ? 'text-text-muted' : 'text-primary/80'}`}>calendar_clock</span>
                     </div>
                     Calendário & Horários
                 </h3>
@@ -215,8 +250,8 @@ export default function GeneralSettings() {
                                 type="time"
                                 value={settings.business_hours_start}
                                 onChange={e => handleChange('business_hours_start', e.target.value)}
-                                disabled={!isAdmin}
-                                className={`w-full bg-background-dark/50 border border-white/10 rounded-lg px-4 py-3 text-white text-lg font-medium focus:outline-none focus:border-primary/50 focus:shadow-[0_0_15px_rgba(0,255,0,0.1)] transition-all duration-300 [color-scheme:dark] ${!isAdmin ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                disabled={!isAdmin || !canWorkload}
+                                className={`w-full bg-background-dark/50 border border-white/10 rounded-lg px-4 py-3 text-white text-lg font-medium focus:outline-none focus:border-primary/50 focus:shadow-[0_0_15px_rgba(0,255,0,0.1)] transition-all duration-300 [color-scheme:dark] ${!isAdmin || !canWorkload ? 'opacity-60 cursor-not-allowed' : ''}`}
                             />
                         </div>
                         <div className="group/input">
@@ -225,8 +260,8 @@ export default function GeneralSettings() {
                                 type="time"
                                 value={settings.business_hours_end}
                                 onChange={e => handleChange('business_hours_end', e.target.value)}
-                                disabled={!isAdmin}
-                                className={`w-full bg-background-dark/50 border border-white/10 rounded-lg px-4 py-3 text-white text-lg font-medium focus:outline-none focus:border-primary/50 focus:shadow-[0_0_15px_rgba(0,255,0,0.1)] transition-all duration-300 [color-scheme:dark] ${!isAdmin ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                disabled={!isAdmin || !canWorkload}
+                                className={`w-full bg-background-dark/50 border border-white/10 rounded-lg px-4 py-3 text-white text-lg font-medium focus:outline-none focus:border-primary/50 focus:shadow-[0_0_15px_rgba(0,255,0,0.1)] transition-all duration-300 [color-scheme:dark] ${!isAdmin || !canWorkload ? 'opacity-60 cursor-not-allowed' : ''}`}
                             />
                         </div>
                     </div>
@@ -245,18 +280,18 @@ export default function GeneralSettings() {
                                         <button
                                             key={dbValue}
                                             onClick={() => {
-                                                if (!isAdmin) return;
+                                                if (!isAdmin || !canWorkload) return;
                                                 const current = settings.work_days || [];
                                                 const newDays = isSelected
                                                     ? current.filter(d => d !== dbValue)
                                                     : [...current, dbValue];
                                                 handleChange('work_days', newDays);
                                             }}
-                                            disabled={!isAdmin}
+                                            disabled={!isAdmin || !canWorkload}
                                             className={`size-9 rounded-lg text-[10px] font-bold transition-all duration-200 border ${isSelected
                                                 ? 'bg-primary/20 border-primary text-primary shadow-[0_0_10px_rgba(0,255,0,0.2)]'
                                                 : 'bg-background-dark/50 border-white/5 text-text-muted hover:border-white/20'
-                                                } ${!isAdmin ? 'cursor-not-allowed opacity-60' : ''}`}
+                                                } ${!isAdmin || !canWorkload ? 'cursor-not-allowed opacity-60' : ''}`}
                                         >
                                             {day}
                                         </button>
@@ -293,8 +328,8 @@ export default function GeneralSettings() {
                                         step="0.5"
                                         value={settings.weekly_workload_hours || 44}
                                         onChange={e => handleChange('weekly_workload_hours', parseFloat(e.target.value))}
-                                        disabled={!isAdmin}
-                                        className={`w-full bg-background-dark/50 border border-white/10 rounded-lg px-4 py-3 text-white text-lg font-medium focus:outline-none focus:border-primary/50 focus:shadow-[0_0_15px_rgba(0,255,0,0.1)] transition-all duration-300 ${!isAdmin ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                        disabled={!isAdmin || !canWorkload}
+                                        className={`w-full bg-background-dark/50 border border-white/10 rounded-lg px-4 py-3 text-white text-lg font-medium focus:outline-none focus:border-primary/50 focus:shadow-[0_0_15px_rgba(0,255,0,0.1)] transition-all duration-300 ${!isAdmin || !canWorkload ? 'opacity-60 cursor-not-allowed' : ''}`}
                                     />
                                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-text-muted text-[10px] font-bold tracking-wider pointer-events-none">HRS</span>
                                 </div>

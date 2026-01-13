@@ -482,7 +482,6 @@ const Pricing = () => {
                             <li className="flex items-center gap-2 text-text-muted text-sm"><Check size={16} className="text-white" /> Time Tracking Manual</li>
                             <li className="flex items-center gap-2 text-text-muted text-sm"><Check size={16} className="text-white" /> Até 3 Usuários</li>
                             <li className="flex items-center gap-2 text-text-muted text-sm"><Check size={16} className="text-white" /> 500MB de Storage</li>
-                            <li className="flex items-center gap-2 text-text-muted text-sm"><Check size={16} className="text-white" /> App Mobile</li>
                         </ul>
                         <button onClick={() => navigate('/signup')} className="w-full py-4 rounded-xl border border-white/20 text-white font-bold hover:bg-white/5 transition-colors">
                             Começar teste grátis
@@ -512,9 +511,8 @@ const Pricing = () => {
                             <li className="flex items-center gap-2 text-white text-sm"><Check size={16} className="text-[#13ec5b] flex-shrink-0" /> 25GB de Storage</li>
                             <li className="flex items-start gap-2 text-white text-sm"><Check size={16} className="text-[#13ec5b] flex-shrink-0 mt-0.5" /> <span><span className="font-bold">Pausa Inteligente Programada:</span> Configure limites automáticos para eliminar erros de registro e garantir a precisão do custo operacional.</span></li>
                             <li className="flex items-center gap-2 text-white text-sm"><Check size={16} className="text-[#13ec5b] flex-shrink-0" /> <span className="font-bold">Gestão de Carga Horária</span></li>
-                            <li className="flex items-center gap-2 text-white text-sm"><Check size={16} className="text-[#13ec5b] flex-shrink-0" /> <span className="font-bold">Dashboards de Tendência</span></li>
-                            <li className="flex items-center gap-2 text-white text-sm"><Check size={16} className="text-[#13ec5b] flex-shrink-0" /> <span className="font-bold">Churn Preditivo</span></li>
-                            <li className="flex items-center gap-2 text-white text-sm"><Check size={16} className="text-[#13ec5b] flex-shrink-0" /> Suporte Prioritário</li>
+                            <li className="flex items-start gap-2 text-white text-sm"><Check size={16} className="text-[#13ec5b] flex-shrink-0 mt-0.5" /> <span><span className="font-bold">Relatórios Semanais de Produtividade:</span> Resumo automático do esforço da equipe enviado para o seu e-mail.</span></li>
+                            <li className="flex items-start gap-2 text-white text-sm"><Check size={16} className="text-[#13ec5b] flex-shrink-0 mt-0.5" /> <span><span className="font-bold">Suporte Prioritário e Humanizado:</span> Canal direto com nosso time de sucesso do cliente.</span></li>
                         </ul>
                         <button onClick={() => navigate('/signup?plan=pro')} className="w-full py-4 rounded-xl bg-[#13ec5b] hover:bg-[#0ea842] text-[#0B0E0F] font-bold transition-all shadow-lg hover:shadow-[#13ec5b]/20 transform hover:-translate-y-1">
                             Começar teste grátis

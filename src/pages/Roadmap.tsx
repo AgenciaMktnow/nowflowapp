@@ -104,6 +104,28 @@ export default function Roadmap() {
                     </div>
                 </div>
 
+                <div className="mt-32">
+                    <h2 className="text-3xl font-display font-bold text-white mb-12 text-center">
+                        O Futuro da Inteligência <span className="text-[#13ec5b]">NowFlow</span>
+                    </h2>
+                    <div className="grid md:grid-cols-2 gap-8">
+                        <div className="bg-white/5 border border-white/10 rounded-2xl p-8 hover:bg-white/10 transition-all group">
+                            <div className="text-[#13ec5b] text-sm font-bold uppercase tracking-wider mb-2">Q3 2026</div>
+                            <h3 className="text-2xl font-bold text-white mb-4 group-hover:text-[#13ec5b] transition-colors">Dashboards de Tendência</h3>
+                            <p className="text-gray-400 font-light leading-relaxed">
+                                Análise preditiva de gargalos e projeção de entregas baseada em IA de alta performance.
+                            </p>
+                        </div>
+                        <div className="bg-white/5 border border-white/10 rounded-2xl p-8 hover:bg-white/10 transition-all group">
+                            <div className="text-[#13ec5b] text-sm font-bold uppercase tracking-wider mb-2">Q4 2026</div>
+                            <h3 className="text-2xl font-bold text-white mb-4 group-hover:text-[#13ec5b] transition-colors">Churn Preditivo</h3>
+                            <p className="text-gray-400 font-light leading-relaxed">
+                                Identificação antecipada de riscos de cancelamento e desengajamento da equipe ou clientes.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
                 <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}

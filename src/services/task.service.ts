@@ -418,5 +418,27 @@ export const taskService = {
         } catch (error: any) {
             return { data: null, error: mapTaskError(error) };
         }
+    },
+    async getOrganizationStorageUsage(orgId: string): Promise<number> {
+        try {
+            // Fetch 'size' for all attachments in the organization
+            // Note: This matches the migration logic but runs client-side.
+            // For large orgs, an RPC 'get_org_storage_usage' is recommended for performance.
+            const { data, error } = await supabase
+                .from('task_attachments') // This table has 'size'
+                .select(`
+                    size,
+                    task:tasks!inner(organization_id)
+                `)
+                .eq('task.organization_id', orgId);
+
+            if (error) throw error;
+
+            const totalBytes = data?.reduce((acc, curr) => acc + (curr.size || 0), 0) || 0;
+            return totalBytes / (1024 * 1024); // Return MB
+        } catch (error) {
+            console.error('Error calculating storage:', error);
+            return 0;
+        }
     }
 };

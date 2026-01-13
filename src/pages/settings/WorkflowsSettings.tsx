@@ -17,6 +17,8 @@ interface Board {
     name: string;
 }
 
+import { usePermissions } from '../../hooks/usePermissions';
+
 export default function WorkflowsSettings() {
     const [workflows, setWorkflows] = useState<Workflow[]>([]);
     const [boards, setBoards] = useState<Board[]>([]);
@@ -25,6 +27,9 @@ export default function WorkflowsSettings() {
     const [dataLoading, setDataLoading] = useState(false);
     const [isWorkflowModalOpen, setIsWorkflowModalOpen] = useState(false);
     const [editingWorkflow, setEditingWorkflow] = useState<Workflow | null>(null);
+
+    const { can } = usePermissions();
+    const canCustomWorkflows = can('custom_workflows');
 
     useEffect(() => {
         fetchData();
@@ -108,7 +113,6 @@ export default function WorkflowsSettings() {
             toast.error('Erro ao excluir fluxo: ' + error.message);
         }
     };
-
     return (
         <div className="space-y-8 animate-fade-in-up">
             <div className="flex justify-between items-center">
@@ -118,13 +122,17 @@ export default function WorkflowsSettings() {
                 </div>
                 <button
                     onClick={() => {
+                        if (!canCustomWorkflows) {
+                            toast.error('Recurso exclusivo PRO: Upgrade para criar fluxos personalizados.');
+                            return;
+                        }
                         setEditingWorkflow(null);
                         setIsWorkflowModalOpen(true);
                     }}
-                    className="flex items-center gap-2 px-4 py-2 bg-primary text-background-dark font-bold rounded-lg hover:bg-primary-light transition-colors"
+                    className={`flex items-center gap-2 px-4 py-2 font-bold rounded-lg transition-colors ${canCustomWorkflows ? 'bg-primary text-background-dark hover:bg-primary-light' : 'bg-gray-700 text-gray-400 cursor-not-allowed'}`}
                 >
-                    <span className="material-symbols-outlined">add</span>
-                    Novo Fluxo
+                    <span className="material-symbols-outlined">{canCustomWorkflows ? 'add' : 'lock'}</span>
+                    <span>{canCustomWorkflows ? 'Novo Fluxo' : 'Novo Fluxo (PRO)'}</span>
                 </button>
             </div>
 
@@ -143,18 +151,28 @@ export default function WorkflowsSettings() {
                             <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button
                                     onClick={() => {
+                                        if (!canCustomWorkflows) {
+                                            toast.error('Recurso exclusivo PRO: Upgrade para editar fluxos.');
+                                            return;
+                                        }
                                         setEditingWorkflow(workflow);
                                         setIsWorkflowModalOpen(true);
                                     }}
-                                    className="p-1.5 hover:bg-white/10 rounded-lg text-text-secondary hover:text-primary transition-colors"
+                                    className={`p-1.5 rounded-lg transition-colors ${canCustomWorkflows ? 'hover:bg-white/10 text-text-secondary hover:text-primary' : 'text-gray-600 cursor-not-allowed'}`}
                                 >
-                                    <span className="material-symbols-outlined text-sm">edit</span>
+                                    <span className="material-symbols-outlined text-sm">{canCustomWorkflows ? 'edit' : 'lock'}</span>
                                 </button>
                                 <button
-                                    onClick={() => handleDeleteWorkflow(workflow.id)}
-                                    className="p-1.5 hover:bg-white/10 rounded-lg text-text-secondary hover:text-red-500 transition-colors"
+                                    onClick={() => {
+                                        if (!canCustomWorkflows) {
+                                            toast.error('Recurso exclusivo PRO: Upgrade para gerenciar fluxos.');
+                                            return;
+                                        }
+                                        handleDeleteWorkflow(workflow.id);
+                                    }}
+                                    className={`p-1.5 rounded-lg transition-colors ${canCustomWorkflows ? 'hover:bg-white/10 text-text-secondary hover:text-red-500' : 'text-gray-600 cursor-not-allowed'}`}
                                 >
-                                    <span className="material-symbols-outlined text-sm">delete</span>
+                                    <span className="material-symbols-outlined text-sm">{canCustomWorkflows ? 'delete' : 'lock'}</span>
                                 </button>
                             </div>
                         </div>

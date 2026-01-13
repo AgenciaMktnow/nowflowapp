@@ -8,6 +8,8 @@ import DateRangePicker from '../DateRangePicker';
 import { useSearchParams } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { toast } from 'sonner';
+import { usePermissions } from '../../hooks/usePermissions';
 
 interface TeamOption {
     id: string;
@@ -21,12 +23,20 @@ interface TeamReportProps {
     filterClient?: string;
 }
 
+
+
 export default function TeamReport({ users, teams, filterTeam: initialFilterTeam, filterClient }: TeamReportProps) {
     const [loading, setLoading] = useState(true);
     const [hierarchy, setHierarchy] = useState<any[]>([]);
     const [timeline, setTimeline] = useState<any[]>([]);
     const [categories, setCategories] = useState<any[]>([]);
     const [searchParams, setSearchParams] = useSearchParams();
+
+    const { can } = usePermissions();
+    const canAdvancedReports = can('advanced_reports');
+
+
+
 
     // Filters Data
     const [clients, setClients] = useState<TeamOption[]>([]);
@@ -264,10 +274,16 @@ export default function TeamReport({ users, teams, filterTeam: initialFilterTeam
                 <div className="w-full lg:w-auto flex justify-end gap-2">
                     <div className="relative">
                         <button
-                            onClick={() => setShowExportMenu(!showExportMenu)}
-                            className="flex items-center gap-2 px-4 py-3 rounded-xl border border-gray-700 text-gray-400 hover:text-white hover:border-white/20 hover:bg-white/5 transition-all text-sm font-medium whitespace-nowrap"
+                            onClick={() => {
+                                if (!canAdvancedReports) {
+                                    toast.error('Recurso exclusivo PRO: Exportação de Relatórios.');
+                                    return;
+                                }
+                                setShowExportMenu(!showExportMenu);
+                            }}
+                            className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-all text-sm font-medium whitespace-nowrap ${canAdvancedReports ? 'border-gray-700 text-gray-400 hover:text-white hover:border-white/20 hover:bg-white/5' : 'border-gray-800 text-gray-600 cursor-not-allowed'}`}
                         >
-                            <span className="material-symbols-outlined">download</span>
+                            <span className="material-symbols-outlined">{canAdvancedReports ? 'download' : 'lock'}</span>
                             Exportar
                         </button>
                         {showExportMenu && (
@@ -285,10 +301,16 @@ export default function TeamReport({ users, teams, filterTeam: initialFilterTeam
                     </div>
 
                     <button
-                        onClick={() => setShowInsights(true)}
-                        className="flex items-center gap-2 px-4 py-3 rounded-xl border border-gray-700 text-gray-400 hover:text-white hover:border-primary/50 hover:bg-white/5 transition-all text-sm font-medium whitespace-nowrap"
+                        onClick={() => {
+                            if (!canAdvancedReports) {
+                                toast.error('Recurso exclusivo PRO: Insights e Tendências.');
+                                return;
+                            }
+                            setShowInsights(true);
+                        }}
+                        className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-all text-sm font-medium whitespace-nowrap ${canAdvancedReports ? 'border-gray-700 text-gray-400 hover:text-white hover:border-primary/50 hover:bg-white/5' : 'border-gray-800 text-gray-600 cursor-not-allowed'}`}
                     >
-                        <span className="material-symbols-outlined">insights</span>
+                        <span className="material-symbols-outlined">{canAdvancedReports ? 'insights' : 'lock'}</span>
                         Ver Insights
                     </button>
                 </div>

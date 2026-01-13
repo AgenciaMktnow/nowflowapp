@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import AttachmentList, { type Attachment } from '../components/AttachmentList';
 import Header from '../components/layout/Header/Header';
 import EmojiPicker, { Theme } from 'emoji-picker-react';
+import { usePermissions } from '../hooks/usePermissions';
 
 
 import type { Board } from '../types/database.types';
@@ -695,8 +696,26 @@ export default function TaskDetail() {
         }
     };
 
+    const { getLimit } = usePermissions();
+    // ...
+
     const handleFileUpload = async (files: File[]) => {
         if (!task || !user) return;
+
+        // 0. Check Storage Limit
+        if (userProfile?.organization?.id) {
+            const limitMb = getLimit('storage_limit_mb');
+            if (typeof limitMb === 'number') {
+                const currentUsageMb = await taskService.getOrganizationStorageUsage(userProfile.organization.id);
+                const newFilesSizeMb = files.reduce((acc, f) => acc + f.size, 0) / (1024 * 1024);
+
+                if (currentUsageMb + newFilesSizeMb > limitMb) {
+                    toast.error(`Limite de armazenamento excedido (${limitMb}MB). Atualize seu plano.`);
+                    return;
+                }
+            }
+        }
+
         setUploading(true);
         const toastId = toast.loading(`Enviando ${files.length} arquivo(s)...`);
 
@@ -720,7 +739,7 @@ export default function TaskDetail() {
 
                 // 3. Insert into Database
                 const { error: dbError } = await supabase
-                    .from('task_attachments')
+                    .from('task_attachments') // Fixed table name
                     .insert([{
                         task_id: task.id,
                         user_id: user.id,
