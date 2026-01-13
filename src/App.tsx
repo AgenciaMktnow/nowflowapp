@@ -72,10 +72,6 @@ function RootHandler() {
     return <Navigate to="/dashboard" replace />;
   }
 
-  // Production: Redirect to Login (Landing Page is WIP)
-  if (!import.meta.env.DEV) {
-    return <Navigate to="/login" replace />;
-  }
 
   return <LandingPage />;
 }
