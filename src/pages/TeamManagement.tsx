@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import MultiSelectDropdown from '../components/MultiSelectDropdown';
 import UserDeleteModal from '../components/modals/UserDeleteModal';
 import { toast } from 'sonner';
+import { usePermissions } from '../hooks/usePermissions';
 
 type User = {
     id: string;
@@ -13,7 +14,7 @@ type User = {
     is_active: boolean;
     avatar_url?: string;
     user_id: string;
-    team_ids: string[]; // Support multiple teams
+    team_ids: string[];
 };
 
 type TeamOption = {
@@ -29,10 +30,22 @@ export default function TeamManagement() {
     const [roleFilter, setRoleFilter] = useState<string>('all');
     const [statusFilter, setStatusFilter] = useState<string>('all');
 
+    const { getLimit } = usePermissions();
+    const activeUserCount = users.filter(u => u.is_active).length;
+    const maxUsers = getLimit('max_users');
+    const userLimitReached = typeof maxUsers === 'number' && activeUserCount >= maxUsers;
+
     useEffect(() => {
         fetchTeams();
         fetchUsers();
     }, []);
+
+    // ... (fetchTeams, fetchUsers, getRoleBadge, filteredUsers omitted for brevity if unchanged) ...
+
+    // REPLACING header content to include Logic
+    // Using previous context to locate, but I need to be careful with replace_file_content range.
+    // I will target the Header section specifically.
+
 
     const fetchTeams = async () => {
         const { data } = await supabase.from('teams').select('id, name').order('name');
@@ -330,19 +343,27 @@ export default function TeamManagement() {
                         <p className="text-[#92c9a4] text-base font-normal">Gerencie o acesso e as permissões dos membros da equipe.</p>
                     </div>
                     <button
-                        onClick={() => setSelectedUser({
-                            id: 'new',
-                            full_name: '',
-                            email: '',
-                            role: 'member',
-                            is_active: true,
-                            user_id: '',
-                            team_ids: []
-                        })}
-                        className="hidden md:flex cursor-pointer items-center justify-center gap-2 rounded-lg h-10 px-5 bg-primary hover:bg-primary-dark text-background-dark text-sm font-bold shadow-[0_0_15px_rgba(19,236,91,0.3)] transition-all transform active:scale-95"
+                        onClick={() => {
+                            if (userLimitReached) {
+                                toast.error(`Limite de usuários atingido (${maxUsers}). Atualize seu plano.`);
+                                return;
+                            }
+                            setSelectedUser({
+                                id: 'new',
+                                full_name: '',
+                                email: '',
+                                role: 'member',
+                                is_active: true,
+                                user_id: '',
+                                team_ids: []
+                            });
+                        }}
+                        className={`hidden md:flex cursor-pointer items-center justify-center gap-2 rounded-lg h-10 px-5 text-background-dark text-sm font-bold shadow-[0_0_15px_rgba(19,236,91,0.3)] transition-all transform active:scale-95 ${userLimitReached ? 'bg-gray-600 cursor-not-allowed opacity-70 shadow-none' : 'bg-primary hover:bg-primary-dark'}`}
+                        disabled={!!userLimitReached}
+                        title={userLimitReached ? 'Limite de usuários atingido' : 'Criar novo usuário'}
                     >
-                        <span className="material-symbols-outlined text-[20px]">add</span>
-                        <span>Novo Usuário</span>
+                        <span className="material-symbols-outlined text-[20px]">{userLimitReached ? 'lock' : 'add'}</span>
+                        <span>{userLimitReached ? 'Limite Atingido' : 'Novo Usuário'}</span>
                     </button>
                 </div>
             </header>

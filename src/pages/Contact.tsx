@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Mail, Clock, MessageCircle } from 'lucide-react';
+import { ArrowLeft, Mail, Clock } from 'lucide-react';
 
 export default function Contact() {
     const navigate = useNavigate();
