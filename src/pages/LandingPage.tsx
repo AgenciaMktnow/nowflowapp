@@ -513,8 +513,8 @@ const Pricing = () => {
                     </div>
 
                     {/* Pro (Highlighted) */}
-                    <div className="relative p-8 rounded-3xl bg-[#162E20] border-2 border-[#13ec5b] shadow-[0_0_40px_rgba(19,236,91,0.15)] flex flex-col transform md:-translate-y-4 z-10" aria-label="Plano Pro - Escolha Estratégica">
-                        <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-[#13ec5b] to-[#0ea842] text-[#0B0E0F] text-xs font-bold px-6 py-1.5 rounded-full uppercase tracking-wider shadow-[0_0_15px_rgba(19,236,91,0.4)] animate-pulse">
+                    <div className="relative p-8 rounded-3xl bg-[#162E20] border-2 border-[#13ec5b] shadow-[0_0_30px_rgba(19,236,91,0.2)] flex flex-col transform md:-translate-y-4 z-10" aria-label="Plano Pro - Escolha Estratégica">
+                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-[#13ec5b] to-[#0ea842] text-[#0B0E0F] text-[10px] font-bold px-4 py-1.5 rounded-full uppercase tracking-wider shadow-[0_0_20px_rgba(19,236,91,0.4)] animate-pulse whitespace-nowrap z-20">
                             ESCOLHA ESTRATÉGICA
                         </div>
                         <div className="mb-4">
