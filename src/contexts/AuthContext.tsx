@@ -5,11 +5,12 @@ import type { User, Session } from '@supabase/supabase-js';
 import { authService } from '../services/auth.service';
 import { toast } from 'sonner';
 
-import type { UserProfile } from '../types/auth';
+import type { IUserProfile } from '../types/auth';
+export type { IUserProfile };
 
 interface AuthContextType {
     user: User | null;
-    userProfile: UserProfile | null;
+    userProfile: IUserProfile | null;
     session: Session | null;
     loading: boolean;
     signOut: () => Promise<void>;
@@ -19,7 +20,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
-    const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+    const [userProfile, setUserProfile] = useState<IUserProfile | null>(null);
     const [session, setSession] = useState<Session | null>(null);
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
@@ -42,7 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 }
 
                 console.log("User profile loaded:", data.email, "| Org:", (data as any).organization_id, "| Role:", (data as any).role);
-                setUserProfile(data as UserProfile);
+                setUserProfile(data as IUserProfile);
             } else {
                 console.error("Error loading user profile:", error);
             }

@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
-import type { UserProfile } from '../types/auth';
-export type { UserProfile };
+import type { IUserProfile } from '../types/auth';
+export type { IUserProfile as UserProfile };
 import type { User, Session, SignUpWithPasswordCredentials, SignInWithPasswordCredentials } from '@supabase/supabase-js';
 
 // Define return types for better type safety
@@ -110,7 +110,7 @@ export const authService = {
     /**
      * Fetch user profile from the 'users' table
      */
-    async getUserProfile(userId: string): Promise<{ data: UserProfile | null; error: Error | null }> {
+    async getUserProfile(userId: string): Promise<{ data: IUserProfile | null; error: Error | null }> {
         try {
             const { data, error } = await supabase
                 .from('users')
@@ -119,7 +119,7 @@ export const authService = {
                 .single();
 
             if (error) throw error;
-            return { data: data as UserProfile, error: null };
+            return { data: data as IUserProfile, error: null };
         } catch (error: any) {
             return { data: null, error: mapAuthError(error) };
         }
