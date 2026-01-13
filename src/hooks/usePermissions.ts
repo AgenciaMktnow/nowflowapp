@@ -6,8 +6,8 @@ export const usePermissions = () => {
     const { userProfile: rawProfile } = useAuth();
     const userProfile = rawProfile as IUserProfile | null;
 
-    // Default to FREE if no plan found (safety fallback)
-    const currentPlan: PlanType = (userProfile?.organization?.plan_type as PlanType) || 'FREE';
+    // Default to PRO if no plan found (safer fallback for legacy users during migration)
+    const currentPlan: PlanType = (userProfile?.organization?.plan_type as PlanType) || 'PRO';
     const planLimits = PLANS[currentPlan];
 
     const checkPermission = (feature: FeatureKey): boolean => {
