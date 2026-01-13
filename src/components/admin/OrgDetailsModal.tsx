@@ -12,6 +12,13 @@ export default function OrgDetailsModal({ orgId, onClose }: OrgDetailsModalProps
     const [details, setDetails] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'overview' | 'logs'>('overview');
+    const [isSaving, setIsSaving] = useState(false);
+
+    // Edit States
+    const [editPlan, setEditPlan] = useState('');
+    const [editStatus, setEditStatus] = useState('');
+    const [editMaxUsers, setEditMaxUsers] = useState(0);
+    const [editMaxBoards, setEditMaxBoards] = useState(0);
 
     useEffect(() => {
         if (orgId) {
@@ -24,8 +31,34 @@ export default function OrgDetailsModal({ orgId, onClose }: OrgDetailsModalProps
         setLoading(true);
         const { data, error } = await adminService.getOrgDetails(orgId);
         if (error) toast.error('Erro ao carregar raio-x');
-        else setDetails(data);
+        else if (data) {
+            setDetails(data);
+            setEditPlan(data.plan_type);
+            setEditStatus(data.status);
+            setEditMaxUsers(data.max_users || 0);
+            setEditMaxBoards(data.max_boards || 0);
+        }
         setLoading(false);
+    };
+
+    const handleUpdatePlan = async () => {
+        if (!orgId) return;
+        setIsSaving(true);
+        const { error } = await adminService.updateOrgPlan(
+            orgId,
+            editPlan,
+            editStatus,
+            editMaxUsers,
+            editMaxBoards
+        );
+
+        if (error) {
+            toast.error('Erro ao atualizar plano: ' + error.message);
+        } else {
+            toast.success('Plano e quotas atualizados com sucesso!');
+            loadDetails();
+        }
+        setIsSaving(false);
     };
 
     if (!orgId) return null;
@@ -220,6 +253,85 @@ export default function OrgDetailsModal({ orgId, onClose }: OrgDetailsModalProps
                                                 </div>
                                             </div>
                                         </div>
+                                    </div>
+
+                                    {/* ADMIN MANAGEMENT SECTION */}
+                                    <div className="bg-[#121214] rounded-xl border border-primary/20 p-6 shadow-lg">
+                                        <h3 className="text-sm font-bold text-primary uppercase tracking-widest mb-6 flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-lg">admin_panel_settings</span>
+                                            Gestão de Assinatura (Super-Admin)
+                                        </h3>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+                                            {/* Plan Type */}
+                                            <div className="flex flex-col gap-2">
+                                                <label className="text-xs font-bold text-text-subtle uppercase">Plano</label>
+                                                <select
+                                                    value={editPlan}
+                                                    onChange={(e) => setEditPlan(e.target.value)}
+                                                    className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-primary/50 outline-none"
+                                                >
+                                                    <option value="FREE">FREE</option>
+                                                    <option value="STARTER">STARTER</option>
+                                                    <option value="PRO">PRO</option>
+                                                    <option value="ENTERPRISE">ENTERPRISE</option>
+                                                </select>
+                                            </div>
+
+                                            {/* Status */}
+                                            <div className="flex flex-col gap-2">
+                                                <label className="text-xs font-bold text-text-subtle uppercase">Status</label>
+                                                <select
+                                                    value={editStatus}
+                                                    onChange={(e) => setEditStatus(e.target.value)}
+                                                    className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-primary/50 outline-none"
+                                                >
+                                                    <option value="active">Ativo</option>
+                                                    <option value="trialing">Trial</option>
+                                                    <option value="suspended">Suspenso</option>
+                                                </select>
+                                            </div>
+
+                                            {/* Max Users */}
+                                            <div className="flex flex-col gap-2">
+                                                <label className="text-xs font-bold text-text-subtle uppercase">Máx. Usuários</label>
+                                                <input
+                                                    type="number"
+                                                    value={editMaxUsers}
+                                                    onChange={(e) => setEditMaxUsers(parseInt(e.target.value))}
+                                                    className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-primary/50 outline-none"
+                                                />
+                                            </div>
+
+                                            {/* Max Boards */}
+                                            <div className="flex flex-col gap-2">
+                                                <label className="text-xs font-bold text-text-subtle uppercase">Máx. Quadros</label>
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        type="number"
+                                                        value={editMaxBoards}
+                                                        onChange={(e) => setEditMaxBoards(parseInt(e.target.value))}
+                                                        className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-primary/50 outline-none"
+                                                    />
+                                                    <button
+                                                        onClick={handleUpdatePlan}
+                                                        disabled={isSaving}
+                                                        className={`bg-primary text-black font-bold text-xs uppercase px-4 py-2 rounded-lg hover:bg-primary-light transition-all flex items-center gap-2 ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    >
+                                                        {isSaving ? (
+                                                            <div className="w-3 h-3 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
+                                                        ) : (
+                                                            <span className="material-symbols-outlined text-[18px]">save</span>
+                                                        )}
+                                                        Salvar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <p className="mt-4 text-[10px] text-text-subtle italic flex items-center gap-1">
+                                            <span className="material-symbols-outlined text-[14px]">info</span>
+                                            Alterar o plano recalcula automaticamente as quotas padrão, a menos que você insira valores específicos acima.
+                                        </p>
                                     </div>
 
                                     {/* High Density Cards */}

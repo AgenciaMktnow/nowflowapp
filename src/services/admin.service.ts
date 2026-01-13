@@ -105,11 +105,13 @@ export const adminService = {
     },
 
     // 2. Update Plan / Status
-    async updateOrgPlan(orgId: string, newPlan: string, newStatus: string): Promise<{ error: Error | null }> {
+    async updateOrgPlan(orgId: string, newPlan: string, newStatus: string, customUsers?: number, customBoards?: number): Promise<{ error: Error | null }> {
         const { error } = await supabase.rpc('admin_update_org_plan', {
             target_org_id: orgId,
             new_plan: newPlan,
-            new_status: newStatus
+            new_status: newStatus,
+            custom_max_users: customUsers,
+            custom_max_boards: customBoards
         });
 
         if (error) {
