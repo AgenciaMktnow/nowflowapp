@@ -378,9 +378,10 @@ export default function GeneralSettings() {
 
                         <button
                             onClick={() => window.location.href = '/admin/saas'}
-                            className="w-full md:w-auto px-6 py-3 bg-primary text-black font-bold rounded-xl hover:bg-primary-light transition-all flex items-center justify-center gap-2 shadow-lg"
+                            className="w-full md:w-auto px-6 py-3 bg-primary text-black font-bold rounded-xl hover:bg-primary-light transition-all flex items-center justify-center gap-2 shadow-lg group"
                         >
-                            <span className="material-symbols-outlined">settings_suggest</span>
+                            <span className="material-symbols-outlined transition-transform group-hover:rotate-180 duration-500">settings_suggest</span>
+                            Gerenciar Planos e Quotas
                         </button>
                     </div>
                     <p className="mt-4 text-[10px] text-text-muted italic flex items-center gap-1">

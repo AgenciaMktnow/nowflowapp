@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { adminService } from '../../services/admin.service';
 import { toast } from 'sonner';
+import ModernDropdown from '../ModernDropdown';
 import { QuotaProgressBar } from './QuotaProgressBar';
 
 interface OrgDetailsModalProps {
@@ -262,34 +263,43 @@ export default function OrgDetailsModal({ orgId, onClose }: OrgDetailsModalProps
                                             Gestão de Assinatura (Super-Admin)
                                         </h3>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 items-end">
                                             {/* Plan Type */}
                                             <div className="flex flex-col gap-2">
                                                 <label className="text-xs font-bold text-text-subtle uppercase">Plano</label>
-                                                <select
+                                                <ModernDropdown
+                                                    options={[
+                                                        { id: 'FREE', name: 'FREE' },
+                                                        { id: 'STARTER', name: 'STARTER' },
+                                                        { id: 'PRO', name: 'PRO' },
+                                                        { id: 'ENTERPRISE', name: 'ENTERPRISE' }
+                                                    ]}
                                                     value={editPlan}
-                                                    onChange={(e) => setEditPlan(e.target.value)}
-                                                    className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-primary/50 outline-none"
-                                                >
-                                                    <option value="FREE">FREE</option>
-                                                    <option value="STARTER">STARTER</option>
-                                                    <option value="PRO">PRO</option>
-                                                    <option value="ENTERPRISE">ENTERPRISE</option>
-                                                </select>
+                                                    onChange={(p: string) => {
+                                                        setEditPlan(p);
+                                                        // Auto-update quotas based on standard plan defaults
+                                                        if (p === 'ENTERPRISE') { setEditMaxUsers(999999); setEditMaxBoards(999999); }
+                                                        else if (p === 'PRO') { setEditMaxUsers(100); setEditMaxBoards(50); }
+                                                        else if (p === 'STARTER') { setEditMaxUsers(10); setEditMaxBoards(10); }
+                                                        else { setEditMaxUsers(5); setEditMaxBoards(3); }
+                                                    }}
+                                                    className="w-full"
+                                                />
                                             </div>
 
                                             {/* Status */}
                                             <div className="flex flex-col gap-2">
                                                 <label className="text-xs font-bold text-text-subtle uppercase">Status</label>
-                                                <select
+                                                <ModernDropdown
+                                                    options={[
+                                                        { id: 'active', name: 'Ativo' },
+                                                        { id: 'trialing', name: 'Trial' },
+                                                        { id: 'suspended', name: 'Suspenso' }
+                                                    ]}
                                                     value={editStatus}
-                                                    onChange={(e) => setEditStatus(e.target.value)}
-                                                    className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-primary/50 outline-none"
-                                                >
-                                                    <option value="active">Ativo</option>
-                                                    <option value="trialing">Trial</option>
-                                                    <option value="suspended">Suspenso</option>
-                                                </select>
+                                                    onChange={(s: string) => setEditStatus(s)}
+                                                    className="w-full"
+                                                />
                                             </div>
 
                                             {/* Max Users */}
@@ -303,29 +313,30 @@ export default function OrgDetailsModal({ orgId, onClose }: OrgDetailsModalProps
                                                 />
                                             </div>
 
-                                            {/* Max Boards */}
                                             <div className="flex flex-col gap-2">
                                                 <label className="text-xs font-bold text-text-subtle uppercase">Máx. Quadros</label>
-                                                <div className="flex gap-2">
-                                                    <input
-                                                        type="number"
-                                                        value={editMaxBoards}
-                                                        onChange={(e) => setEditMaxBoards(parseInt(e.target.value))}
-                                                        className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-primary/50 outline-none"
-                                                    />
-                                                    <button
-                                                        onClick={handleUpdatePlan}
-                                                        disabled={isSaving}
-                                                        className={`bg-primary text-black font-bold text-xs uppercase px-4 py-2 rounded-lg hover:bg-primary-light transition-all flex items-center gap-2 ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                    >
-                                                        {isSaving ? (
-                                                            <div className="w-3 h-3 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
-                                                        ) : (
-                                                            <span className="material-symbols-outlined text-[18px]">save</span>
-                                                        )}
-                                                        Salvar
-                                                    </button>
-                                                </div>
+                                                <input
+                                                    type="number"
+                                                    value={editMaxBoards}
+                                                    onChange={(e) => setEditMaxBoards(parseInt(e.target.value))}
+                                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-primary/50 outline-none"
+                                                />
+                                            </div>
+
+                                            {/* Save Button */}
+                                            <div className="md:col-span-full lg:col-span-1">
+                                                <button
+                                                    onClick={handleUpdatePlan}
+                                                    disabled={isSaving}
+                                                    className={`w-full bg-primary text-black font-bold text-xs uppercase px-4 py-2.5 rounded-lg hover:bg-primary-light transition-all flex items-center justify-center gap-2 ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                >
+                                                    {isSaving ? (
+                                                        <div className="w-3 h-3 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
+                                                    ) : (
+                                                        <span className="material-symbols-outlined text-[18px]">save</span>
+                                                    )}
+                                                    Salvar
+                                                </button>
                                             </div>
                                         </div>
                                         <p className="mt-4 text-[10px] text-text-subtle italic flex items-center gap-1">
