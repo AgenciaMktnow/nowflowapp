@@ -459,12 +459,35 @@ const TestimonialsCarousel = () => {
 
 const Pricing = () => {
     const navigate = useNavigate();
+    const [isAnnual, setIsAnnual] = useState(false);
+
     return (
         <section id="pricing" className="py-24 bg-[#05110A]" aria-label="Planos e Preços">
             <div className="max-w-7xl mx-auto px-6 sm:px-6 lg:px-8">
-                <div className="text-center mb-20">
+                <div className="text-center mb-12">
                     <h2 className="text-4xl md:text-5xl font-display font-bold text-white mb-6">Simples e Transparente.</h2>
-                    <p className="text-text-muted text-lg">Escolha o plano ideal para escalar sua operação.</p>
+                    <p className="text-text-muted text-lg mb-10">Escolha o plano ideal para escalar sua operação.</p>
+
+                    {/* Faturamento Toggle */}
+                    <div className="flex items-center justify-center gap-4">
+                        <span className={`text-sm font-medium transition-colors ${!isAnnual ? 'text-white' : 'text-gray-500'}`}>Mensal</span>
+                        <button
+                            onClick={() => setIsAnnual(!isAnnual)}
+                            className="relative w-16 h-8 rounded-full bg-white/10 border border-white/10 p-1 transition-colors hover:border-[#13ec5b]/30"
+                        >
+                            <motion.div
+                                animate={{ x: isAnnual ? 32 : 0 }}
+                                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                                className="w-6 h-6 rounded-full bg-[#13ec5b] shadow-[0_0_10px_rgba(19,236,91,0.5)]"
+                            />
+                        </button>
+                        <div className="flex items-center gap-2">
+                            <span className={`text-sm font-medium transition-colors ${isAnnual ? 'text-white' : 'text-gray-500'}`}>Anual</span>
+                            <span className="bg-[#13ec5b]/10 text-[#13ec5b] text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider border border-[#13ec5b]/20">
+                                Economize até 25%
+                            </span>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="grid md:grid-cols-3 gap-8 mb-16">
@@ -501,10 +524,25 @@ const Pricing = () => {
                         <div className="mb-2">
                             <div className="flex items-baseline gap-1">
                                 <span className="text-sm text-text-muted">R$</span>
-                                <span className="text-4xl font-bold text-white">39,90</span>
+                                <AnimatePresence mode="wait">
+                                    <motion.span
+                                        key={isAnnual ? 'annual' : 'monthly'}
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -10 }}
+                                        className="text-4xl font-bold text-white"
+                                    >
+                                        {isAnnual ? '34,90' : '39,90'}
+                                    </motion.span>
+                                </AnimatePresence>
                                 <span className="text-text-muted">/usuário</span>
                             </div>
-                            <p className="text-xs text-text-muted mt-1">Mínimo 10 usuários (R$ 399,00/mês)</p>
+                            <div className="flex flex-col gap-1 mt-1">
+                                <p className="text-xs text-text-muted">Mínimo 10 usuários (R$ {isAnnual ? '349,00' : '399,00'}/{isAnnual ? 'ano' : 'mês'})</p>
+                                {isAnnual && (
+                                    <span className="text-[10px] text-[#13ec5b] font-bold uppercase tracking-tight">Equivale a 2 meses grátis</span>
+                                )}
+                            </div>
                         </div>
                         <ul className="space-y-4 mb-8 mt-6 flex-1">
                             <li className="flex items-center gap-2 text-white text-sm"><Check size={16} className="text-[#13ec5b] flex-shrink-0" /> Tudo do Starter +</li>
@@ -514,7 +552,7 @@ const Pricing = () => {
                             <li className="flex items-start gap-2 text-white text-sm"><Check size={16} className="text-[#13ec5b] flex-shrink-0 mt-0.5" /> <span><span className="font-bold">Relatórios Semanais de Produtividade:</span> Resumo automático do esforço da equipe enviado para o seu e-mail.</span></li>
                             <li className="flex items-start gap-2 text-white text-sm"><Check size={16} className="text-[#13ec5b] flex-shrink-0 mt-0.5" /> <span><span className="font-bold">Suporte Prioritário e Humanizado:</span> Canal direto com nosso time de sucesso do cliente.</span></li>
                         </ul>
-                        <button onClick={() => navigate('/signup?plan=pro')} className="w-full py-4 rounded-xl bg-[#13ec5b] hover:bg-[#0ea842] text-[#0B0E0F] font-bold transition-all shadow-lg hover:shadow-[#13ec5b]/20 transform hover:-translate-y-1">
+                        <button onClick={() => navigate(`/signup?plan=pro&billing=${isAnnual ? 'annual' : 'monthly'}`)} className="w-full py-4 rounded-xl bg-[#13ec5b] hover:bg-[#0ea842] text-[#0B0E0F] font-bold transition-all shadow-lg hover:shadow-[#13ec5b]/20 transform hover:-translate-y-1">
                             Começar teste grátis
                         </button>
                         <p className="text-xs text-text-muted text-center mt-4">Sem fidelidade. Teste grátis por 14 dias sem cartão.</p>
@@ -529,10 +567,20 @@ const Pricing = () => {
                         <div className="mb-2">
                             <div className="flex items-baseline gap-1">
                                 <span className="text-sm text-text-muted">R$</span>
-                                <span className="text-4xl font-bold text-white">19,90</span>
+                                <AnimatePresence mode="wait">
+                                    <motion.span
+                                        key={isAnnual ? 'annual' : 'monthly'}
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -10 }}
+                                        className="text-4xl font-bold text-white"
+                                    >
+                                        {isAnnual ? '14,90' : '19,90'}
+                                    </motion.span>
+                                </AnimatePresence>
                                 <span className="text-text-muted">/usuário</span>
                             </div>
-                            <p className="text-xs text-text-muted mt-1">Mínimo 5 usuários (R$ 99,50/mês)</p>
+                            <p className="text-xs text-text-muted mt-1">Mínimo 5 usuários (R$ {isAnnual ? '74,50' : '99,50'}/{isAnnual ? 'ano' : 'mês'})</p>
                         </div>
                         <ul className="space-y-4 mb-8 mt-6 flex-1">
                             <li className="flex items-center gap-2 text-text-muted text-sm"><Check size={16} className="text-white" /> Tudo do Free +</li>
@@ -541,7 +589,7 @@ const Pricing = () => {
                             <li className="flex items-center gap-2 text-text-muted text-sm"><Check size={16} className="text-white" /> Campos Personalizados</li>
                             <li className="flex items-center gap-2 text-text-muted text-sm"><Check size={16} className="text-white" /> Relatórios de Tempo</li>
                         </ul>
-                        <button onClick={() => navigate('/signup?plan=starter')} className="w-full py-4 rounded-xl border border-white/20 text-white font-bold hover:bg-white/5 transition-colors">
+                        <button onClick={() => navigate(`/signup?plan=starter&billing=${isAnnual ? 'annual' : 'monthly'}`)} className="w-full py-4 rounded-xl border border-white/20 text-white font-bold hover:bg-white/5 transition-colors">
                             Começar teste grátis
                         </button>
                         <p className="text-xs text-text-muted text-center mt-4">Sem fidelidade. Teste grátis por 14 dias sem cartão.</p>
