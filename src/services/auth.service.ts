@@ -1,4 +1,6 @@
 import { supabase } from '../lib/supabase';
+import type { UserProfile } from '../types/auth';
+export type { UserProfile };
 import type { User, Session, SignUpWithPasswordCredentials, SignInWithPasswordCredentials } from '@supabase/supabase-js';
 
 // Define return types for better type safety
@@ -8,13 +10,7 @@ interface AuthResponse {
     error: Error | null;
 }
 
-export interface UserProfile {
-    id: string;
-    email: string;
-    full_name: string;
-    avatar_url: string;
-    role: 'ADMIN' | 'MANAGER' | 'MEMBER' | 'CLIENT';
-}
+
 
 // Helper to translate Supabase errors to user-friendly messages
 function mapAuthError(error: Error | null): Error | null {
@@ -118,7 +114,7 @@ export const authService = {
         try {
             const { data, error } = await supabase
                 .from('users')
-                .select('*')
+                .select('*, organization:organizations(id, plan_type)')
                 .eq('id', userId)
                 .single();
 

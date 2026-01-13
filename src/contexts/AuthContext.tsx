@@ -5,15 +5,7 @@ import type { User, Session } from '@supabase/supabase-js';
 import { authService } from '../services/auth.service';
 import { toast } from 'sonner';
 
-export interface UserProfile {
-    id: string;
-    email: string;
-    full_name: string;
-    avatar_url: string;
-    role: 'ADMIN' | 'MANAGER' | 'MEMBER' | 'CLIENT';
-    organization_id: string;
-    needs_password_change?: boolean;
-}
+import type { UserProfile } from '../types/auth';
 
 interface AuthContextType {
     user: User | null;
