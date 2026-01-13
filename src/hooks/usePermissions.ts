@@ -1,8 +1,10 @@
 import { useAuth } from '../contexts/AuthContext';
+import type { IUserProfile } from '../types/auth';
 import { PLANS, type PlanType, type FeatureKey } from '../constants/plans';
 
 export const usePermissions = () => {
-    const { userProfile } = useAuth();
+    const { userProfile: rawProfile } = useAuth();
+    const userProfile = rawProfile as IUserProfile | null;
 
     // Default to FREE if no plan found (safety fallback)
     const currentPlan: PlanType = (userProfile?.organization?.plan_type as PlanType) || 'FREE';
