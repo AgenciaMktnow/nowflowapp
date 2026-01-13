@@ -166,8 +166,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const signOut = async () => {
-        await authService.signOut();
-        setUserProfile(null);
+        try {
+            // 1. Supabase Sign Out
+            await authService.signOut();
+
+            // 2. Clear Critical Security / Impersonation Keys
+            localStorage.removeItem('impersonate_org_id');
+            localStorage.removeItem('sidebar-collapsed'); // Optional, but helps a clean slate
+
+            // 3. Clear all LocalStorage if you want maximum safety
+            // localStorage.clear(); 
+
+            // 4. Reset States
+            setUserProfile(null);
+            setUser(null);
+            setSession(null);
+
+            // 5. Hard Reset & Navigate
+            // Reloading the page is the most bulletproof way to clear all JS memory/cache
+            // after the localStorage and session have been cleared.
+            window.location.href = '/login';
+            window.location.reload();
+
+            toast.success('Sessão encerrada com sucesso.');
+        } catch (error) {
+            console.error('Error during signOut:', error);
+            toast.error('Erro ao encerrar sessão.');
+        }
     };
 
     return (

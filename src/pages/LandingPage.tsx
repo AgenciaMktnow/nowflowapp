@@ -532,15 +532,15 @@ const Pricing = () => {
                                         exit={{ opacity: 0, y: -10 }}
                                         className="text-4xl font-bold text-white"
                                     >
-                                        {isAnnual ? '34,90' : '39,90'}
+                                        {isAnnual ? '24,90' : '29,90'}
                                     </motion.span>
                                 </AnimatePresence>
                                 <span className="text-text-muted">/usuário</span>
                             </div>
                             <div className="flex flex-col gap-1 mt-1">
-                                <p className="text-xs text-text-muted">Mínimo 10 usuários (R$ {isAnnual ? '349,00' : '399,00'}/{isAnnual ? 'ano' : 'mês'})</p>
+                                <p className="text-xs text-text-muted">Mínimo 10 usuários (R$ {isAnnual ? '2.988,00' : '299,00'}/{isAnnual ? 'ano' : 'mês'})</p>
                                 {isAnnual && (
-                                    <span className="text-[10px] text-[#13ec5b] font-bold uppercase tracking-tight">Equivale a 2 meses grátis</span>
+                                    <span className="text-[10px] text-[#13ec5b] font-bold uppercase tracking-tight">Equivalente a R$ 249,00/mês</span>
                                 )}
                             </div>
                         </div>
@@ -580,7 +580,12 @@ const Pricing = () => {
                                 </AnimatePresence>
                                 <span className="text-text-muted">/usuário</span>
                             </div>
-                            <p className="text-xs text-text-muted mt-1">Mínimo 5 usuários (R$ {isAnnual ? '74,50' : '99,50'}/{isAnnual ? 'ano' : 'mês'})</p>
+                            <div className="flex flex-col gap-1 mt-1">
+                                <p className="text-xs text-text-muted">Mínimo 5 usuários (R$ {isAnnual ? '894,00' : '99,50'}/{isAnnual ? 'ano' : 'mês'})</p>
+                                {isAnnual && (
+                                    <span className="text-[10px] text-[#13ec5b] font-bold uppercase tracking-tight">Equivalente a R$ 74,50/mês</span>
+                                )}
+                            </div>
                         </div>
                         <ul className="space-y-4 mb-8 mt-6 flex-1">
                             <li className="flex items-center gap-2 text-text-muted text-sm"><Check size={16} className="text-white" /> Tudo do Free +</li>

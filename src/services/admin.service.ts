@@ -21,6 +21,7 @@ export interface SaasMetric {
 
 export interface OrgDetails {
     org_id: string;
+    org_name: string;
     owner_email: string;
     plan_type: string;
     status: string;
@@ -130,5 +131,67 @@ export const adminService = {
             return { data: null, error };
         }
         return { data, error: null };
+    },
+
+    // 4. Delete Organization with Cleanup
+    async deleteOrganizationWithStorageCleanup(orgId: string): Promise<{ data: any | null; error: Error | null; fileCount: number }> {
+        try {
+            console.log(`🚀 Starting cleanup for Organization: ${orgId}`);
+
+            // A. Get all attachment paths for this organization
+            // Join with tasks to filter by org_id
+            const { data: attachments, error: fetchError } = await supabase
+                .from('task_attachments')
+                .select(`
+                    path,
+                    task:tasks!inner(organization_id)
+                `)
+                .eq('task.organization_id', orgId);
+
+            if (fetchError) throw fetchError;
+
+            const filePaths = attachments?.map(a => a.path) || [];
+            let deletedFilesCount = 0;
+
+            // B. Delete files from Storage in batches of 100 for performance
+            if (filePaths.length > 0) {
+                console.log(`📁 Found ${filePaths.length} files to delete.`);
+                const batchSize = 100;
+                for (let i = 0; i < filePaths.length; i += batchSize) {
+                    const batch = filePaths.slice(i, i + batchSize);
+                    const { error: storageError } = await supabase.storage
+                        .from('task-attachments')
+                        .remove(batch);
+
+                    if (storageError) {
+                        console.error('❌ Storage cleanup failed:', storageError);
+                        throw new Error('Falha ao limpar arquivos do storage. Operação interrompida para segurança.');
+                    }
+                    deletedFilesCount += batch.length;
+                }
+            }
+
+            // C. Call Cascading Delete RPC
+            const { data: dbSummary, error: rpcError } = await supabase.rpc('delete_organization_cascade', {
+                target_org_id: orgId
+            });
+
+            if (rpcError) {
+                console.error('❌ Database deletion failed:', rpcError);
+                throw rpcError;
+            }
+
+            console.log('✅ Cleanup finished successfully:', dbSummary);
+
+            return {
+                data: dbSummary,
+                error: null,
+                fileCount: deletedFilesCount
+            };
+
+        } catch (error: any) {
+            console.error('💥 Error in deleteOrganizationWithStorageCleanup:', error);
+            return { data: null, error, fileCount: 0 };
+        }
     }
 };

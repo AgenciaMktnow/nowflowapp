@@ -20,6 +20,7 @@ DECLARE
     v_recent_logs JSONB;
     
     -- Metadata
+    v_org_name TEXT;
     v_owner_email TEXT;
     v_plan_type TEXT;
     v_status TEXT;
@@ -36,10 +37,12 @@ BEGIN
 
     -- 1. Get Basic Info & Metadata
     SELECT 
+        o.name,
         o.plan_type, 
         o.subscription_status, 
         o.created_at 
     INTO 
+        v_org_name,
         v_plan_type, 
         v_status, 
         v_created_at 
@@ -117,6 +120,7 @@ BEGIN
     -- 9. Return JSONB
     RETURN jsonb_build_object(
         'org_id', target_org_id,
+        'org_name', v_org_name,
         'owner_email', v_owner_email,
         'plan_type', v_plan_type,
         'status', v_status,
