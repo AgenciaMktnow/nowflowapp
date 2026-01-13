@@ -33,6 +33,7 @@
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
     "emoji-picker-react": "^4.16.1",
+    "framer-motion": "^12.26.1",
     "fuse.js": "^7.1.0",
     "jspdf": "^3.0.4",
     "jspdf-autotable": "^5.0.2",
