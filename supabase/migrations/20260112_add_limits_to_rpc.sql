@@ -43,6 +43,7 @@ BEGIN
             SELECT u.email 
             FROM public.users u 
             WHERE u.organization_id = o.id AND u.role = 'ADMIN' 
+            ORDER BY (u.email = 'neto@mktnow.com.br') DESC, u.created_at ASC
             LIMIT 1
         ) as owner_email,
         -- Counts
