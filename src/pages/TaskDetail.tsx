@@ -17,6 +17,7 @@ import AttachmentList, { type Attachment } from '../components/AttachmentList';
 import Header from '../components/layout/Header/Header';
 import EmojiPicker, { Theme } from 'emoji-picker-react';
 import { usePermissions } from '../hooks/usePermissions';
+import UserAvatar from '../components/common/UserAvatar';
 
 
 import type { Board } from '../types/database.types';
@@ -75,6 +76,8 @@ type Task = {
     }[];
     board_ids?: string[];
     is_continuous?: boolean;
+    time_logs?: { duration_seconds: number | null }[];
+    total_duration?: number; // <--- NEW FIELD
 };
 
 type Comment = {
@@ -534,11 +537,12 @@ export default function TaskDetail() {
 
         let finalDescription = manualDescription;
 
+
         // Validation for Subtraction
         if (manualOperation === 'SUBTRACT') {
-            const currentTotal = historicTime + elapsedTime;
+            const currentTotal = task?.total_duration ?? (historicTime + elapsedTime); // Use total_duration source of truth
             if (totalSeconds > currentTotal) {
-                alert(`Não é possível remover mais tempo do que o registrado (Total: ${formatTime(currentTotal).hours}h ${formatTime(currentTotal).minutes}m).`);
+                alert(`Saldo insuficiente (${formatTime(currentTotal).hours}h ${formatTime(currentTotal).minutes}m). Não é possível remover este valor.`);
                 return;
             }
             totalSeconds = -totalSeconds; // Negative value
@@ -1148,7 +1152,8 @@ export default function TaskDetail() {
                 title: `${task.title} (Cópia)`,
                 priority: task.priority,
                 created_by: user?.id,
-                tags: task.tags
+                organization_id: userProfile?.organization_id // FIX: Inject Organization ID
+                // tags: task.tags // REMOVED: Column does not exist
                 // updated_at removed to let DB handle defaults and avoid schema cache errors
             };
 
@@ -1183,14 +1188,8 @@ export default function TaskDetail() {
                 cloneData.assignee_id = task.assignee.id;
             }
 
-            // Attachments (Copy array refs)
-            if (cloneOptions.attachments && task.attachments && task.attachments.length > 0) {
-                cloneData.attachments = task.attachments.map((att: any) => ({
-                    ...att,
-                    id: crypto.randomUUID(), // New Meta ID
-                    uploaded_at: new Date().toISOString()
-                }));
-            }
+            // Attachments (Logic moved to post-insert for correct table handling)
+            // if (cloneOptions.attachments...) { ... } // REMOVED: Cannot insert into tasks table
 
             // 2. Insert New Task
             const { data: newTask, error } = await supabase
@@ -1212,6 +1211,26 @@ export default function TaskDetail() {
                     board_id: bid
                 }));
                 await supabase.from('task_boards').insert(boardRows);
+            }
+
+            // 3x. Attachments (Correct Table)
+            if (cloneOptions.attachments && task.attachments && task.attachments.length > 0) {
+                // We need to fetch full attachment details if they aren't fully in task object, 
+                // but assuming task.attachments from fetchTask contains path/name/size/type.
+                // If not, we should query task_attachments. 
+                // Based on fetchTask, attachments are from task_attachments select *.
+                const attachmentRows = task.attachments.map((att: any) => ({
+                    task_id: newTask.id,
+                    user_id: user?.id,
+                    name: att.name,
+                    size: att.size,
+                    type: att.type,
+                    path: att.path // Share file path
+                }));
+
+                if (attachmentRows.length > 0) {
+                    await supabase.from('task_attachments').insert(attachmentRows);
+                }
             }
 
             // 3b. Assignees (Many-to-Many)
@@ -1702,21 +1721,19 @@ export default function TaskDetail() {
                                                 );
                                             }
 
-                                            const isMe = comment.user.email === user?.email;
-                                            const userAvatar = (comment.user as any).avatar_url;
-                                            const userInitials = (comment.user.full_name || comment.user.email).charAt(0).toUpperCase();
+                                            const commentUser = comment.user || { full_name: 'Usuário Desconhecido', email: '', avatar_url: null };
+                                            const isMe = user?.email && commentUser.email === user.email;
 
                                             return (
                                                 <div key={comment.id} className={`flex gap-4 group ${isMe ? 'flex-row-reverse' : ''}`}>
-                                                    <div className={`size-10 rounded-full bg-cover bg-center shrink-0 ring-2 transition-all flex items-center justify-center text-sm font-bold overflow-hidden ${isMe ? 'ring-primary/40 group-hover:ring-primary' : 'ring-transparent group-hover:ring-border-dark'
-                                                        } ${!userAvatar ? 'bg-primary/20 text-primary' : ''}`}
-                                                        style={userAvatar ? { backgroundImage: `url("${userAvatar}")` } : {}}
-                                                    >
-                                                        {!userAvatar && userInitials}
-                                                    </div>
+                                                    <UserAvatar
+                                                        user={comment.user}
+                                                        size="lg" // 40px
+                                                        className={`ring-2 transition-all ${isMe ? 'ring-primary/40 group-hover:ring-primary' : 'ring-transparent group-hover:ring-border-dark'}`}
+                                                    />
                                                     <div className={`flex-1 flex flex-col gap-2 ${isMe ? 'items-end' : ''}`}>
                                                         <div className={`flex items-center gap-2 ${isMe ? 'justify-end' : ''}`}>
-                                                            <span className="text-white text-sm font-bold">{isMe ? 'Você' : comment.user.full_name || comment.user.email}</span>
+                                                            <span className="text-white text-sm font-bold">{isMe ? 'Você' : (comment.user?.full_name || comment.user?.email || 'Usuário Removido')}</span>
                                                             <span className="text-text-muted text-xs">{formatDateTime(comment.created_at)}</span>
                                                         </div>
                                                         <div className={`p-3.5 rounded-lg border text-sm leading-relaxed shadow-sm ${isMe
@@ -1875,32 +1892,28 @@ export default function TaskDetail() {
                             </div>
                             <div className="flex flex-wrap gap-2">
                                 {task.task_assignees && task.task_assignees.length > 0 ? (
-                                    task.task_assignees.map((assignee) => (
-                                        <div key={assignee.user.id}
+                                    task.task_assignees.filter(a => a.user).map((assignee) => (
+                                        <div key={assignee.user!.id}
                                             className={`flex items-center gap-1.5 border rounded-full pl-1 pr-2 py-1 transition-colors group cursor-default ${assignee.completed_at
                                                 ? 'bg-green-500/10 border-green-500/30'
                                                 : 'bg-background-dark border-border-dark hover:border-primary/50'
                                                 }`}
                                         >
-                                            <div
-                                                className={`size-5 rounded-full bg-cover bg-center bg-[#2a2a2e] ring-1 flex items-center justify-center shrink-0 ${assignee.completed_at ? 'ring-green-500' : 'ring-white/10'
-                                                    }`}
-                                                style={{ backgroundImage: assignee.user.avatar_url ? `url('${assignee.user.avatar_url}')` : undefined }}
-                                            >
-                                                {!assignee.user.avatar_url && (
-                                                    <span className="text-[9px] text-white font-bold">
-                                                        {assignee.user.full_name?.charAt(0) || assignee.user.email?.charAt(0).toUpperCase()}
-                                                    </span>
-                                                )}
+                                            <div className="relative">
+                                                <UserAvatar
+                                                    user={assignee.user}
+                                                    size="xs"
+                                                    className={`ring-1 ${assignee.completed_at ? 'ring-green-500' : 'ring-white/10'}`}
+                                                />
                                                 {assignee.completed_at && (
-                                                    <div className="absolute -bottom-0.5 -right-0.5 bg-green-500 rounded-full p-[1px]">
+                                                    <div className="absolute -bottom-0.5 -right-0.5 bg-green-500 rounded-full p-[1px] z-10">
                                                         <span className="material-symbols-outlined text-[8px] text-black font-bold">check</span>
                                                     </div>
                                                 )}
                                             </div>
                                             <span className={`text-[10px] font-bold transition-colors max-w-[100px] truncate ${assignee.completed_at ? 'text-green-500' : 'text-gray-200 group-hover:text-white'
                                                 }`}>
-                                                {assignee.user.full_name || assignee.user.email}
+                                                {assignee.user?.full_name || assignee.user?.email || 'Usuário Removido'}
                                             </span>
                                         </div>
                                     ))
@@ -1917,7 +1930,15 @@ export default function TaskDetail() {
                         <div className="bg-surface-dark rounded-xl border border-border-dark p-6 shadow-2xl shadow-black/50 relative overflow-hidden group">
                             {isTracking && <div className="absolute top-0 left-0 w-full h-1 bg-primary animate-pulse"></div>}
                             <div className="flex items-center justify-between mb-6">
-                                <span className="text-text-muted text-sm font-medium uppercase tracking-wider">Tempo Decorrido</span>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-text-muted text-sm font-medium uppercase tracking-wider">Tempo Decorrido</span>
+                                    {(historicTime + elapsedTime) > 43200 && (
+                                        <div className="bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 text-[10px] px-2 py-0.5 rounded uppercase font-bold tracking-wider animate-pulse flex items-center gap-1">
+                                            <span className="material-symbols-outlined text-[14px]">warning</span>
+                                            12h+
+                                        </div>
+                                    )}
+                                </div>
                                 {isTracking && (
                                     <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-background-dark/50 border border-primary/20">
                                         <div className="size-2 rounded-full bg-primary animate-ping"></div>
@@ -1929,12 +1950,7 @@ export default function TaskDetail() {
                                 <div className="flex flex-col items-center">
                                     <div className="relative">
                                         <span className="text-5xl md:text-6xl font-black text-white tracking-tighter">{time.hours}</span>
-                                        {(historicTime + elapsedTime) > 43200 && (
-                                            <div className="absolute -top-3 -right-3 md:-right-6 bg-yellow-500/20 text-yellow-500 border border-yellow-500/50 text-[10px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider animate-pulse flex items-center gap-1">
-                                                <span className="material-symbols-outlined text-[12px]">warning</span>
-                                                12h+
-                                            </div>
-                                        )}
+
                                     </div>
                                     <span className="text-text-muted text-xs mt-1">h</span>
                                 </div>

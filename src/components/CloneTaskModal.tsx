@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
+import { useAuth } from '../contexts/AuthContext';
 
 interface CloneTaskModalProps {
     isOpen: boolean;
@@ -10,6 +11,7 @@ interface CloneTaskModalProps {
 }
 
 export default function CloneTaskModal({ isOpen, onClose, task, onClone }: CloneTaskModalProps) {
+    const { userProfile } = useAuth();
     const [title, setTitle] = useState('');
     const [loading, setLoading] = useState(false);
     const [options, setOptions] = useState({
@@ -51,6 +53,14 @@ export default function CloneTaskModal({ isOpen, onClose, task, onClone }: Clone
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error('Usuário não autenticado');
 
+            if (!userProfile?.organization_id) {
+                toast.error('Erro de segurança: Organização não identificada. Recarregue a página.');
+                setLoading(false);
+                return;
+            }
+
+            console.log("Tentando clonar para a org:", userProfile?.organization_id);
+
             // 1. Prepare Description & Checklist Logic
             let finalDescription = '';
             if (task.description) {
@@ -86,9 +96,8 @@ export default function CloneTaskModal({ isOpen, onClose, task, onClone }: Clone
                     client_id: task.client_id,
                     workflow_id: task.workflow_id,
                     created_by: user.id, // Set curret user as creator
-                    attachments: options.attachments ? task.attachments : [],
-                    tags: options.tags ? task.tags : [],
                     task_number: undefined, // Let DB generate
+                    organization_id: userProfile.organization_id,
                 })
                 .select()
                 .single();
@@ -109,7 +118,32 @@ export default function CloneTaskModal({ isOpen, onClose, task, onClone }: Clone
                 if (assignError) console.error('Error copying assignees:', assignError);
             }
 
-            // 4. Handle Comments (Optional)
+            // 4. Handle Attachments (Separate Table)
+            if (options.attachments) {
+                const { data: originalAttachments } = await supabase
+                    .from('task_attachments')
+                    .select('*')
+                    .eq('task_id', task.id);
+
+                if (originalAttachments && originalAttachments.length > 0) {
+                    const attachmentRecords = originalAttachments.map((att: any) => ({
+                        task_id: newTask.id,
+                        user_id: user.id, // Set curret user as owner of the copy
+                        name: att.name,
+                        size: att.size,
+                        type: att.type,
+                        path: att.path // Share the same file path (Link Copy)
+                    }));
+
+                    const { error: attachError } = await supabase
+                        .from('task_attachments')
+                        .insert(attachmentRecords);
+
+                    if (attachError) console.error('Error copying attachments:', attachError);
+                }
+            }
+
+            // 5. Handle Comments (Optional)
             if (options.comments) {
                 // Fetch original comments
                 const { data: originalComments } = await supabase
