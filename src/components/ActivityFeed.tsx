@@ -19,6 +19,8 @@ const scrollbarStyles = `
   }
 `;
 
+import UserAvatar from './common/UserAvatar';
+
 type Activity = {
     id: string;
     action_type: string;
@@ -143,14 +145,9 @@ export default function ActivityFeed({ taskId }: ActivityFeedProps) {
 
     const getUserDetails = (user: Activity['user']) => {
         if (Array.isArray(user)) {
-            return user[0] || { full_name: 'Usuário' };
+            return user[0] || { full_name: 'Usuário Removido' };
         }
-        return user || { full_name: 'Usuário' };
-    };
-
-    const getUserInitials = (name?: string) => {
-        if (!name) return '?';
-        return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+        return user || { full_name: 'Usuário Removido' };
     };
 
     const getMessage = (activity: Activity) => {
@@ -181,13 +178,11 @@ export default function ActivityFeed({ taskId }: ActivityFeedProps) {
                     return (
                         <div key={activity.id} className="relative z-10 flex items-start gap-3">
                             {/* Avatar */}
-                            {user?.avatar_url ? (
-                                <img src={user.avatar_url} alt={user.full_name} className="size-8 rounded-full border-2 border-background-dark object-cover" />
-                            ) : (
-                                <div className="size-8 rounded-full bg-surface-dark border-2 border-background-dark flex items-center justify-center text-[10px] text-text-muted-dark font-bold shrink-0">
-                                    {getUserInitials(user?.full_name)}
-                                </div>
-                            )}
+                            <UserAvatar
+                                user={user}
+                                size="md" // size-8 = 32px (md)
+                                className="border-2 border-background-dark text-text-muted-dark bg-surface-dark font-bold shrink-0"
+                            />
 
                             <div className="flex-1 bg-surface-dark/50 border border-border-dark/50 rounded-lg p-3 hover:bg-surface-dark transition-colors">
                                 <div className="flex items-center gap-2 mb-1">
@@ -195,7 +190,7 @@ export default function ActivityFeed({ taskId }: ActivityFeedProps) {
                                         {getActivityIcon(activity.action_type)}
                                     </span>
                                     <span className="text-sm font-semibold text-white">
-                                        {user?.full_name}
+                                        {user?.full_name || 'Usuário Removido'}
                                     </span>
                                     <span className="text-xs text-text-muted-dark font-normal line-clamp-2">
                                         {getMessage(activity)}

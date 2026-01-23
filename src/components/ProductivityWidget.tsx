@@ -37,10 +37,12 @@ export function ProductivityWidget() {
             const isoStart = startDate.toISOString();
 
             // 1. Fetch Focus Time
+            if (!user?.id) return; // Safety Guard
+
             const { data: logs } = await supabase
                 .from('time_logs')
                 .select('duration_seconds')
-                .eq('user_id', user!.id)
+                .eq('user_id', user.id)
                 .gte('start_time', isoStart);
 
             const totalSeconds = logs?.reduce((acc, curr) => acc + (curr.duration_seconds || 0), 0) || 0;
@@ -55,7 +57,7 @@ export function ProductivityWidget() {
             const { count } = await supabase
                 .from('tasks')
                 .select('*', { count: 'exact', head: true })
-                .eq('assignee_id', user!.id)
+                .eq('assignee_id', user.id)
                 .eq('status', 'DONE')
             // This is imperfect without completed_at, but we'll leave it simple for now or strictly rely on Focus Time which is the main gamification.
             // .gte('created_at', isoStart); // This would only count tasks created AND done in period. 

@@ -29,7 +29,7 @@ export default function MultiSelectDropdown({
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     const filteredOptions = options.filter(opt =>
-        opt.name.toLowerCase().includes(searchQuery.toLowerCase())
+        (opt.name || '').toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     const selectedOptions = options.filter(opt => selectedValues.includes(opt.id));

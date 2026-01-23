@@ -1,6 +1,7 @@
 import { memo, useMemo } from 'react';
 import { Droppable } from '@hello-pangea/dnd';
 import WorkloadTaskCard from './WorkloadTaskCard';
+import UserAvatar from './common/UserAvatar';
 
 interface WorkloadColumnProps {
     userId: string | 'unassigned';
@@ -37,16 +38,16 @@ const WorkloadColumn = ({ userId, user, tasks, onTaskClick }: WorkloadColumnProp
                                 <span className="material-symbols-outlined text-sm">person_off</span>
                             </div>
                         ) : (
-                            <img
-                                src={user?.avatar_url || `https://ui-avatars.com/api/?name=${user?.full_name}&background=random`}
-                                alt={user?.full_name}
-                                className="w-8 h-8 rounded-full object-cover border border-white/10"
+                            <UserAvatar
+                                user={user}
+                                size="md" // 32px
+                                className="border border-white/10"
                             />
                         )}
                     </div>
                     <div className="flex flex-col">
                         <span className="text-sm font-bold text-text-primary truncate max-w-[140px]">
-                            {userId === 'unassigned' ? 'Sem Responsável' : user?.full_name}
+                            {userId === 'unassigned' ? 'Sem Responsável' : (user?.full_name || 'Usuário Indisponível')}
                         </span>
                         <span className="text-xs text-text-muted">{tasks.length} Tarefa(s)</span>
                     </div>

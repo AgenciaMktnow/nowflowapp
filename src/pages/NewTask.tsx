@@ -645,14 +645,14 @@ export default function NewTask({ isDrawer = false, taskNumber: propTaskNumber, 
         const bIsTeam = teamMemberIds.has(b.id);
         if (aIsTeam && !bIsTeam) return -1;
         if (!aIsTeam && bIsTeam) return 1;
-        return a.full_name.localeCompare(b.full_name);
+        return (a.full_name || '').localeCompare(b.full_name || '');
     });
 
     const selectedUsers = sortedUsers.filter(u => assigneeIds.includes(u.id));
     // Show ALL users in dropdown, including selected ones (so they can be toggled off)
     const filteredUsers = assigneeSearch
         ? sortedUsers.filter(u =>
-            u.full_name.toLowerCase().includes(assigneeSearch.toLowerCase())
+            (u.full_name || '').toLowerCase().includes(assigneeSearch.toLowerCase())
         )
         : sortedUsers;
 

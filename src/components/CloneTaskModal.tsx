@@ -108,7 +108,8 @@ export default function CloneTaskModal({ isOpen, onClose, task, onClone }: Clone
             if (options.assignees && task.task_assignees && task.task_assignees.length > 0) {
                 const assigneeRecords = task.task_assignees.map((ta: any) => ({
                     task_id: newTask.id,
-                    user_id: ta.user_id || ta.user.id // Handle different join structures
+                    user_id: ta.user_id || ta.user.id, // Handle different join structures
+                    organization_id: userProfile.organization_id // Strict RLS
                 }));
 
                 const { error: assignError } = await supabase
@@ -132,7 +133,8 @@ export default function CloneTaskModal({ isOpen, onClose, task, onClone }: Clone
                         name: att.name,
                         size: att.size,
                         type: att.type,
-                        path: att.path // Share the same file path (Link Copy)
+                        path: att.path, // Share the same file path (Link Copy)
+                        organization_id: userProfile.organization_id // Strict RLS
                     }));
 
                     const { error: attachError } = await supabase
@@ -156,7 +158,8 @@ export default function CloneTaskModal({ isOpen, onClose, task, onClone }: Clone
                         task_id: newTask.id,
                         user_id: c.user_id,
                         content: c.content,
-                        created_at: c.created_at // Preserve original timestamp or let new one? Usually preserve for history context
+                        created_at: c.created_at, // Preserve original timestamp or let new one? Usually preserve for history context
+                        organization_id: userProfile.organization_id // Strict RLS
                     }));
 
                     const { error: commentError } = await supabase

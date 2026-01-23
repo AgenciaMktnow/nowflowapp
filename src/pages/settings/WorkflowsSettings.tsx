@@ -18,8 +18,10 @@ interface Board {
 }
 
 import { usePermissions } from '../../hooks/usePermissions';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function WorkflowsSettings() {
+    const { userProfile } = useAuth();
     const [workflows, setWorkflows] = useState<Workflow[]>([]);
     const [boards, setBoards] = useState<Board[]>([]);
     const [teams, setTeams] = useState<{ id: string; name: string }[]>([]);
@@ -86,9 +88,15 @@ export default function WorkflowsSettings() {
                 if (error) throw error;
                 toast.success('Fluxo atualizado com sucesso!');
             } else {
+                if (!userProfile?.organization_id) throw new Error("Organização não definida.");
                 const { error } = await supabase
                     .from('workflows')
-                    .insert([{ name, steps, board_id: boardId }]);
+                    .insert([{
+                        name,
+                        steps,
+                        board_id: boardId,
+                        organization_id: userProfile.organization_id
+                    }]);
 
                 if (error) throw error;
                 toast.success('Fluxo criado com sucesso!');

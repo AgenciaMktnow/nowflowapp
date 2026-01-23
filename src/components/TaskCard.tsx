@@ -3,6 +3,7 @@ import { memo } from 'react';
 import TaskActionMenu from './TaskActionMenu';
 import { extractChecklistFromHtml } from '../utils/checklist';
 import { useNavigate } from 'react-router-dom';
+import UserAvatar from './common/UserAvatar';
 
 interface Task {
     id: string;
@@ -12,7 +13,7 @@ interface Task {
     priority: 'LOW' | 'MEDIUM' | 'HIGH';
     status: string;
     due_date?: string;
-    assignee?: { full_name: string; avatar_url?: string };
+    assignee?: { full_name?: string; avatar_url?: string };
     task_assignees?: { user_id: string; completed_at?: string }[];
     client?: { name: string };
     project?: { name: string; client?: { name: string }; client_id?: string; board?: { color?: string } };
@@ -205,15 +206,12 @@ const TaskCard = ({ task, index, columnVariant, isOverdue, clientsList, activeTe
                                 {activeTeamLog && (
                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-50"></span>
                                 )}
-                                {task.assignee ? (
-                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold border border-[#333] ${activeTeamLog ? 'bg-primary text-black' : 'bg-surface-border text-text-subtle'}`} title={task.assignee.full_name}>
-                                        <img src={task.assignee.avatar_url} className="rounded-full w-full h-full object-cover" />
-                                    </div>
-                                ) : (
-                                    <div className="w-5 h-5 rounded-full bg-white/5 border border-dashed border-text-muted/30 flex items-center justify-center">
-                                        <span className="text-[10px] text-text-muted">?</span>
-                                    </div>
-                                )}
+                                <UserAvatar
+                                    user={task.assignee}
+                                    size="xs"
+                                    showBorder={true}
+                                    className={`${activeTeamLog ? 'border-primary ring-1 ring-primary' : 'border-[#333]'}`}
+                                />
                             </div>
                         </div>
                     </div>

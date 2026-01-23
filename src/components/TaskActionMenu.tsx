@@ -131,8 +131,8 @@ export default function TaskActionMenu({ task, onEdit, onUpdate, onClone }: Task
                         {loading ? 'Clonando...' : 'Clonar'}
                     </button>
 
-                    {/* Delete - Admin Only */}
-                    {isAdmin && (
+                    {/* Delete - Admin OR (Manager + Creator) Only */}
+                    {(isAdmin || (userProfile?.role === 'MANAGER' && task.creator?.id === userProfile?.id)) && (
                         <>
                             <div className="h-px bg-gray-700 my-1 mx-2" />
                             <button

@@ -118,6 +118,7 @@ export interface Database {
                     created_by: string
                     created_at: string
                     updated_at: string
+                    total_duration: number
                 }
                 Insert: {
                     id?: string

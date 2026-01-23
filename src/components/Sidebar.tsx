@@ -28,6 +28,7 @@ export default function Sidebar({ onMobileClose }: { onMobileClose?: () => void 
         { icon: 'calendar_month', label: 'Calendário', path: '/calendar' },
         { icon: 'add_task', label: 'Nova Tarefa', path: '/tasks/new' },
         { icon: 'schedule', label: 'Time Tracking', path: '/time-tracking' },
+        { icon: 'help', label: 'Ajuda', path: '/help' },
     ];
 
     if (isSuperAdmin) {

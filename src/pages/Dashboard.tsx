@@ -35,6 +35,7 @@ type Task = {
     category: string;
     task_number: number;
     time_logs?: { duration_seconds: number | null }[];
+    total_duration?: number; // <--- NEW FIELD
     is_continuous?: boolean;
 };
 
@@ -200,7 +201,7 @@ export default function Dashboard() {
                 .is('end_time', null);
 
             if (error) {
-                console.error('Error fetching team logs:', error);
+                console.error('Error fetching active team logs:', error);
                 return;
             }
 
@@ -288,7 +289,8 @@ export default function Dashboard() {
                     task_assignees(
                         user_id
                     ),
-                    time_logs(duration_seconds)
+                    time_logs(duration_seconds),
+                    total_duration
                 `)
                 .order('created_at', { ascending: false });
 
@@ -459,7 +461,7 @@ export default function Dashboard() {
                                     className={`px-5 py-2 rounded-lg text-sm font-bold shadow-sm transition-all border ${ownerFilter === 'MINE' ? 'bg-background-dark text-white border-white/5' : 'text-text-secondary hover:text-white hover:bg-white/5 border-transparent'}`}>
                                     Minhas Tarefas
                                 </button>
-                                {userProfile?.role === 'ADMIN' && (
+                                {(userProfile?.role === 'ADMIN' || userProfile?.role === 'MANAGER') && (
                                     <button
                                         onClick={() => setOwnerFilter('ALL')}
                                         className={`px-5 py-2 rounded-lg text-sm font-bold shadow-sm transition-all border ${ownerFilter === 'ALL' ? 'bg-background-dark text-white border-white/5' : 'text-text-secondary hover:text-white hover:bg-white/5 border-transparent'}`}>
@@ -765,7 +767,7 @@ export default function Dashboard() {
                                         <div className="flex items-center gap-2">
                                             {/* Total Time Badge */}
                                             {(() => {
-                                                const totalSeconds = task.time_logs?.reduce((acc, log) => acc + (log.duration_seconds || 0), 0) || 0;
+                                                const totalSeconds = task.total_duration ?? task.time_logs?.reduce((acc, log) => acc + (log.duration_seconds || 0), 0) ?? 0;
                                                 if (totalSeconds > 0 && activeTimerTask?.id !== task.id) {
                                                     return (
                                                         <div className="flex items-center gap-1 bg-surface-dark/50 px-2 py-1 rounded text-[10px] font-mono font-bold text-text-secondary border border-white/5" title="Tempo Total">

@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 export default function CreateTask() {
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, userProfile } = useAuth();
     const [clients, setClients] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -46,6 +46,8 @@ export default function CreateTask() {
         setLoading(true);
 
         try {
+            if (!userProfile?.organization_id) throw new Error("Organização não definida.");
+
             const { error } = await supabase.from('tasks').insert({
                 title: briefing.split('\n')[0] || 'Nova Tarefa',
                 description: briefing,
@@ -54,7 +56,8 @@ export default function CreateTask() {
                 priority: priority.toUpperCase(),
                 status: 'PLANNING',
                 checklist: checklistItems,
-                created_by: user?.id
+                created_by: user?.id,
+                organization_id: userProfile.organization_id
             });
 
             if (error) throw error;

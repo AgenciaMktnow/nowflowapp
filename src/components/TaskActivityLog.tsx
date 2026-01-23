@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import UserAvatar from './common/UserAvatar';
 import { supabase } from '../lib/supabase';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -179,15 +180,11 @@ const TaskActivityLog = ({ taskId }: TaskActivityLogProps) => {
                     <div className="flex flex-col gap-1 w-full">
                         <div className="flex items-center gap-2">
                             {/* Avatar */}
-                            <div className="w-5 h-5 rounded-full bg-white/5 overflow-hidden flex-shrink-0">
-                                {activity.user?.avatar_url ? (
-                                    <img src={activity.user.avatar_url} className="w-full h-full object-cover" />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-[8px] font-bold text-gray-400">
-                                        {activity.user?.full_name?.[0] || '?'}
-                                    </div>
-                                )}
-                            </div>
+                            <UserAvatar
+                                user={activity.user}
+                                size={20}
+                                className="bg-white/5"
+                            />
 
                             {/* Message */}
                             <div className="text-[13px] leading-snug break-words">

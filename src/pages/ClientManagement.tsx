@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
+import { useAuth } from '../contexts/AuthContext';
 
 // --- TYPES ---
 type Client = {
@@ -113,6 +114,7 @@ const CustomSelect = ({
 
 
 export default function ClientManagement() {
+    const { userProfile } = useAuth();
     // --- STATE ---
     const [viewMode, setViewMode] = useState<'LIST' | 'DETAIL'>('LIST');
 
@@ -362,10 +364,13 @@ export default function ClientManagement() {
             const clientData = {
                 name: selectedClient.name,
                 status: selectedClient.status,
-                default_board_id: firstBoard
+                default_board_id: firstBoard,
+                organization_id: userProfile?.organization_id // Mandatory for RLS
             };
 
             if (clientId === 'new') {
+                if (!userProfile?.organization_id) throw new Error("Erro de Segurança: Organização não definida.");
+
                 const { data, error } = await supabase.from('clients').insert([clientData]).select().single();
                 if (error) throw error;
                 clientId = data.id;
@@ -395,7 +400,11 @@ export default function ClientManagement() {
                     if (!nameToIdMap.has(name)) {
                         const { data: newProj, error: createError } = await supabase
                             .from('projects')
-                            .insert({ name, status: 'PLANNING' }) // Global Service Defaults
+                            .insert({
+                                name,
+                                status: 'PLANNING',
+                                organization_id: userProfile?.organization_id // Mandatory for RLS
+                            })
                             .select()
                             .single();
 

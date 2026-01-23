@@ -45,6 +45,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     (data as any).role = 'ADMIN'; // Force Admin role in the target org
                 }
 
+                // SECURITY CHECK: Organization ID is MANDATORY
+                if (!(data as any).organization_id) {
+                    console.error("🚨 SECURITY ALERT: User has no organization_id! RLS will block all access.");
+                    toast.error("Erro de Perfil: Você não está vinculado a uma organização. Contate o suporte.");
+                }
+
                 console.log("User profile loaded:", data.email, "| Org:", (data as any).organization_id, "| Role:", (data as any).role);
                 setUserProfile(data as IUserProfile);
             } else {
@@ -204,7 +210,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             isSuperAdmin: !!userProfile?.is_super_admin || ['neto@mktnow.com.br', 'duqueneto@gmail.com', 'duqueneto@gmail.com.br'].includes(user?.email || ''),
             signOut
         }}>
-            {!loading ? children : (
+            {!loading ? (
+                !userProfile || !userProfile.organization_id ? (
+                    <div className="flex items-center justify-center h-screen w-full bg-[#102216] text-white p-6">
+                        <div className="flex flex-col items-center gap-6 max-w-md text-center">
+                            <span className="material-symbols-outlined text-6xl text-yellow-500">warning</span>
+                            <h1 className="text-2xl font-bold">Acesso Restrito</h1>
+                            <p className="text-gray-400">
+                                {!userProfile
+                                    ? "Não foi possível carregar seu perfil. Isso pode indicar uma trava de segurança ou falha na conexão."
+                                    : "Sua conta não está vinculada a nenhuma organização."
+                                }
+                                <br />Para acessar o sistema, contate um administrador.
+                            </p>
+                            <button
+                                onClick={signOut}
+                                className="px-6 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white font-bold transition-all"
+                            >
+                                Sair e Tentar Novamente
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    children
+                )
+            ) : (
                 <div className="flex items-center justify-center h-screen w-full bg-[#102216] text-white">
                     <div className="flex flex-col items-center gap-4">
                         <span className="material-symbols-outlined text-4xl animate-spin text-[#13ec5b]">progress_activity</span>

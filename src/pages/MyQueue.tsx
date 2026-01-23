@@ -11,6 +11,7 @@ import SelectDropdown from '../components/SelectDropdown';
 import MultiSelectDropdown from '../components/MultiSelectDropdown';
 import WorkloadBoard from '../components/WorkloadBoard';
 import { taskService } from '../services/task.service';
+import UserAvatar from '../components/common/UserAvatar';
 
 type Task = {
     id: string;
@@ -622,10 +623,8 @@ export default function MyQueue() {
                                                                     )}
                                                                     {task.assignee && (
                                                                         <div className="flex items-center gap-1.5">
-                                                                            <div className="size-5 rounded-full bg-primary/20 flex items-center justify-center text-[9px] font-bold text-primary">
-                                                                                {task.assignee.full_name.charAt(0)}
-                                                                            </div>
-                                                                            <span className="text-xs">{task.assignee.full_name}</span>
+                                                                            <UserAvatar user={task.assignee} size="xs" />
+                                                                            <span className="text-xs">{task.assignee.full_name || 'Desconhecido'}</span>
                                                                         </div>
                                                                     )}
                                                                 </div>
@@ -751,10 +750,8 @@ export default function MyQueue() {
                                                                     {/* Assignee Avatar - Always render for alignment */}
                                                                     {task.assignee ? (
                                                                         <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-white/5 border border-white/5 min-w-[100px]">
-                                                                            <div className="size-6 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary">
-                                                                                {task.assignee.full_name.charAt(0)}
-                                                                            </div>
-                                                                            <span className="text-xs text-text-secondary font-medium truncate">{task.assignee.full_name.split(' ')[0]}</span>
+                                                                            <UserAvatar user={task.assignee} size="xs" />
+                                                                            <span className="text-xs text-text-secondary font-medium truncate">{task.assignee?.full_name?.split(' ')[0] || 'User'}</span>
                                                                         </div>
                                                                     ) : (
                                                                         <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-white/5 border border-white/5 min-w-[100px] opacity-50">

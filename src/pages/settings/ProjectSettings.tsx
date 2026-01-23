@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
+import { useAuth } from '../../contexts/AuthContext';
 
 type Project = {
     id: string;
@@ -10,6 +11,7 @@ type Project = {
 };
 
 export default function ProjectSettings() {
+    const { userProfile } = useAuth();
     const [projects, setProjects] = useState<Project[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [newProjectName, setNewProjectName] = useState('');
@@ -48,9 +50,17 @@ export default function ProjectSettings() {
                 return;
             }
 
+            if (!userProfile?.organization_id) {
+                toast.error("Erro de Segurança: Organização não identificada.");
+                return;
+            }
+
             const { data, error } = await supabase
                 .from('projects')
-                .insert([{ name: newProjectName.trim() }])
+                .insert([{
+                    name: newProjectName.trim(),
+                    organization_id: userProfile.organization_id
+                }])
                 .select()
                 .single();
 
