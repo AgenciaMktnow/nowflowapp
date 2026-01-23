@@ -1,11 +1,12 @@
 -- =========================================================================================
--- URGENT RLS REPAIR - STRICT ORGANIZATION ISOLATION
+-- URGENT RLS REPAIR - STRICT ORGANIZATION ISOLATION (FIXED)
 -- =========================================================================================
 -- Objective: Fix reported cross-organization data leakage immediately.
 -- Strategy:
 -- 1. Establish a non-recursive "source of truth" function for the current user's organization.
 -- 2. Drop all existing permissive or complex policies.
--- 3. Apply strict `organization_id = get_my_org_id()` checks on all tables.
+-- 3. Apply strict `organization_id = get_my_org_id()` checks on all tables WITH organization_id.
+-- 4. Apply JOIN-based checks on dependent tables (task_activities, attachments, notifications).
 -- =========================================================================================
 
 BEGIN;
@@ -79,6 +80,7 @@ DROP POLICY IF EXISTS "org_isolation_select_clients" ON public.clients;
 DROP POLICY IF EXISTS "org_isolation_insert_clients" ON public.clients;
 DROP POLICY IF EXISTS "org_isolation_update_clients" ON public.clients;
 DROP POLICY IF EXISTS "org_isolation_delete_clients" ON public.clients;
+DROP POLICY IF EXISTS "Clients Isolation" ON public.clients;
 
 CREATE POLICY "Clients Isolation" ON public.clients
 FOR ALL
@@ -158,51 +160,75 @@ USING (
 );
 
 -- -----------------------------------------------------------------------------------------
--- 8. NOTIFICATIONS & ACTIVITY LOGS (Strict Isolation)
+-- 8. NOTIFICATIONS & ACTIVITY LOGS (Refined for missing organization_id)
 -- -----------------------------------------------------------------------------------------
 
--- Notifications
+-- Notifications (No organization_id, use user_id)
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "org_isolation_notifications" ON public.notifications;
 DROP POLICY IF EXISTS "Notifications Isolation" ON public.notifications;
+DROP POLICY IF EXISTS "Users can manage their own notifications" ON public.notifications;
 
--- Usually notifications are personal (user_id), but if they have org_id, use that.
--- Based on typical schema, let's assume 'organization_id' exists. 
--- IF NOT, we usually scope by user_id = auth.uid(). 
--- Let's stick to organization_id if it exists, otherwise fallback to user_id.
--- Safest bet for 'System' notifications: organization_id.
--- Let's try organization_id first.
-CREATE POLICY "Notifications Isolation" ON public.notifications
+
+CREATE POLICY "Notifications Owner Access" ON public.notifications
 FOR ALL
-USING (organization_id = get_my_org_id())
-WITH CHECK (organization_id = get_my_org_id());
+USING (user_id = auth.uid())
+WITH CHECK (user_id = auth.uid());
 
 
--- Activity Logs
-ALTER TABLE public.activity_logs ENABLE ROW LEVEL SECURITY;
+-- Activity Logs (task_activities) - No organization_id, use task_id
+ALTER TABLE public.task_activities ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "org_isolation_activity_logs" ON public.activity_logs;
-DROP POLICY IF EXISTS "Activity Logs Isolation" ON public.activity_logs;
+DROP POLICY IF EXISTS "org_isolation_activity_logs" ON public.task_activities;
+DROP POLICY IF EXISTS "Activity Logs Isolation" ON public.task_activities;
+DROP POLICY IF EXISTS "Users can view activities of accessible tasks" ON public.task_activities;
 
-CREATE POLICY "Activity Logs Isolation" ON public.activity_logs
+CREATE POLICY "Activity Logs Isolation" ON public.task_activities
 FOR ALL
-USING (organization_id = get_my_org_id())
-WITH CHECK (organization_id = get_my_org_id());
+USING (
+    EXISTS (
+        SELECT 1 FROM public.tasks
+        WHERE tasks.id = task_activities.task_id
+        AND tasks.organization_id = get_my_org_id()
+    )
+)
+WITH CHECK (
+    EXISTS (
+        SELECT 1 FROM public.tasks
+        WHERE tasks.id = task_activities.task_id
+        AND tasks.organization_id = get_my_org_id()
+    )
+);
 
 
 -- -----------------------------------------------------------------------------------------
--- 9. TASK ATTACHMENTS
+-- 9. TASK ATTACHMENTS (Refined for missing organization_id)
 -- -----------------------------------------------------------------------------------------
 ALTER TABLE public.task_attachments ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "org_isolation_task_attachments" ON public.task_attachments;
 DROP POLICY IF EXISTS "Task Attachments Isolation" ON public.task_attachments;
+DROP POLICY IF EXISTS "Authenticated users can read task attachments" ON public.task_attachments;
+DROP POLICY IF EXISTS "Authenticated users can upload task attachments" ON public.task_attachments;
+DROP POLICY IF EXISTS "Users can delete their own attachments or Admins" ON public.task_attachments;
 
--- Direct Org Check (High Performance)
+-- Check Task ownership
 CREATE POLICY "Task Attachments Isolation" ON public.task_attachments
 FOR ALL
-USING (organization_id = get_my_org_id())
-WITH CHECK (organization_id = get_my_org_id());
+USING (
+    EXISTS (
+        SELECT 1 FROM public.tasks
+        WHERE tasks.id = task_attachments.task_id
+        AND tasks.organization_id = get_my_org_id()
+    )
+)
+WITH CHECK (
+    EXISTS (
+        SELECT 1 FROM public.tasks
+        WHERE tasks.id = task_attachments.task_id
+        AND tasks.organization_id = get_my_org_id()
+    )
+);
 
 COMMIT;
