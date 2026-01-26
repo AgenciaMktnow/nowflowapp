@@ -211,29 +211,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             signOut
         }}>
             {!loading ? (
-                !userProfile || !userProfile.organization_id ? (
-                    <div className="flex items-center justify-center h-screen w-full bg-[#102216] text-white p-6">
-                        <div className="flex flex-col items-center gap-6 max-w-md text-center">
-                            <span className="material-symbols-outlined text-6xl text-yellow-500">warning</span>
-                            <h1 className="text-2xl font-bold">Acesso Restrito</h1>
-                            <p className="text-gray-400">
-                                {!userProfile
-                                    ? "Não foi possível carregar seu perfil. Isso pode indicar uma trava de segurança ou falha na conexão."
-                                    : "Sua conta não está vinculada a nenhuma organização."
-                                }
-                                <br />Para acessar o sistema, contate um administrador.
-                            </p>
-                            <button
-                                onClick={signOut}
-                                className="px-6 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white font-bold transition-all"
-                            >
-                                Sair e Tentar Novamente
-                            </button>
-                        </div>
-                    </div>
-                ) : (
-                    children
-                )
+                // !userProfile || !userProfile.organization_id ? (
+                //     <div className="flex items-center justify-center h-screen w-full bg-[#102216] text-white p-6">
+                //         <div className="flex flex-col items-center gap-6 max-w-md text-center">
+                //             <span className="material-symbols-outlined text-6xl text-yellow-500">warning</span>
+                //             <h1 className="text-2xl font-bold">Acesso Restrito</h1>
+                //             <p className="text-gray-400">
+                //                 {!userProfile
+                //                     ? "Não foi possível carregar seu perfil. Isso pode indicar uma trava de segurança ou falha na conexão."
+                //                     : "Sua conta não está vinculada a nenhuma organização."
+                //                 }
+                //                 <br />Para acessar o sistema, contate um administrador.
+                //             </p>
+                //             <button
+                //                 onClick={signOut}
+                //                 className="px-6 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white font-bold transition-all"
+                //             >
+                //                 Sair e Tentar Novamente
+                //             </button>
+                //         </div>
+                //     </div>
+                // ) : (
+                children
+                // )
             ) : (
                 <div className="flex items-center justify-center h-screen w-full bg-[#102216] text-white">
                     <div className="flex flex-col items-center gap-4">

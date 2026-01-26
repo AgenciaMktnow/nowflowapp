@@ -582,31 +582,61 @@ export default function OrgDetailsModal({ orgId, onClose }: OrgDetailsModalProps
                             ) : (
                                 <div>
                                     <h3 className="text-lg font-bold text-white mb-4">Confirmação Final</h3>
-                                    <p className="text-xs text-text-subtle mb-6 uppercase tracking-widest font-bold">
-                                        Digite o nome da empresa abaixo para confirmar: <br />
-                                        <span className="text-red-400 mt-2 block">{details?.org_name || 'NOME_DA_EMPRESA'}</span>
-                                    </p>
-                                    <input
-                                        type="text"
-                                        value={deleteInput}
-                                        onChange={(e) => setDeleteInput(e.target.value)}
-                                        placeholder="Digite aqui..."
-                                        className="w-full bg-[#0F1115] border border-red-500/50 rounded-xl px-4 py-3 text-white placeholder-text-subtle/30 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none mb-6 font-mono"
-                                        autoFocus
-                                    />
+                                    <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+                                        <p className="text-xs text-red-300 uppercase tracking-widest font-bold mb-2">
+                                            Para confirmar, digite exatamente:
+                                        </p>
+                                        <div className="flex items-center gap-2 bg-black/40 p-2 rounded border border-white/10">
+                                            <code className="flex-1 font-mono text-white text-sm select-all">
+                                                {details?.org_name}
+                                            </code>
+                                            <button
+                                                onClick={() => {
+                                                    setDeleteInput(details?.org_name || '');
+                                                    toast.success('Nome copiado!');
+                                                }}
+                                                className="p-1.5 hover:bg-white/10 rounded text-text-muted hover:text-white transition-colors"
+                                                title="Copiar Nome"
+                                            >
+                                                <span className="material-symbols-outlined text-sm">content_copy</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="relative mb-6">
+                                        <input
+                                            type="text"
+                                            value={deleteInput}
+                                            onChange={(e) => setDeleteInput(e.target.value)}
+                                            placeholder="Digite o nome da empresa..."
+                                            className={`w-full bg-[#0F1115] border rounded-xl px-4 py-3 text-white placeholder-text-subtle/30 outline-none font-mono transition-all ${deleteInput.trim().toLowerCase() === (details?.org_name || '').trim().toLowerCase()
+                                                    ? 'border-green-500 ring-1 ring-green-500/50'
+                                                    : 'border-red-500/50 focus:border-red-500 focus:ring-1 focus:ring-red-500'
+                                                }`}
+                                            autoFocus
+                                        />
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                                            {deleteInput.trim().toLowerCase() === (details?.org_name || '').trim().toLowerCase() ? (
+                                                <span className="material-symbols-outlined text-green-500">check_circle</span>
+                                            ) : (
+                                                deleteInput && <span className="material-symbols-outlined text-red-500/50">cancel</span>
+                                            )}
+                                        </div>
+                                    </div>
+
                                     <div className="flex gap-4">
                                         <button
                                             onClick={handleDeleteOrganization}
                                             disabled={deleteInput.trim().toLowerCase() !== (details?.org_name || '').trim().toLowerCase() || isDeleting || !deleteInput.trim()}
                                             className={`flex-1 py-3 bg-red-600 text-white font-bold rounded-xl transition-all shadow-lg shadow-red-600/20 flex items-center justify-center gap-2 
-                                        ${(deleteInput.trim().toLowerCase() !== (details?.org_name || '').trim().toLowerCase() || isDeleting || !deleteInput.trim()) ? 'opacity-30 cursor-not-allowed grayscale' : 'hover:bg-red-500'}`}
+                                        ${(deleteInput.trim().toLowerCase() !== (details?.org_name || '').trim().toLowerCase() || isDeleting || !deleteInput.trim()) ? 'opacity-30 cursor-not-allowed grayscale' : 'hover:bg-red-500 hover:scale-[1.02]'}`}
                                         >
                                             {isDeleting ? (
                                                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                                             ) : (
                                                 <>
                                                     <span className="material-symbols-outlined text-[20px]">verified_user</span>
-                                                    DELETAR AGORA
+                                                    PERMITIR EXCLUSÃO
                                                 </>
                                             )}
                                         </button>
@@ -615,7 +645,7 @@ export default function OrgDetailsModal({ orgId, onClose }: OrgDetailsModalProps
                                             onClick={() => setIsDeleteDialogOpen(false)}
                                             className="px-6 py-3 bg-white/5 hover:bg-white/10 text-white font-medium rounded-xl transition-all disabled:opacity-30"
                                         >
-                                            Voltar
+                                            Cancelar
                                         </button>
                                     </div>
                                 </div>
