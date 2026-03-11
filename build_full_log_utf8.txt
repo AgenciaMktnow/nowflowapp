@@ -1,0 +1,16 @@
+﻿
+> nowflow-app@0.0.0 build
+> tsc -b && vite build
+
+src/components/time-tracking/TeamReport.tsx(6,1): error TS6133: 'ModernDropdown' is declared but its value is never read.
+src/components/time-tracking/TeamReport.tsx(7,1): error TS6133: 'DateRangePicker' is declared but its value is never read.
+src/components/time-tracking/TeamReport.tsx(14,1): error TS6133: 'TimeFilters' is declared but its value is never read.
+src/components/time-tracking/TeamReport.tsx(38,38): error TS6133: 'users' is declared but its value is never read.
+src/components/time-tracking/TeamReport.tsx(43,12): error TS6133: 'searchParams' is declared but its value is never read.
+src/components/time-tracking/TeamReport.tsx(46,11): error TS6133: 'canAdvancedReports' is declared but its value is never read.
+src/components/time-tracking/TeamReport.tsx(88,12): error TS6133: 'showExportMenu' is declared but its value is never read.
+src/components/time-tracking/TeamReport.tsx(95,23): error TS6133: 'setStartDate' is declared but its value is never read.
+src/components/time-tracking/TeamReport.tsx(96,21): error TS6133: 'setEndDate' is declared but its value is never read.
+src/components/time-tracking/TeamReport.tsx(101,11): error TS6133: 'teamOptions' is declared but its value is never read.
+src/components/time-tracking/TeamReport.tsx(108,11): error TS6133: 'userOptions' is declared but its value is never read.
+src/components/time-tracking/TeamReport.tsx(115,11): error TS6133: 'clientOptions' is declared but its value is never read.
