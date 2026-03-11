@@ -1,42 +1,78 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { ProductivityWidget } from '../components/ProductivityWidget';
+import { ProductivityWidgetNew } from '../components/ProductivityWidgetNew';
 import TaskActionMenu from '../components/TaskActionMenu';
 import { taskService } from '../services/task.service'; // <--- NEW
 import TaskEditDrawer from '../components/TaskEditDrawer'; // <--- NEW
 import { extractChecklistFromHtml } from '../utils/checklist';
 import Header from '../components/layout/Header/Header';
 import { useClickOutside } from '../hooks/useClickOutside';
+import { startOfWeek as getStartOfWeek } from 'date-fns';
+import { toast } from 'sonner';
+import { useSettings } from '../contexts/SettingsContext';
+
 
 type Task = {
     id: string;
     title: string;
     description: string;
+
     status: 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'WAITING_CLIENT' | 'REVIEW' | 'DONE';
     priority: 'LOW' | 'MEDIUM' | 'HIGH';
+
     due_date: string;
-    created_at: string; // FIXED: updated_at -> created_at
+    created_at: string;
+    completed_at?: string | null;
+
     assignee_id?: string;
     project_id?: string;
+    client_id?: string;
+
+    category: string;
+    task_number: number;
+
+    total_duration?: number;
+    is_continuous?: boolean;
+
+    time_logs?: {
+        duration_seconds: number | null;
+    }[];
+
+    // CLIENT DIRECT
+    client?: {
+        id: string;
+        name: string;
+    } | null;
+
+    // PROJECT RELATION
     project?: {
+        id?: string;
         name: string;
         client_id?: string;
-    };
+
+        client?: {
+            id: string;
+            name: string;
+        } | null;
+    } | null;
+
+    // ASSIGNEE
     assignee?: {
         full_name: string;
         avatar_url?: string;
-    };
+    } | null;
+
+    // CREATOR
     creator?: {
         id: string;
         full_name: string;
-    };
-    category: string;
-    task_number: number;
-    time_logs?: { duration_seconds: number | null }[];
-    total_duration?: number; // <--- NEW FIELD
-    is_continuous?: boolean;
+    } | null;
+
+    task_assignees?: {
+        user_id: string;
+    }[];
 };
 
 type Client = {
@@ -71,6 +107,7 @@ export default function Dashboard() {
     const [timerElapsedTime, setTimerElapsedTime] = useState(0);
     const [timerHistoricTime, setTimerHistoricTime] = useState(0);
     const [activeTimeLogId, setActiveTimeLogId] = useState<string | null>(null);
+    const [activeStartTime, setActiveStartTime] = useState<number | null>(null);
 
     // Active Team Logs (Manager View)
     const [activeTeamLogs, setActiveTeamLogs] = useState<Record<string, { user_name: string }>>({});
@@ -78,6 +115,9 @@ export default function Dashboard() {
     // Edit Drawer State
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [editTaskNumber, setEditTaskNumber] = useState<string | undefined>(undefined);
+
+    // const startWeek = getStartOfWeek(new Date(), { weekStartsOn: 1 });
+    const { settings } = useSettings();
 
 
     // Click-outside handler for filter dropdown
@@ -124,18 +164,15 @@ export default function Dashboard() {
     // Separate Effect for Timer Interval
     useEffect(() => {
         let interval: any;
-        if (activeTimerTask) {
-            interval = setInterval(() => {
-                setTimerElapsedTime(prev => prev + 1);
-            }, 1000);
-        }
-        return () => {
-            if (interval) clearInterval(interval);
-        };
+            if (activeTimerTask) {
+                interval = setInterval(() => {
+                    setTimerElapsedTime(prev => prev + 1);
+                }, 1000);
+            }
+            return () => {
+                if (interval) clearInterval(interval);
+            };
     }, [activeTimerTask]);
-
-
-
 
 
     const checkActiveTimer = async () => {
@@ -161,11 +198,13 @@ export default function Dashboard() {
             if (activeLog && activeLog.task) {
                 setActiveTimerTask(activeLog.task);
                 setActiveTimeLogId(activeLog.id);
+                setActiveStartTime(new Date(activeLog.start_time).getTime());
 
                 // Calculate initial elapsed
                 const startTime = new Date(activeLog.start_time).getTime();
                 const now = new Date().getTime();
-                setTimerElapsedTime(Math.floor((now - startTime) / 1000));
+                // setTimerElapsedTime(Math.floor((now - startTime) / 1000));
+                setTimerElapsedTime(Math.max(0, Math.floor((now - startTime) / 1000)));
 
                 // 2. Fetch historic time for this task
                 const { data: historyData } = await supabase
@@ -181,6 +220,7 @@ export default function Dashboard() {
             } else {
                 setActiveTimerTask(null);
                 setActiveTimeLogId(null);
+                setActiveStartTime(null);
                 setTimerElapsedTime(0);
                 setTimerHistoricTime(0);
             }
@@ -188,6 +228,57 @@ export default function Dashboard() {
             console.error('Error checking active timer:', error);
         }
     };
+
+    useEffect(() => {
+
+        if(!activeTimerTask) return;
+
+        const interval = setInterval(async () => {
+
+            const todayStart = new Date();
+            todayStart.setHours(0,0,0,0);
+
+            const { data } = await supabase
+                .from('time_logs')
+                .select('duration_seconds')
+                .eq('user_id', user?.id)
+                .not('end_time','is',null)
+                .gte('start_time', todayStart.toISOString());
+
+console.log("daily_journey_hours:", settings?.daily_journey_hours);
+
+            // const limitSeconds = (settings?.daily_journey_hours || 8) * 3600;
+
+            const limitHours = Number(settings?.daily_journey_hours ?? 8);
+            const limitSeconds = limitHours * 3600;
+            console.log({
+                hours: settings?.daily_journey_hours,
+                type: typeof settings?.daily_journey_hours,
+                limitSeconds
+            });
+
+            // const startTime = new Date(activeTimerTask?.start_time || 0).getTime();
+            // const now = Date.now();
+
+            // const realElapsed = Math.floor((now - startTime) / 1000);
+            const realElapsed = activeStartTime
+                ? Math.floor((Date.now() - activeStartTime) / 1000)
+                : 0;
+
+            if(realElapsed >= limitSeconds && activeTimeLogId){
+
+                toast.warning("Limite diário atingido. Timer pausado automaticamente.");
+
+                await handlePauseTimer();
+
+            }
+
+        },1000);
+
+        return () => clearInterval(interval);
+
+    // },[activeTimerTask,timerElapsedTime,settings]);
+    },[activeTimerTask,activeStartTime,settings]);
 
     const checkActiveTeamLogs = async () => {
         try {
@@ -281,16 +372,54 @@ export default function Dashboard() {
             let query = supabase
                 .from('tasks')
                 .select(`
-                    *,
-                    client:client_id(name),
-                    project:projects(name, client_id, client:client_id(name)),
-                    assignee:users!tasks_assignee_id_fkey(full_name, avatar_url),
-                    creator:users!tasks_created_by_fkey(id, full_name),
+                    id,
+                    title,
+                    description,
+                    status,
+                    priority,
+                    due_date,
+                    created_at,
+                    completed_at,
+                    assignee_id,
+                    project_id,
+                    client_id,
+                    category,
+                    task_number,
+                    total_duration,
+                    is_continuous,
+
+                    client:client_id(
+                        id,
+                        name
+                    ),
+
+                    project:projects(
+                        id,
+                        name,
+                        client_id,
+                        client:client_id(
+                            id,
+                            name
+                        )
+                    ),
+
+                    assignee:users!tasks_assignee_id_fkey(
+                        full_name,
+                        avatar_url
+                    ),
+
+                    creator:users!tasks_created_by_fkey(
+                        id,
+                        full_name
+                    ),
+
                     task_assignees(
                         user_id
                     ),
-                    time_logs(duration_seconds),
-                    total_duration
+
+                    time_logs(
+                        duration_seconds
+                    )
                 `)
                 .order('created_at', { ascending: false });
 
@@ -303,7 +432,51 @@ export default function Dashboard() {
             const { data, error } = await query;
 
             if (error) throw error;
-            setTasks(data || []);
+            const formattedTasks = data.map((task: any) => {
+
+                const client = task.client?.[0] || null
+                const project = task.project?.[0] || null
+                const assignee = task.assignee?.[0] || null
+                const creator = task.creator?.[0] || null
+
+                const projectClient = project?.client?.[0] || null
+
+                return {
+                    ...task,
+
+                    client: client
+                        ? { id: client.id, name: client.name }
+                        : null,
+
+                    project: project
+                        ? {
+                            id: project.id,
+                            name: project.name,
+                            client_id: project.client_id,
+                            client: projectClient
+                                ? { id: projectClient.id, name: projectClient.name }
+                                : null
+                        }
+                        : null,
+
+                    assignee: assignee
+                        ? {
+                            full_name: assignee.full_name,
+                            avatar_url: assignee.avatar_url
+                        }
+                        : null,
+
+                    creator: creator
+                        ? {
+                            id: creator.id,
+                            full_name: creator.full_name
+                        }
+                        : null
+                }
+            })
+
+            setTasks(formattedTasks)
+            
         } catch (error) {
             console.error('Error fetching tasks:', error);
         }
@@ -325,24 +498,37 @@ export default function Dashboard() {
         }
 
 
-
         // 3. Filter by Project or Client
         if (entityFilter.type === 'PROJECT') {
-            if (task.project_id !== entityFilter.id) return false;
-        } else if (entityFilter.type === 'CLIENT') {
-            if (task.project?.client_id !== entityFilter.id) return false;
+
+            // filtra por project_id da task
+            if (task.project_id !== entityFilter.id) {
+                return false;
+            }
+
+        }
+
+        else if (entityFilter.type === 'CLIENT') {
+
+            // cliente pode vir direto da task
+            const taskClientId = (task as any).client_id;
+
+            // ou via projeto
+            const projectClientId = task.project?.client_id;
+
+            if (taskClientId !== entityFilter.id && projectClientId !== entityFilter.id) {
+                return false;
+            }
+
         }
 
         return true;
     });
 
     // Derived State from Filtered Tasks
-    // Derived State from Filtered Tasks
     const openTasks = filteredTasks.filter(t => ['TODO', 'BACKLOG', 'IN_PROGRESS', 'REVIEW'].includes(t.status));
     const pausedTasks = filteredTasks.filter(t => ['WAITING_CLIENT'].includes(t.status));
     const doneTasks = filteredTasks.filter(t => t.status === 'DONE');
-
-
 
 
     // Smart Suggestion Logic
@@ -366,21 +552,92 @@ export default function Dashboard() {
         })[0];
     })();
 
-    // Summary Metrics
-    const dueTodayCount = filteredTasks.filter(t => {
-        if (!t.due_date || t.status === 'DONE') return false;
-        const today = new Date().toDateString();
-        return new Date(t.due_date).toDateString() === today;
-    }).length;
+    // ==============================
+    // DASHBOARD METRICS (OTIMIZADO)
+    // ==============================
 
-    const waitingReviewCount = filteredTasks.filter(t => t.status === 'REVIEW').length;
+const metrics = useMemo(() => {
+    const today = new Date();
+    today.setHours(0,0,0,0);
 
-    const doneThisWeekCount = tasks.filter(t => { // Use 'tasks' to see global personal done? Or filteredTasks? User said "Total Done in Week". Filtered makes sense for "My Performance".
-        if (t.status !== 'DONE' || !t.created_at) return false;
-        const taskDate = new Date(t.created_at);
-        const today = new Date();
-        const firstDayOfWeek = new Date(today.setDate(today.getDate() - today.getDay())); // Sunday
-        return taskDate >= firstDayOfWeek;
+    const startOfWeek = getStartOfWeek(today, { weekStartsOn: 1 });
+    startOfWeek.setHours(0,0,0,0);
+
+    let dueToday = 0;
+    let overdue = 0;
+    let waitingReview = 0;
+    let doneThisWeek = 0;
+
+    // =====================
+    // CONTADORES BASEADOS EM FILTRO
+    // =====================
+    tasks.forEach(task => {
+        if(task.status === 'REVIEW'){
+            waitingReview++
+        }
+
+        if(task.due_date){
+            const dueDate = task.due_date.split('T')[0];
+            const todayDate = today.toISOString().split('T')[0];
+
+            if(dueDate === todayDate){
+                dueToday++
+            }
+
+            const due = new Date(task.due_date);
+            due.setHours(0,0,0,0);
+
+            if(due < today && task.status !== 'DONE'){
+                overdue++
+            }
+        }
+    })
+
+    // =====================
+    // CONTADOR DE TAREFAS CONCLUÍDAS (SEM FILTRO)
+    // =====================
+    tasks.forEach(task => {
+        if(task.status === 'DONE' && task.completed_at){
+            const completed = new Date(task.completed_at);
+            completed.setHours(0,0,0,0);
+
+            if(completed >= startOfWeek){
+                doneThisWeek++
+            }
+        }
+    })
+
+    return {
+        dueToday,
+        overdue,
+        waitingReview,
+        doneThisWeek
+    }
+
+}, [tasks, filteredTasks])
+
+    // Normaliza hoje para evitar bug de timezone
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    // início da semana
+    // const startOfWeek = new Date(today);
+    // startOfWeek.setDate(today.getDate() - today.getDay());
+
+    // ------------------------------
+    // Tarefas Atrasadas
+    // ------------------------------
+    const overdueCount = filteredTasks.filter(task => {
+        if (!task.due_date) return false;
+        if (task.status === 'DONE') return false;
+
+        const due = new Date(task.due_date);
+        due.setHours(0, 0, 0, 0);
+
+        return due < today;
     }).length;
 
     // --- QUICK ACTIONS HANDLERS ---
@@ -406,27 +663,64 @@ export default function Dashboard() {
 
     const handleStartTask = async (e: React.MouseEvent, task: Task) => {
         e.stopPropagation();
-        // Remove activeTimerTask check to allow auto-switch
+
         if (!user) return;
 
         try {
-            await taskService.startTimer(task.id, user.id);
+
+            const { error } = await taskService.startTimer(task.id, user.id);
+
+            if(error){
+                toast.error(error.message);
+                return;
+            }
+
+            setTimerElapsedTime(0);
+
             setActiveTimerTask(task);
-            fetchTasks(); checkActiveTimer();
-        } catch (error) { console.error(error); }
+
+            fetchTasks();
+            checkActiveTimer();
+
+        } catch (error: any) {
+
+            toast.error(error.message);
+
+        }
     };
 
     const handleQuickComplete = async (e: React.MouseEvent, task: Task) => {
         e.stopPropagation();
-        try {
-            // Find 'Done' column id purely for consistency if possible, fallback to just status
-            const { data: doneCol } = await supabase.from('kanban_columns').select('id').eq('title', 'Done').single();
-            const updates: any = { status: 'DONE' };
-            if (doneCol) updates.column_id = doneCol.id;
 
-            await supabase.from('tasks').update(updates).eq('id', task.id);
+        try {
+
+            const { data: doneCol } = await supabase
+                .from('kanban_columns')
+                .select('id')
+                .eq('title', 'Done')
+                .single();
+
+            const updates: any = {
+                status: 'DONE',
+                completed_at: new Date().toISOString()
+            };
+
+            if (doneCol) {
+                updates.column_id = doneCol.id;
+            }
+
+            const { error } = await supabase
+                .from('tasks')
+                .update(updates)
+                .eq('id', task.id);
+
+            if (error) throw error;
+
             fetchTasks();
-        } catch (error) { console.error(error); }
+
+        } catch (error) {
+            console.error(error);
+        }
     };
 
 
@@ -444,27 +738,54 @@ export default function Dashboard() {
 
     const currentTimerDisplay = activeTimerTask ? formatTimer(timerHistoricTime + timerElapsedTime) : { h: '00', m: '00', s: '00' };
 
+    function useCountUp(value: number, duration = 600) {
+    const [display, setDisplay] = useState(0);
+
+    useEffect(() => {
+        let start = 0;
+        const step = Math.ceil(value / (duration / 16));
+
+        const interval = setInterval(() => {
+            start += step;
+            if (start >= value) {
+                start = value;
+                clearInterval(interval);
+            }
+            setDisplay(start);
+        }, 16);
+
+        return () => clearInterval(interval);
+    }, [value]);
+
+    return display;
+}
+
+    // const overdueCount = useCountUp(metrics.overdue);
+const dueTodayCount = useCountUp(metrics.dueToday);
+const reviewCount = useCountUp(metrics.waitingReview);
+const doneWeekCount = useCountUp(metrics.doneThisWeek);
+
     return (
         <div className="flex-1 flex flex-col h-full overflow-hidden relative bg-background-dark">
             <Header
                 title="Dashboard"
             />
 
-            <div className="flex-1 overflow-y-auto p-8 pb-20 scroll-smooth">
-                <div className="max-w-7xl mx-auto flex flex-col gap-8">
+            <div className="flex-1 overflow-y-auto p-6 pb-16 scroll-smooth">
+                <div className="max-w-7xl mx-auto flex flex-col gap-6">
                     {/* Filter / Action Bar */}
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                         <div className="flex items-center gap-4 w-full md:w-auto">
                             <div className="bg-surface-highlight p-1.5 rounded-xl flex items-center shrink-0">
                                 <button
                                     onClick={() => setOwnerFilter('MINE')}
-                                    className={`px-5 py-2 rounded-lg text-sm font-bold shadow-sm transition-all border ${ownerFilter === 'MINE' ? 'bg-background-dark text-white border-white/5' : 'text-text-secondary hover:text-white hover:bg-white/5 border-transparent'}`}>
+                                    className={`px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition-all border ${ownerFilter === 'MINE' ? 'bg-background-dark text-white border-white/5' : 'text-text-secondary hover:text-white hover:bg-white/5 border-transparent'}`}>
                                     Minhas Tarefas
                                 </button>
                                 {(userProfile?.role === 'ADMIN' || userProfile?.role === 'MANAGER') && (
                                     <button
                                         onClick={() => setOwnerFilter('ALL')}
-                                        className={`px-5 py-2 rounded-lg text-sm font-bold shadow-sm transition-all border ${ownerFilter === 'ALL' ? 'bg-background-dark text-white border-white/5' : 'text-text-secondary hover:text-white hover:bg-white/5 border-transparent'}`}>
+                                        className={`px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition-all border ${ownerFilter === 'ALL' ? 'bg-background-dark text-white border-white/5' : 'text-text-secondary hover:text-white hover:bg-white/5 border-transparent'}`}>
                                         Todas
                                     </button>
                                 )}
@@ -540,7 +861,7 @@ export default function Dashboard() {
 
                         <button
                             onClick={() => navigate('/tasks/new')}
-                            className="flex items-center justify-center gap-2 bg-primary hover:bg-[#0fd650] text-background-dark px-6 py-3 rounded-xl font-bold shadow-[0_4px_20px_rgba(19,236,91,0.2)] hover:shadow-[0_6px_25px_rgba(19,236,91,0.3)] hover:-translate-y-0.5 transition-all w-full md:w-auto shrink-0 active:scale-95">
+                            className="flex items-center justify-center gap-2 bg-primary hover:bg-[#0fd650] text-background-dark px-5 py-2.5 rounded-xl font-semibold min-h-[44px] shadow-[0_4px_20px_rgba(19,236,91,0.2)] hover:shadow-[0_6px_25px_rgba(19,236,91,0.3)] hover:-translate-y-0.5 transition-all w-full md:w-auto shrink-0 active:scale-95">
                             <span className="material-symbols-outlined">add</span>
                             <span>Nova Tarefa</span>
                         </button>
@@ -551,27 +872,95 @@ export default function Dashboard() {
                         {/* Metrics & Timer Container (Col Span 8) */}
                         <div className="lg:col-span-8 flex flex-col gap-6">
                             {/* Summary Metrics Row */}
-                            <div className="grid grid-cols-3 gap-4">
-                                <div className="bg-surface-highlight/50 p-4 rounded-xl border border-white/5 flex flex-col items-center justify-center gap-1">
-                                    <span className="text-3xl font-bold text-white">{dueTodayCount}</span>
-                                    <span className="text-xs font-bold text-text-secondary uppercase tracking-wider text-center">Vencendo Hoje</span>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+
+                                {/* Atrasadas */}
+                                <div className="relative bg-surface-highlight/50 p-4 rounded-xl border border-red-500/20 hover:border-red-500/40 transition-all group">
+
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="material-symbols-outlined text-red-500">warning</span>
+                                        <span className="text-xs text-red-400 font-semibold">ATRASADAS</span>
+                                    </div>
+
+                                    <div className="text-4xl font-bold text-red-500">{overdueCount}</div>
+
+                                    <div className="mt-3 h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                                        <div
+                                        className="h-full bg-red-500 transition-all"
+                                        style={{ width: `${Math.min(metrics.overdue * 10, 100)}%` }}
+                                        ></div>
+                                    </div>
+
                                 </div>
-                                <div className="bg-surface-highlight/50 p-4 rounded-xl border border-white/5 flex flex-col items-center justify-center gap-1">
-                                    <span className="text-3xl font-bold text-white">{waitingReviewCount}</span>
-                                    <span className="text-xs font-bold text-purple-400 uppercase tracking-wider text-center">Aguardando Revisão</span>
+
+
+                                {/* Vencendo Hoje */}
+                                <div className="relative bg-surface-highlight/50 p-4 rounded-xl border border-orange-500/20 hover:border-orange-500/40 transition-all group">
+
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="material-symbols-outlined text-orange-400">event</span>
+                                        <span className="text-xs text-orange-400 font-semibold">VENCE HOJE</span>
+                                    </div>
+
+                                    <div className="text-4xl font-bold text-orange-400">{dueTodayCount}</div>
+
+                                    <div className="mt-3 h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                                        <div
+                                        className="h-full bg-orange-400 transition-all"
+                                        style={{ width: `${Math.min(metrics.dueToday * 10, 100)}%` }}
+                                        ></div>
+                                    </div>
+
                                 </div>
-                                <div className="bg-surface-highlight/50 p-4 rounded-xl border border-white/5 flex flex-col items-center justify-center gap-1">
-                                    <span className="text-3xl font-bold text-primary">{doneThisWeekCount}</span>
-                                    <span className="text-xs font-bold text-primary uppercase tracking-wider text-center">Concluído na Semana</span>
+
+
+                                {/* Revisão */}
+                                <div className="relative bg-surface-highlight/50 p-4 rounded-xl border border-purple-500/20 hover:border-purple-500/40 transition-all group">
+
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="material-symbols-outlined text-purple-400">rate_review</span>
+                                        <span className="text-xs text-purple-400 font-semibold">RREVISÃO</span>
+                                    </div>
+
+                                    <div className="text-4xl font-bold text-purple-400">{reviewCount}</div>
+
+                                    <div className="mt-3 h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                                        <div
+                                        className="h-full bg-purple-400 transition-all"
+                                        style={{ width: `${Math.min(metrics.waitingReview * 10, 100)}%` }}
+                                        ></div>
+                                    </div>
+
                                 </div>
+
+
+                                {/* Concluídas */}
+                                <div className="relative bg-surface-highlight/50 p-4 rounded-xl border border-green-500/20 hover:border-green-500/40 transition-all group">
+
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="material-symbols-outlined text-green-400">task_alt</span>
+                                        <span className="text-xs text-green-400 font-semibold">CONCLUÍDAS</span>
+                                    </div>
+
+                                    <div className="text-4xl font-bold text-green-400">{doneWeekCount}</div>
+
+                                    <div className="mt-3 h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                                        <div
+                                        className="h-full bg-green-400 transition-all"
+                                        style={{ width: `${Math.min(metrics.doneThisWeek * 10, 100)}%` }}
+                                        ></div>
+                                    </div>
+
+                                </div>
+
                             </div>
 
                             {/* Timer / Active Task Widget */}
-                            <div className="bg-surface-highlight rounded-2xl p-6 relative overflow-hidden group">
+                            <div className="bg-surface-highlight/70 backdrop-blur-md rounded-2xl p-6 relative overflow-hidden group border border-white/10 shadow-lg">
                                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                                     <span className="material-symbols-outlined text-9xl text-primary">timer</span>
                                 </div>
-                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 relative z-10">
                                     <div>
                                         <div className="flex items-center gap-2 mb-2">
                                             <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider ${activeTimerTask ? 'bg-primary/20 text-primary' : (suggestedTask ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-surface-highlight text-text-muted')}`}>
@@ -595,7 +984,7 @@ export default function Dashboard() {
                                                 : (suggestedTask ? 'Sua próxima missão. Clique para iniciar.' : 'Dê play em uma tarefa para começar a trackear.')}
                                         </p>
                                     </div>
-                                    <div className="flex items-center gap-6 bg-background-dark/50 p-4 rounded-xl border border-white/5 backdrop-blur-sm">
+                                    <div className="flex items-center gap-6 bg-background-dark/60 p-5 rounded-xl border border-white/10 backdrop-blur-sm shadow-inner">
                                         <div className="flex gap-3 text-center">
                                             <div className="flex flex-col gap-1 w-12">
                                                 <div className="text-2xl font-mono font-bold text-white">{currentTimerDisplay.h}</div>
@@ -639,18 +1028,18 @@ export default function Dashboard() {
 
                         {/* Productivity / Gamification Widget */}
                         <div className="lg:col-span-4 h-full">
-                            <ProductivityWidget />
+                            <ProductivityWidgetNew />
                         </div>
                     </section>
 
                     {/* Columns Section */}
-                    <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
+                    <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                         {/* Em Aberto Column */}
-                        <div className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-4 min-h-[420px]">
                             <div className="flex items-center justify-between px-2">
                                 <div className="flex items-center gap-2">
                                     <div className="size-2 rounded-full bg-white"></div>
-                                    <h3 className="text-white font-bold">Em Aberto</h3>
+                                    <h3 className="text-white font-semibold tracking-wide">Em Aberto</h3>
                                     <span className="text-xs text-text-secondary bg-surface-highlight px-2 py-0.5 rounded-full">{openTasks.length}</span>
                                 </div>
                                 <button
@@ -662,9 +1051,9 @@ export default function Dashboard() {
                             </div>
 
                             {openTasks.map(task => (
-                                <div key={task.id} onClick={() => navigate(`/tasks/${task.task_number}`)} className={`bg-surface-highlight hover:bg-[#2a5538] transition-colors p-4 rounded-xl cursor-pointer group border border-transparent hover:border-white/5 relative ${task.priority === 'HIGH' ? 'border-l-[4px] !border-l-orange-500' : (task.priority === 'MEDIUM' ? 'border-l-[4px] !border-l-blue-500' : '')} ${task.status === 'REVIEW' ? 'border-purple-500/50 hover:border-purple-500' : ''}`}>
+                                <div key={task.id} onClick={() => navigate(`/tasks/${task.task_number}`)} className={`bg-surface-highlight hover:bg-[#2a5538] transition-all duration-200 p-4 flex flex-col gap-3 rounded-xl cursor-pointer hover:-translate-y-[2px] hover:shadow-lg group border border-transparent hover:border-white/5 relative ${task.priority === 'HIGH' ? 'border-l-[4px] !border-l-orange-500' : (task.priority === 'MEDIUM' ? 'border-l-[4px] !border-l-blue-500' : '')} ${task.status === 'REVIEW' ? 'border-purple-500/50 hover:border-purple-500' : ''}`}>
                                     {/* Quick Actions Hover */}
-                                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 z-10">
                                         <button
                                             onClick={(e) => { e.stopPropagation(); activeTimerTask?.id === task.id ? handlePauseTimer() : handleStartTask(e, task); }}
                                             className={`size-8 rounded-full flex items-center justify-center transition-all shadow-lg ${activeTimerTask?.id === task.id ? 'bg-primary text-background-dark hover:scale-105' : 'bg-primary/20 hover:bg-primary text-primary hover:text-background-dark'}`}
@@ -692,19 +1081,20 @@ export default function Dashboard() {
                                     <div className="flex justify-between items-start mb-3 pr-24">
                                         <div className="flex flex-wrap gap-2 items-center">
                                             {(() => {
-                                                const taskClientName = (task as any).client?.name;
-                                                const projectClientName = (task.project as any)?.client?.name;
-                                                const lookupClientName = clients.find(c => c.id === task.project?.client_id)?.name;
-                                                const displayText = taskClientName || projectClientName || lookupClientName || task.project?.name;
+                                                const displayText =
+                                                    task.client?.name ||
+                                                    task.project?.client?.name ||
+                                                    task.project?.name ||
+                                                    null;
 
                                                 return displayText ? (
-                                                    <span className="px-2 py-1 rounded text-[10px] font-bold bg-[#38bdf8]/10 text-[#38bdf8] uppercase truncate max-w-[150px]">
+                                                    <span className="px-2 py-[3px] rounded text-[10px] tracking-wide font-bold bg-[#38bdf8]/10 text-[#38bdf8] uppercase truncate max-w-[150px]">
                                                         {displayText}
                                                     </span>
                                                 ) : null;
                                             })()}
                                             {task.status === 'REVIEW' && (
-                                                <span className="px-2 py-1 rounded text-[10px] font-bold bg-purple-500/10 text-purple-400 uppercase tracking-wider border border-purple-500/20">Review</span>
+                                                <span className="px-2 py-[3px] rounded text-[10px] tracking-wide font-bold bg-purple-500/10 text-purple-400 uppercase tracking-wider border border-purple-500/20">Review</span>
                                             )}
                                             {/* Creator View: Delegated Tag */}
                                             {(userProfile?.role === 'ADMIN' || userProfile?.role === 'MANAGER') && task.creator?.id === user?.id && task.assignee_id !== user?.id && (
@@ -717,7 +1107,7 @@ export default function Dashboard() {
                                             )}
                                         </div>
                                     </div>
-                                    <h4 className="text-white font-medium mb-3 group-hover:text-primary transition-colors">{task.title}</h4>
+                                    <h4 className="text-white font-semibold leading-snug group-hover:text-primary transition-colors">{task.title}</h4>
                                     <div className="flex items-center justify-between mt-auto">
                                         <div className="flex items-end gap-4 w-full">
                                             <div className="flex flex-col gap-1.5 flex-1">
@@ -767,12 +1157,17 @@ export default function Dashboard() {
                                         <div className="flex items-center gap-2">
                                             {/* Total Time Badge */}
                                             {(() => {
-                                                const totalSeconds = task.total_duration ?? task.time_logs?.reduce((acc, log) => acc + (log.duration_seconds || 0), 0) ?? 0;
+                                                let totalSeconds = task.total_duration || 0;
+
+                                                if (activeTimerTask?.id === task.id) {
+                                                    totalSeconds += timerElapsedTime;
+                                                }
+
                                                 if (totalSeconds > 0 && activeTimerTask?.id !== task.id) {
                                                     return (
-                                                        <div className="flex items-center gap-1 bg-surface-dark/50 px-2 py-1 rounded text-[10px] font-mono font-bold text-text-secondary border border-white/5" title="Tempo Total">
+                                                        <div className="flex items-center gap-1 bg-surface-dark/50 px-2 py-[3px] rounded text-[10px] tracking-wide font-mono font-bold text-text-secondary border border-white/5" title="Tempo Total">
                                                             <span className="material-symbols-outlined text-xs">schedule</span>
-                                                            <span>{formatTimer(totalSeconds).h}:{formatTimer(totalSeconds).m}</span>
+                                                            <span>{formatTimer(totalSeconds).h}:{formatTimer(totalSeconds).m}:{formatTimer(totalSeconds).s}</span>
                                                         </div>
                                                     );
                                                 }
@@ -806,11 +1201,11 @@ export default function Dashboard() {
                         </div>
 
                         {/* Em Pausa Column */}
-                        <div className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-4 min-h-[420px]">
                             <div className="flex items-center justify-between px-2">
                                 <div className="flex items-center gap-2">
                                     <div className="size-2 rounded-full bg-blue-500"></div>
-                                    <h3 className="text-white font-bold">Em Pausa</h3>
+                                    <h3 className="text-white font-semibold tracking-wide">Em Pausa</h3>
                                     <span className="text-xs text-text-secondary bg-surface-highlight px-2 py-0.5 rounded-full">{pausedTasks.length}</span>
                                 </div>
                                 <button
@@ -822,8 +1217,8 @@ export default function Dashboard() {
                             </div>
 
                             {pausedTasks.map(task => (
-                                <div key={task.id} onClick={() => navigate(`/tasks/${task.task_number}`)} className="bg-surface-highlight/50 p-4 rounded-xl border border-dashed border-white/10 opacity-75 hover:opacity-100 transition-opacity cursor-pointer relative group">
-                                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                <div key={task.id} onClick={() => navigate(`/tasks/${task.task_number}`)} className="bg-surface-highlight/50 p-4 flex flex-col gap-3 rounded-xl border border-dashed border-white/10 opacity-75 hover:opacity-100 transition-opacity cursor-pointer relative group">
+                                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 z-10">
                                         <button
                                             onClick={(e) => handleStartTask(e, task)}
                                             className="size-8 rounded-full bg-primary/20 hover:bg-primary flex items-center justify-center text-primary hover:text-background-dark transition-all shadow-lg"
@@ -846,13 +1241,13 @@ export default function Dashboard() {
                                             const displayText = taskClientName || projectClientName || lookupClientName || task.project?.name;
 
                                             return displayText ? (
-                                                <span className="px-2 py-1 rounded text-[10px] font-bold bg-blue-500/10 text-blue-500 uppercase truncate max-w-[150px]">
+                                                <span className="px-2 py-[3px] rounded text-[10px] tracking-wide font-bold bg-blue-500/10 text-blue-500 uppercase truncate max-w-[150px]">
                                                     {displayText}
                                                 </span>
                                             ) : null;
                                         })()}
                                     </div>
-                                    <h4 className="text-white font-medium mb-3">{task.title}</h4>
+                                    <h4 className="text-white font-semibold leading-snug">{task.title}</h4>
                                     <div className="flex items-center justify-between mt-auto">
                                         <div className="flex items-center gap-1.5 text-text-secondary text-xs">
                                             {task.due_date ? (
@@ -891,9 +1286,9 @@ export default function Dashboard() {
                                             const totalSeconds = task.time_logs?.reduce((acc, log) => acc + (log.duration_seconds || 0), 0) || 0;
                                             if (totalSeconds > 0) {
                                                 return (
-                                                    <div className="flex items-center gap-1 bg-surface-dark/50 px-2 py-1 rounded text-[10px] font-mono font-bold text-text-secondary border border-white/5" title="Tempo Total">
+                                                    <div className="flex items-center gap-1 bg-surface-dark/50 px-2 py-[3px] rounded text-[10px] tracking-wide font-mono font-bold text-text-secondary border border-white/5" title="Tempo Total">
                                                         <span className="material-symbols-outlined text-xs">schedule</span>
-                                                        <span>{formatTimer(totalSeconds).h}:{formatTimer(totalSeconds).m}</span>
+                                                        <span>{formatTimer(totalSeconds).h}:{formatTimer(totalSeconds).m}:{formatTimer(totalSeconds).s}</span>
                                                     </div>
                                                 );
                                             }
@@ -907,11 +1302,11 @@ export default function Dashboard() {
                         </div>
 
                         {/* Concluído Column */}
-                        <div className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-4 min-h-[420px]">
                             <div className="flex items-center justify-between px-2">
                                 <div className="flex items-center gap-2">
                                     <div className="size-2 rounded-full bg-primary"></div>
-                                    <h3 className="text-white font-bold">Concluído</h3>
+                                    <h3 className="text-white font-semibold tracking-wide">Concluído</h3>
                                     <span className="text-xs text-text-secondary bg-surface-highlight px-2 py-0.5 rounded-full">{doneTasks.length}</span>
                                 </div>
                                 <button
@@ -923,8 +1318,8 @@ export default function Dashboard() {
                             </div>
 
                             {doneTasks.map(task => (
-                                <div key={task.id} onClick={() => navigate(`/tasks/${task.task_number}`)} className="bg-surface-highlight p-4 rounded-xl border-l-[6px] border-primary/20 hover:border-primary opacity-60 hover:opacity-100 transition-all cursor-pointer relative group">
-                                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                <div key={task.id} onClick={() => navigate(`/tasks/${task.task_number}`)} className="bg-surface-highlight p-4 flex flex-col gap-3 rounded-xl border-l-[6px] border-primary/20 hover:border-primary opacity-70 hover:opacity-100 transition-all transition-all cursor-pointer relative group">
+                                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all duration-200 z-10">
                                         <TaskActionMenu
                                             task={task}
                                             onEdit={() => handleEdit(task)}
@@ -956,9 +1351,9 @@ export default function Dashboard() {
                                                 const totalSeconds = task.time_logs?.reduce((acc, log) => acc + (log.duration_seconds || 0), 0) || 0;
                                                 if (totalSeconds > 0) {
                                                     return (
-                                                        <div className="flex items-center gap-1 bg-surface-dark/50 px-2 py-1 rounded text-[10px] font-mono font-bold text-text-secondary border border-white/5 opacity-50" title="Tempo Total">
+                                                        <div className="flex items-center gap-1 bg-surface-dark/50 px-2 py-[3px] rounded text-[10px] tracking-wide font-mono font-bold text-text-secondary border border-white/5 opacity-50" title="Tempo Total">
                                                             <span className="material-symbols-outlined text-xs">schedule</span>
-                                                            <span>{formatTimer(totalSeconds).h}:{formatTimer(totalSeconds).m}</span>
+                                                            <span>{formatTimer(totalSeconds).h}:{formatTimer(totalSeconds).m}:{formatTimer(totalSeconds).s}</span>
                                                         </div>
                                                     );
                                                 }

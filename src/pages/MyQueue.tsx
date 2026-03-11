@@ -166,18 +166,69 @@ export default function MyQueue() {
     }, [user]);
 
     useEffect(() => {
-        let filtered: Task[] = [];
-        filtered = tasks.filter(task => {
+        let filtered: Task[] = [...tasks];
+
+        // TAB FILTER
+        filtered = filtered.filter(task => {
             if (activeTab === 'MINE') return task.assignee_id === user?.id;
             if (activeTab === 'CREATED') return task.created_by === user?.id;
-            if (activeTab === 'REVIEW') return task.status === 'REVIEW' && (task.assignee_id === user?.id || task.created_by === user?.id);
-            return false;
+            if (activeTab === 'REVIEW') {
+                return (
+                    (task.status === 'REVIEW' || task.status === 'WAITING_CLIENT') &&
+                    (task.assignee_id === user?.id || task.created_by === user?.id)
+                );
+            }
+            return true;
         });
 
+        // STATUS FILTER
+        filtered = filtered.filter(task => {
+            if (statusFilter === 'OPEN') {
+                return task.status !== 'DONE';
+            }
 
+            if (statusFilter === 'OPEN_MY_PART_DONE') {
+                return task.status === 'REVIEW' || task.status === 'WAITING_CLIENT';
+            }
+
+            if (statusFilter === 'DELIVERED') {
+                return task.status === 'DONE';
+            }
+
+            return true;
+        });
+
+        // SORTING
+        filtered.sort((a, b) => {
+            switch (sortOrder) {
+
+                case 'PRIORITY': {
+                    const priorityRank = { HIGH: 1, MEDIUM: 2, LOW: 3 };
+                    return priorityRank[a.priority] - priorityRank[b.priority];
+                }
+
+                case 'TITLE':
+                    return a.title.localeCompare(b.title);
+
+                case 'CREATED_AT':
+                    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+
+                case 'URGENCY':
+                    if (!a.due_date) return 1;
+                    if (!b.due_date) return -1;
+                    return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+
+                case 'MANUAL':
+                    return (a.queue_position ?? 9999) - (b.queue_position ?? 9999);
+
+                default:
+                    return 0;
+            }
+        });
 
         setDisplayTasks(filtered);
-    }, [tasks, activeTab, user?.id]);
+
+    }, [tasks, activeTab, statusFilter, sortOrder, user?.id]);
 
     const [kanbanColumns, setKanbanColumns] = useState<Record<string, any[]>>({});
 
@@ -207,7 +258,7 @@ export default function MyQueue() {
                     task_boards(board_id)
                 `)
                 .or(`assignee_id.eq.${user.id},created_by.eq.${user.id}`)
-                .neq('status', 'DONE')
+                // .neq('status', 'DONE')
                 .order('position', { ascending: true });
 
             if (data) {

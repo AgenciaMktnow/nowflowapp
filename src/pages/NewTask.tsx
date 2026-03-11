@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { taskService, type Task } from '../services/task.service';
 import { toast } from 'sonner';
 import { useTaskActions } from '../hooks/useTaskActions';
+import { useUsers } from '../hooks/useUsers'
 
 import { MultiBoardSelector } from '../components/MultiBoardSelector';
 import type { Board } from '../types/database.types';
@@ -35,6 +36,7 @@ interface NewTaskProps {
 export default function NewTask({ isDrawer = false, taskNumber: propTaskNumber, onClose, onSuccess }: NewTaskProps = {}) {
     const navigate = useNavigate();
     const { user, userProfile } = useAuth();
+    const users = useUsers()
     const { id: paramId } = useParams();
     const id = propTaskNumber || paramId;
     const [searchParams] = useSearchParams();
@@ -95,7 +97,6 @@ export default function NewTask({ isDrawer = false, taskNumber: propTaskNumber, 
     const [clients, setClients] = useState<SelectOption[]>([]);
     const [projects, setProjects] = useState<SelectOption[]>([]);
     const [workflows, setWorkflows] = useState<SelectOption[]>([]);
-    const [users, setUsers] = useState<User[]>([]);
     const [teamMemberIds, setTeamMemberIds] = useState<Set<string>>(new Set());
 
     const [loading, setLoading] = useState(false);
@@ -107,7 +108,6 @@ export default function NewTask({ isDrawer = false, taskNumber: propTaskNumber, 
         fetchBoards();
         fetchClientsAndMap();
         fetchWorkflows();
-        fetchUsers();
     }, []);
 
     useEffect(() => {
@@ -216,13 +216,18 @@ export default function NewTask({ isDrawer = false, taskNumber: propTaskNumber, 
     };
 
     const fetchWorkflows = async () => {
-        const { data } = await supabase.from('workflows').select('id, name').order('name');
+        if (!selectedBoardIds.length) return;
+
+        const { data } = await supabase
+            .from('workflows')
+            .select('id, name')
+            .in('board_id', selectedBoardIds)
+            .order('name');
+
         if (data) setWorkflows(data);
     };
-    const fetchUsers = async () => {
-        const { data } = await supabase.from('users').select('id, full_name, avatar_url').order('full_name');
-        if (data) setUsers(data);
-    };
+    
+
     const fetchTeamFromClient = async (cliId: string) => {
         const client = clients.find(c => c.id === cliId);
         if (client?.default_team_id) {
@@ -369,6 +374,24 @@ export default function NewTask({ isDrawer = false, taskNumber: propTaskNumber, 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
+        // Garantir que o usuário está carregado
+        if (!user?.id) {
+            toast.error("Erro: usuário não identificado");
+            return;
+        }
+
+        // Garantir que o perfil foi carregado
+        if (!userProfile) {
+            toast.error("Erro: perfil do usuário não carregado");
+            return;
+        }
+
+        // Garantir organização
+        if (!userProfile.organization_id) {
+            toast.error("Erro: organização do usuário não encontrada");
+            return;
+        }
+
         // 1. Validate Form (Green Asterisks *)
         const missingMandatory =
             !title.trim() ||
@@ -382,8 +405,38 @@ export default function NewTask({ isDrawer = false, taskNumber: propTaskNumber, 
         const missingLogic =
             !description;
 
-        if (missingMandatory || missingLogic) {
-            toast.warning('Por favor, preencha todos os campos obrigatórios (*)');
+            
+        // if (missingMandatory || missingLogic) {
+        //     toast.warning('Por favor, preencha todos os campos obrigatórios (*)');
+        //     return;
+        // }
+        if (!title.trim()) {
+            toast.warning("Digite o título da tarefa");
+            return;
+        }
+
+        if (selectedBoardIds.length === 0) {
+            toast.warning("Selecione ao menos um quadro");
+            return;
+        }
+
+        if (!clientId) {
+            toast.warning("Selecione um cliente");
+            return;
+        }
+
+        if (!projectId) {
+            toast.warning("Selecione um projeto");
+            return;
+        }
+
+        if (assigneeIds.length === 0) {
+            toast.warning("Selecione ao menos um responsável");
+            return;
+        }
+
+        if (!description) {
+            toast.warning("Adicione uma descrição");
             return;
         }
 
@@ -491,8 +544,8 @@ export default function NewTask({ isDrawer = false, taskNumber: propTaskNumber, 
                 project_id: projectId,
                 workflow_id: workflowId || null,
                 assignee_id: assigneeIds[0], // Legacy/Primary assignee
-                created_by: !taskId ? user?.id : undefined, // Only on create
-                organization_id: userProfile?.organization_id, // Mandatory for policies
+                created_by: !taskId ? user.id : undefined,
+                organization_id: userProfile.organization_id,
                 board_ids: selectedBoardIds, // Multi-Board Link
                 attachments: clonedAttachments.length > 0 ? clonedAttachments : undefined
             };
@@ -633,8 +686,13 @@ export default function NewTask({ isDrawer = false, taskNumber: propTaskNumber, 
             }
 
         } catch (error: any) {
-            console.error('=== SUBMISSION ERROR ===', error);
-            toast.error(error.message || 'Erro ao salvar tarefa');
+            console.error('=== SUBMISSION ERROR ===');
+            console.error('message:', error?.message);
+            console.error('details:', error?.details);
+            console.error('hint:', error?.hint);
+            console.error('full error:', error);
+
+            toast.error(error?.message || 'Erro ao salvar tarefa');
         } finally {
             setLoading(false);
         }
@@ -752,12 +810,9 @@ export default function NewTask({ isDrawer = false, taskNumber: propTaskNumber, 
                             <ModernDropdown
                                 value={workflowId}
                                 onChange={setWorkflowId}
-                                options={workflows.length > 0 ? workflows : [
-                                    { id: 'backlog', name: '📋 Backlog' },
-                                    { id: 'todo', name: '🚀 A Fazer' },
-                                    { id: 'inprogress', name: '⚡ Em Progresso' },
-                                    { id: 'review', name: '👀 Revisão' },
-                                    { id: 'done', name: '✅ Concluído' }
+                                options={[
+                                    { id: '', name: 'Sem fluxo' },
+                                    ...workflows
                                 ]}
                                 placeholder="Etapa..."
                                 icon="view_kanban"

@@ -19,13 +19,18 @@ interface Board {
 
 import { usePermissions } from '../../hooks/usePermissions';
 import { useAuth } from '../../contexts/AuthContext';
+import { useUsers } from '../../hooks/useUsers'
 
 export default function WorkflowsSettings() {
     const { userProfile } = useAuth();
+    const allUsers = useUsers()
     const [workflows, setWorkflows] = useState<Workflow[]>([]);
     const [boards, setBoards] = useState<Board[]>([]);
     const [teams, setTeams] = useState<{ id: string; name: string }[]>([]);
-    const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
+    const users = allUsers.map(u => ({
+        id: u.id,
+        name: u.full_name || 'Usuário'
+    }))
     const [dataLoading, setDataLoading] = useState(false);
     const [isWorkflowModalOpen, setIsWorkflowModalOpen] = useState(false);
     const [editingWorkflow, setEditingWorkflow] = useState<Workflow | null>(null);
@@ -42,8 +47,7 @@ export default function WorkflowsSettings() {
         await Promise.all([
             fetchWorkflows(),
             fetchBoards(),
-            fetchTeams(),
-            fetchUsers()
+            fetchTeams()
         ]);
         setDataLoading(false);
     };
@@ -61,20 +65,6 @@ export default function WorkflowsSettings() {
     const fetchTeams = async () => {
         const { data } = await teamService.getTeams();
         if (data) setTeams(data);
-    };
-
-    const fetchUsers = async () => {
-        const { data } = await supabase
-            .from('users')
-            .select('id, full_name, email')
-            .order('full_name');
-
-        if (data) {
-            setUsers(data.map(u => ({
-                id: u.id,
-                name: u.full_name || u.email || 'Usuário sem nome'
-            })));
-        }
     };
 
     const handleSaveWorkflow = async (name: string, _description: string, steps: WorkflowStep[], boardId: string) => {
@@ -144,62 +134,119 @@ export default function WorkflowsSettings() {
                 </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
                 {workflows.map(workflow => (
-                    <div key={workflow.id} className="bg-surface-highlight p-6 rounded-xl border border-white/5 hover:border-primary/30 transition-all group">
-                        <div className="flex justify-between items-start mb-4">
-                            <div>
-                                <h3 className="text-lg font-bold text-white mb-1">{workflow.name}</h3>
-                                {workflow.board_id && (
-                                    <span className="text-xs bg-white/5 text-text-secondary px-2 py-0.5 rounded">
-                                        Vinculado: {boards.find(b => b.id === workflow.board_id)?.name || 'Desconhecido'}
-                                    </span>
-                                )}
-                            </div>
-                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button
-                                    onClick={() => {
-                                        if (!canCustomWorkflows) {
-                                            toast.error('Recurso exclusivo PRO: Upgrade para editar fluxos.');
-                                            return;
-                                        }
-                                        setEditingWorkflow(workflow);
-                                        setIsWorkflowModalOpen(true);
-                                    }}
-                                    className={`p-1.5 rounded-lg transition-colors ${canCustomWorkflows ? 'hover:bg-white/10 text-text-secondary hover:text-primary' : 'text-gray-600 cursor-not-allowed'}`}
-                                >
-                                    <span className="material-symbols-outlined text-sm">{canCustomWorkflows ? 'edit' : 'lock'}</span>
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        if (!canCustomWorkflows) {
-                                            toast.error('Recurso exclusivo PRO: Upgrade para gerenciar fluxos.');
-                                            return;
-                                        }
-                                        handleDeleteWorkflow(workflow.id);
-                                    }}
-                                    className={`p-1.5 rounded-lg transition-colors ${canCustomWorkflows ? 'hover:bg-white/10 text-text-secondary hover:text-red-500' : 'text-gray-600 cursor-not-allowed'}`}
-                                >
-                                    <span className="material-symbols-outlined text-sm">{canCustomWorkflows ? 'delete' : 'lock'}</span>
-                                </button>
-                            </div>
-                        </div>
+                    <div
+    key={workflow.id}
+    className="relative group rounded-2xl p-[1px] bg-gradient-to-br from-primary/40 via-indigo-400/20 to-transparent transition-all duration-300 hover:shadow-xl hover:shadow-primary/20"
+>
 
-                        {/* Visual Steps Preview */}
-                        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                            {workflow.steps.map((step, index) => (
-                                <div key={index} className="flex items-center min-w-max">
-                                    <div className="flex items-center gap-2 bg-background-dark px-3 py-1.5 rounded-lg border border-white/5">
-                                        <div className="size-2 rounded-full" style={{ backgroundColor: (step as any).color }}></div>
-                                        <span className="text-xs text-text-secondary font-medium">{step.name}</span>
-                                    </div>
-                                    {index < workflow.steps.length - 1 && (
-                                        <span className="material-symbols-outlined text-text-muted text-sm mx-1">arrow_forward</span>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
+    {/* background glow */}
+    <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary/10 via-transparent to-indigo-500/10 opacity-0 group-hover:opacity-100 transition duration-500 blur-xl"></div>
+
+    <div className="relative bg-surface-highlight/85 backdrop-blur-xl rounded-2xl p-6 border border-white/5 h-full transition-all duration-300 group-hover:border-primary/40">
+
+        {/* HEADER */}
+        <div className="flex justify-between items-start mb-5">
+
+            <div>
+
+                <h3 className="text-lg font-semibold text-white tracking-tight">
+                    {workflow.name}
+                </h3>
+
+                {workflow.board_id && (
+                    <div className="mt-1 text-xs text-text-muted flex items-center gap-2">
+
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
+
+                        {boards.find(b => b.id === workflow.board_id)?.name || 'Desconhecido'}
+
                     </div>
+                )}
+
+            </div>
+
+            {/* ACTIONS */}
+            <div className="flex gap-2 opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all">
+
+                <button
+                    onClick={() => {
+                        if (!canCustomWorkflows) {
+                            toast.error('Recurso exclusivo PRO');
+                            return;
+                        }
+
+                        setEditingWorkflow(workflow);
+                        setIsWorkflowModalOpen(true);
+                    }}
+                    className="p-2 rounded-lg hover:bg-white/10 transition"
+                >
+                    <span className="material-symbols-outlined text-sm">
+                        edit
+                    </span>
+                </button>
+
+                <button
+                    onClick={() => {
+                        if (!canCustomWorkflows) {
+                            toast.error('Recurso exclusivo PRO');
+                            return;
+                        }
+
+                        handleDeleteWorkflow(workflow.id);
+                    }}
+                    className="p-2 rounded-lg hover:bg-red-500/20 text-red-400 transition"
+                >
+                    <span className="material-symbols-outlined text-sm">
+                        delete
+                    </span>
+                </button>
+
+            </div>
+
+        </div>
+
+        {/* PIPELINE */}
+        <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-primary/40 scrollbar-track-transparent">
+
+            {workflow.steps.map((step, index) => (
+
+                <div key={index} className="flex items-center min-w-max">
+
+                    <div className="flex items-center justify-center gap-2 bg-background-dark/90 backdrop-blur px-4 py-2 rounded-lg border border-white/5 text-center transition-all duration-200 hover:border-primary/50">
+
+                        <div
+                            className="size-2 rounded-full"
+                            style={{
+                                backgroundColor: step.color || '#6366f1',
+                                boxShadow: `0 0 6px ${step.color || '#6366f1'}`
+                            }}
+                        ></div>
+
+                        <span className="text-xs font-medium text-text-secondary text-center">
+                            {step.name}
+                        </span>
+
+                    </div>
+
+                    {index < workflow.steps.length - 1 && (
+
+                        <span className="material-symbols-outlined text-text-muted text-sm mx-2">
+                            arrow_forward
+                        </span>
+
+                    )}
+
+                </div>
+
+            ))}
+
+        </div>
+
+    </div>
+
+</div>
                 ))}
 
                 {workflows.length === 0 && (

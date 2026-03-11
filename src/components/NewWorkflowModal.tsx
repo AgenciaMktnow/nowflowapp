@@ -17,6 +17,7 @@ export interface WorkflowStep {
     name: string;
     responsibleType: 'team' | 'user';
     assignee: string; // ID or Name of the team/user
+    color?: string
 }
 
 interface Board {
@@ -65,9 +66,9 @@ export default function NewWorkflowModal({
 
     // Initial State with 3 default steps as per HTML reference but dynamic
     const [steps, setSteps] = useState<WorkflowStep[]>([
-        { id: '1', name: 'Backlog', responsibleType: 'team', assignee: '' },
-        { id: '2', name: 'Em Desenvolvimento', responsibleType: 'team', assignee: '' },
-        { id: '3', name: 'Code Review', responsibleType: 'user', assignee: '' }
+        { id: crypto.randomUUID(), name: 'Backlog', responsibleType: 'team', assignee: '' },
+        { id: crypto.randomUUID(), name: 'Em Desenvolvimento', responsibleType: 'team', assignee: '' },
+        { id: crypto.randomUUID(), name: 'Code Review', responsibleType: 'user', assignee: '' }
     ]);
 
     // Reset when opening
@@ -97,7 +98,8 @@ export default function NewWorkflowModal({
 
     const handleAddStep = () => {
         const newStep: WorkflowStep = {
-            id: Date.now().toString(),
+            // id: Date.now().toString(),
+            id: crypto.randomUUID(),
             name: '',
             responsibleType: 'team',
             assignee: ''
@@ -106,6 +108,12 @@ export default function NewWorkflowModal({
     };
 
     const handleRemoveStep = (index: number) => {
+
+        if (steps.length === 1) {
+            alert('O fluxo precisa ter ao menos uma etapa.');
+            return;
+        }
+
         const newSteps = [...steps];
         newSteps.splice(index, 1);
         setSteps(newSteps);
@@ -137,21 +145,41 @@ export default function NewWorkflowModal({
     };
 
     const handleSave = () => {
-        if (!name.trim()) return;
+        if (!name.trim()) {
+            alert('Informe o nome do fluxo.');
+            return;
+        }
+
         if (!boardId) {
             alert('Selecione um Quadro para este fluxo.');
             return;
         }
-        onSave(name, description, steps, boardId);
-        // Removed onClose() here
+
+        const validSteps = steps.filter(step => step.name.trim() !== '');
+
+        const stepNames = validSteps.map(s => s.name.toLowerCase());
+
+        const hasDuplicates = stepNames.some((name, index) => stepNames.indexOf(name) !== index);
+
+        if (hasDuplicates) {
+            alert('Existem etapas com o mesmo nome.');
+            return;
+        }
+
+        if (validSteps.length === 0) {
+            alert('Adicione ao menos uma etapa.');
+            return;
+        }
+
+        onSave(name, description, validSteps, boardId);
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background-dark/95 backdrop-blur-md animate-fade-in overflow-y-auto">
-            <div className="w-full h-full md:p-10 lg:p-14 max-w-[1200px] mx-auto flex flex-col gap-8 relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-lg animate-[fadeIn_.25s_ease] overflow-y-auto">
+            <div className="w-full h-full md:p-10 lg:p-14 max-w-[1200px] mx-auto flex flex-col gap-8 relative animate-[scaleIn_.25s_ease]">
 
                 {/* Header */}
-                <section className="flex flex-col gap-2 pt-10 md:pt-0 px-6 md:px-0">
+                <section className="flex flex-col gap-3 pt-10 md:pt-0 px-6 md:px-0 pb-6 border-b border-border-green/40">
                     <nav className="flex items-center text-xs text-text-subtle mb-1 space-x-2">
                         <span>Configurações</span>
                         <span className="material-symbols-outlined text-[10px]">chevron_right</span>
@@ -169,13 +197,13 @@ export default function NewWorkflowModal({
                         <div className="flex items-center gap-3">
                             <button
                                 onClick={onClose}
-                                className="px-6 py-2.5 rounded-full border border-border-green text-text-subtle hover:text-white hover:bg-surface-dark transition-colors font-medium"
+                                className="px-6 py-2.5 rounded-full border border-border-green text-text-subtle hover:text-white hover:bg-surface-dark transition-all duration-200 hover:scale-105 font-medium"
                             >
                                 Cancelar
                             </button>
                             <button
                                 onClick={handleSave}
-                                className="px-6 py-2.5 rounded-full bg-primary text-background-dark font-bold hover:shadow-neon hover:bg-[#34f073] transition-all flex items-center gap-2"
+                                className="px-6 py-2.5 rounded-full bg-primary text-background-dark font-bold hover:shadow-neon hover:bg-[#34f073] transition-all duration-200 hover:scale-105 flex items-center gap-2"
                             >
                                 <span className="material-symbols-outlined">save</span>
                                 Salvar Fluxo
@@ -185,7 +213,7 @@ export default function NewWorkflowModal({
                 </section>
 
                 {/* Content */}
-                <div className="glass-panel rounded-2xl p-6 md:p-8 flex flex-col gap-10 mx-6 md:mx-0 mb-10 md:mb-0">
+                <div className="glass-panel rounded-2xl p-6 md:p-10 flex flex-col gap-12 mx-6 md:mx-0 mb-10 md:mb-0 shadow-[0_0_40px_rgba(0,0,0,0.6)]">
 
                     {/* Basic Info */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pb-8 border-b border-border-green/50">
@@ -205,7 +233,7 @@ export default function NewWorkflowModal({
                                 <input
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
-                                    className="w-full bg-background-dark border border-border-green rounded-xl px-4 py-3 text-white placeholder-text-subtle/30 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+                                    className="w-full bg-background-dark border border-border-green rounded-xl px-4 py-3 text-white placeholder-text-subtle/30 focus:border-primary focus:ring-2 focus:ring-primary/40 outline-none transition-all duration-200 hover:border-primary/40"
                                     placeholder="Ex: Desenvolvimento Web, Onboarding de Clientes..."
                                     type="text"
                                 />
@@ -245,28 +273,30 @@ export default function NewWorkflowModal({
                         </div>
 
                         {/* Vertical Line Connector */}
-                        <div className="absolute left-[27px] md:left-[27px] top-[60px] bottom-[80px] w-[2px] bg-gradient-to-b from-border-green via-primary/20 to-transparent z-0"></div>
+                        <div className="absolute left-[27px] md:left-[27px] top-[60px] bottom-[80px] w-[2px] bg-gradient-to-b from-primary via-primary/40 to-transparent z-0 animate-pulse"></div>
 
                         {/* Steps List */}
-                        <div className="flex flex-col gap-4 relative z-10">
+                        <div className="flex flex-col gap-6 relative z-10 max-w-4xl mx-auto">
                             {steps.map((step, index) => (
-                                <div key={step.id || index} className="group flex items-start gap-4 animate-fade-in-up" style={{ animationDelay: `${index * 50}ms` }}>
-                                    <div className={`mt-4 flex-shrink-0 size-6 rounded-full bg-background-dark border flex items-center justify-center text-xs font-bold shadow-neon relative z-20 transition-colors ${step.name ? 'border-primary text-primary' : 'border-border-green text-text-subtle'
+                                <div
+                                    key={step.id || index}
+                                    className="group relative flex items-start gap-6 animate-[slideUp_.25s_ease] transition-all duration-300 hover:scale-[1.01]" style={{ animationDelay: `${index * 50}ms` }}>
+                                    <div className={`mt-5 flex-shrink-0 size-9 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/40 flex items-center justify-center text-sm font-bold text-primary shadow-[0_0_15px_rgba(0,255,150,0.25)] relative z-20 transition-all duration-300 group-hover:scale-110 ${step.name ? 'border-primary text-primary' : 'border-border-green text-text-subtle'
                                         }`}>
                                         {index + 1}
                                     </div>
-                                    <div className="flex-1 bg-surface-dark border border-border-green hover:border-primary/40 rounded-xl p-4 md:p-5 transition-all duration-300">
-                                        <div className="flex flex-col md:flex-row md:items-start gap-4 md:gap-6">
-                                            <div className="hidden md:flex flex-col gap-1 text-border-green cursor-move py-3 hover:text-text-subtle transition-colors">
+                                    <div className="flex-1 bg-gradient-to-br from-surface-dark to-background-dark border border-border-green/60 hover:border-primary/60 rounded-2xl p-5 md:p-6 transition-all duration-300 hover:shadow-[0_0_30px_rgba(0,255,150,0.18)] hover:-translate-y-[3px] backdrop-blur-sm">
+                                        <div className="flex flex-col md:flex-row md:items-start gap-4 md:gap-6 lg:gap-8">
+                                            <div className="hidden md:flex flex-col gap-1 text-border-green cursor-move py-3 hover:text-white transition-all duration-200 hover:scale-110">
                                                 <span className="material-symbols-outlined text-[18px]">drag_indicator</span>
                                             </div>
-                                            <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4">
+                                            <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-5 md:gap-6">
                                                 <div className="md:col-span-5">
                                                     <label className="text-[10px] text-text-subtle uppercase font-bold mb-1.5 block">Nome da Etapa</label>
                                                     <input
                                                         value={step.name}
                                                         onChange={(e) => handleUpdateStep(index, 'name', e.target.value)}
-                                                        className="w-full bg-background-dark border border-border-green rounded-lg px-3 py-2.5 text-white text-sm focus:border-primary focus:ring-0 transition-colors"
+                                                        className="w-full bg-background-dark border border-border-green/70 rounded-xl px-3 py-2.5 text-white text-sm focus:border-primary focus:ring-2 focus:ring-primary/30 transition-all duration-200 hover:border-primary/40"
                                                         type="text"
                                                         placeholder="Nome da etapa"
                                                     />
@@ -296,11 +326,11 @@ export default function NewWorkflowModal({
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-1 self-start md:self-center md:pt-4">
+                                            <div className="flex items-center gap-1 self-start md:self-center md:pt-4 opacity-70 group-hover:opacity-100 transition-opacity">
                                                 <button
                                                     onClick={() => handleMoveStep(index, 'up')}
                                                     disabled={index === 0}
-                                                    className="size-8 flex items-center justify-center rounded-lg text-text-subtle hover:bg-background-dark hover:text-white transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
+                                                    className="size-9 flex items-center justify-center rounded-xl text-text-subtle hover:bg-primary/10 hover:text-primary transition-all duration-200 disabled:opacity-30 disabled:hover:bg-transparent"
                                                     title="Subir"
                                                 >
                                                     <span className="material-symbols-outlined text-[20px]">arrow_upward</span>
@@ -308,7 +338,7 @@ export default function NewWorkflowModal({
                                                 <button
                                                     onClick={() => handleMoveStep(index, 'down')}
                                                     disabled={index === steps.length - 1}
-                                                    className="size-8 flex items-center justify-center rounded-lg text-text-subtle hover:bg-background-dark hover:text-white transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
+                                                    className="size-9 flex items-center justify-center rounded-xl text-text-subtle hover:bg-primary/10 hover:text-primary transition-all duration-200 disabled:opacity-30 disabled:hover:bg-transparent"
                                                     title="Descer"
                                                 >
                                                     <span className="material-symbols-outlined text-[20px]">arrow_downward</span>
@@ -316,7 +346,7 @@ export default function NewWorkflowModal({
                                                 <div className="w-[1px] h-6 bg-border-green mx-1"></div>
                                                 <button
                                                     onClick={() => handleRemoveStep(index)}
-                                                    className="size-8 flex items-center justify-center rounded-lg text-text-subtle hover:bg-red-500/10 hover:text-red-400 transition-colors"
+                                                    className="size-9 flex items-center justify-center rounded-xl text-text-subtle hover:bg-red-500/15 hover:text-red-400 transition-all duration-200"
                                                     title="Remover Etapa"
                                                 >
                                                     <span className="material-symbols-outlined text-[20px]">delete</span>
@@ -335,7 +365,7 @@ export default function NewWorkflowModal({
                             </div>
                             <button
                                 onClick={handleAddStep}
-                                className="flex-1 group flex items-center justify-center gap-2 border border-dashed border-border-green hover:border-primary bg-surface-dark/20 hover:bg-surface-dark py-4 rounded-xl transition-all duration-300"
+                                className="flex-1 group flex items-center justify-center gap-2 border border-dashed border-border-green hover:border-primary bg-surface-dark/20 hover:bg-surface-dark py-4 rounded-xl transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(0,255,150,0.15)]"
                             >
                                 <span className="material-symbols-outlined text-text-subtle group-hover:text-primary transition-colors">add_circle</span>
                                 <span className="text-text-subtle group-hover:text-white font-medium">Adicionar Nova Etapa</span>

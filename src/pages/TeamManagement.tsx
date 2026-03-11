@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import MultiSelectDropdown from '../components/MultiSelectDropdown';
 import UserDeleteModal from '../components/modals/UserDeleteModal';
 import { toast } from 'sonner';
 import { usePermissions } from '../hooks/usePermissions';
@@ -14,7 +13,7 @@ type User = {
     is_active: boolean;
     avatar_url?: string;
     user_id: string;
-    team_ids: string[];
+    team: string | null;
 };
 
 type TeamOption = {
@@ -64,32 +63,29 @@ export default function TeamManagement() {
 
             if (usersError) throw usersError;
 
-            // Fetch user_teams
-            const { data: userTeamsData, error: userTeamsError } = await supabase
-                .from('user_teams')
-                .select('user_id, team_id');
-
-            if (userTeamsError) throw userTeamsError;
 
             // Map users data
             const mappedUsers = (usersData || []).map(user => {
-                // Find all teams for this user
-                const userTeams = userTeamsData
-                    ?.filter(ut => ut.user_id === user.id)
-                    .map(ut => ut.team_id) || [];
-
                 return {
                     id: user.id,
                     full_name: user.full_name || '',
                     email: user.email,
-                    role: (['admin', 'manager'].includes(user.role?.toLowerCase()) ? user.role?.toLowerCase() : 'member') as 'admin' | 'manager' | 'member',
+                    role: (['admin', 'manager'].includes(user.role?.toLowerCase())
+                        ? user.role?.toLowerCase()
+                        : 'member') as 'admin' | 'manager' | 'member',
                     last_access: user.last_sign_in_at
-                        ? new Date(user.last_sign_in_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
+                        ? new Date(user.last_sign_in_at).toLocaleDateString('pt-BR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        })
                         : undefined,
                     is_active: true,
                     avatar_url: user.avatar_url,
                     user_id: user.id,
-                    team_ids: userTeams
+                    team: user.team || null
                 };
             });
 
@@ -203,13 +199,12 @@ export default function TeamManagement() {
                 if (data) {
                     const userId = data.id; // RPC returns JSON object, not array
 
-                    // Save Teams
-                    if (selectedUser.team_ids && selectedUser.team_ids.length > 0) {
-                        const teamInserts = selectedUser.team_ids.map(teamId => ({
-                            user_id: userId,
-                            team_id: teamId
-                        }));
-                        await supabase.from('user_teams').insert(teamInserts);
+                    // Salvar equipe do usuário
+                    if (selectedUser.team) {
+                        await supabase
+                            .from('users')
+                            .update({ team: selectedUser.team })
+                            .eq('id', userId);
                     }
 
                     const newUser = {
@@ -221,7 +216,7 @@ export default function TeamManagement() {
                         is_active: true,
                         avatar_url: selectedUser.avatar_url,
                         user_id: userId,
-                        team_ids: selectedUser.team_ids || []
+                        team: selectedUser.team
                     };
                     setUsers([...users, newUser]);
                     alert(`✅ Usuário criado com sucesso!\n\n📧 Um email de confirmação foi enviado para ${selectedUser.email}\n\nO usuário deve:\n1. Verificar a caixa de entrada (e spam)\n2. Clicar no link de confirmação\n3. Fazer login e redefinir a senha`);
@@ -234,24 +229,14 @@ export default function TeamManagement() {
                         email: selectedUser.email,
                         full_name: selectedUser.full_name,
                         role: selectedUser.role.toUpperCase(),
-                        avatar_url: selectedUser.avatar_url
+                        avatar_url: selectedUser.avatar_url,
+                        team: selectedUser.team
                     })
                     .eq('id', selectedUser.id);
 
                 if (error) throw error;
 
-                // Update Teams: Delete all and re-insert
-                const { error: deleteTeamsError } = await supabase.from('user_teams').delete().eq('user_id', selectedUser.id);
-                if (deleteTeamsError) throw new Error(`Erro ao limpar equipes: ${deleteTeamsError.message}`);
-
-                if (selectedUser.team_ids && selectedUser.team_ids.length > 0) {
-                    const teamInserts = selectedUser.team_ids.map(teamId => ({
-                        user_id: selectedUser.id,
-                        team_id: teamId
-                    }));
-                    const { error: insertTeamsError } = await supabase.from('user_teams').insert(teamInserts);
-                    if (insertTeamsError) throw new Error(`Erro ao salvar novas equipes: ${insertTeamsError.message}`);
-                }
+              
 
                 // Update local state
                 setUsers(users.map(u => u.id === selectedUser.id ? selectedUser : u));
@@ -355,7 +340,7 @@ export default function TeamManagement() {
                                 role: 'member',
                                 is_active: true,
                                 user_id: '',
-                                team_ids: []
+                                team: null
                             });
                         }}
                         className={`hidden md:flex cursor-pointer items-center justify-center gap-2 rounded-lg h-10 px-5 text-background-dark text-sm font-bold shadow-[0_0_15px_rgba(19,236,91,0.3)] transition-all transform active:scale-95 ${userLimitReached ? 'bg-gray-600 cursor-not-allowed opacity-70 shadow-none' : 'bg-primary hover:bg-primary-dark'}`}
@@ -577,15 +562,29 @@ export default function TeamManagement() {
                             </div>
 
                             {/* Team Selection */}
-                            <div className="space-y-4">
-                                <MultiSelectDropdown
-                                    label="EQUIPES"
-                                    placeholder="Selecione as equipes..."
-                                    options={teams}
-                                    selectedValues={selectedUser.team_ids || []}
-                                    onChange={(newValues) => setSelectedUser({ ...selectedUser, team_ids: newValues })}
-                                    icon="groups"
-                                />
+                            <div className="space-y-1">
+                                <label className="text-xs font-medium text-slate-300">
+                                    Equipe
+                                </label>
+
+                                <select
+                                    className="w-full bg-[#1a3524] border border-[#2a4e38] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                                    value={selectedUser.team || ''}
+                                    onChange={(e) =>
+                                        setSelectedUser({
+                                            ...selectedUser,
+                                            team: e.target.value
+                                        })
+                                    }
+                                >
+                                    <option value="">Selecione uma equipe</option>
+
+                                    {teams.map(team => (
+                                        <option key={team.id} value={team.id}>
+                                            {team.name}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
 
                             {/* Role Selection */}

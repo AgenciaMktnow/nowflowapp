@@ -10,6 +10,9 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { toast } from 'sonner';
 import { usePermissions } from '../../hooks/usePermissions';
+import { useUsers } from '../../hooks/useUsers'
+import TimeFilters from '../../components/TimeFilters';
+
 
 interface TeamOption {
     id: string;
@@ -17,15 +20,22 @@ interface TeamOption {
 }
 
 interface TeamReportProps {
-    users: { id: string, full_name: string, team_ids?: string[] }[];
+    users: { id: string, full_name: string, team?: string[] }[];
     teams: TeamOption[];
     filterTeam?: string;
     filterClient?: string;
+    filterUser?: string;
+
+    exportType?: 'pdf' | 'csv' | null
+    setExportType?: (v: 'pdf' | 'csv' | null) => void
+
+    openInsights?: boolean
+    setOpenInsights?: (v:boolean)=>void
 }
 
 
 
-export default function TeamReport({ users, teams, filterTeam: initialFilterTeam, filterClient }: TeamReportProps) {
+export default function TeamReport({ users, teams, filterTeam: initialFilterTeam, filterClient, filterUser, exportType, setExportType, openInsights, setOpenInsights }: TeamReportProps) {
     const [loading, setLoading] = useState(true);
     const [hierarchy, setHierarchy] = useState<any[]>([]);
     const [timeline, setTimeline] = useState<any[]>([]);
@@ -35,16 +45,23 @@ export default function TeamReport({ users, teams, filterTeam: initialFilterTeam
     const { can } = usePermissions();
     const canAdvancedReports = can('advanced_reports');
 
+    const allUsers = useUsers() as {
+        id: string
+        full_name: string
+        team?: string[]
+    }[]
+
 
 
 
     // Filters Data
+    // const [allUsers, setAllUsers] = useState<{ id: string; full_name: string }[]>([]);
     const [clients, setClients] = useState<TeamOption[]>([]);
 
     // Active Filters
     const [selectedTeamId, setSelectedTeamId] = useState<string>(initialFilterTeam || '');
     const [selectedClientId, setSelectedClientId] = useState<string>(filterClient || '');
-    const [selectedUserId, setSelectedUserId] = useState<string>('');
+    const [selectedUserId, setSelectedUserId] = useState<string>(filterUser || '');
 
     // Sync Props to State
     useEffect(() => {
@@ -55,20 +72,28 @@ export default function TeamReport({ users, teams, filterTeam: initialFilterTeam
         if (filterClient !== undefined) setSelectedClientId(filterClient);
     }, [filterClient]);
 
+    useEffect(() => {
+        if (filterUser !== undefined) setSelectedUserId(filterUser);
+    }, [filterUser]);
+
+
+    useEffect(() => {
+        if (openInsights) {
+            setShowInsights(true)
+            setOpenInsights?.(false)
+        }
+    }, [openInsights])
+
     // Export State
     const [showExportMenu, setShowExportMenu] = useState(false);
 
     // Date Logic Helper
-    const getInitialDate = (param: string, isEnd = false) => {
-        const paramDate = searchParams.get(param);
-        if (paramDate) return new Date(paramDate);
-        const d = new Date();
-        if (!isEnd) d.setDate(d.getDate() - 7);
-        return d;
-    };
+    const today = new Date();
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(today.getDate() - 7);
 
-    const [startDate, setStartDate] = useState<Date>(getInitialDate('start'));
-    const [endDate, setEndDate] = useState<Date>(getInitialDate('end', true));
+    const [startDate, setStartDate] = useState<Date>(sevenDaysAgo);
+    const [endDate, setEndDate] = useState<Date>(today);
 
     const [showInsights, setShowInsights] = useState(false);
 
@@ -77,10 +102,16 @@ export default function TeamReport({ users, teams, filterTeam: initialFilterTeam
 
     // Filter Users based on Selected Team
     const filteredUsers = selectedTeamId
-        ? users.filter(u => u.team_ids?.includes(selectedTeamId))
-        : users;
+        ? allUsers.filter((u: any) => u.team?.includes(selectedTeamId))
+        : allUsers;
 
-    const userOptions = [{ id: '', name: 'Todos os Usuários' }, ...filteredUsers.map(u => ({ id: u.id, name: u.full_name }))];
+    const userOptions = [
+        { id: '', name: 'Todos os usuários' },
+        ...filteredUsers.map(u => ({
+            id: u.id,
+            name: u.full_name
+        }))
+    ];
     const clientOptions = [{ id: '', name: 'Todos os Clientes' }, ...clients];
 
     // Sync URL
@@ -94,16 +125,57 @@ export default function TeamReport({ users, teams, filterTeam: initialFilterTeam
     // Fetch Clients
     useEffect(() => {
         const fetchClients = async () => {
-            const { data } = await supabase.from('clients').select('id, name').order('name');
-            if (data) setClients(data);
+            const { data, error } = await supabase
+                .from('clients')
+                .select('id, name')
+                .order('name');
+
+            if (error) {
+                console.error('Erro ao buscar clientes:', error);
+                return;
+            }
+
+            if (data) {
+                setClients(data);
+            }
         };
+
         fetchClients();
     }, []);
+    // useEffect(() => {
+    //     const fetchUsers = async () => {
+    //         const { data } = await supabase
+    //             .from('users')
+    //             .select('id, full_name')
+    //             .order('full_name');
+
+    //         if (data) setAllUsers(data);
+    //     };
+
+    //     fetchUsers();
+    // }, []);
 
     // Fetch Report Data
     useEffect(() => {
         loadReport();
     }, [selectedTeamId, selectedClientId, selectedUserId, startDate, endDate]);
+
+    useEffect(() => {
+
+        if (!exportType) return
+        if (loading) return
+
+        if (exportType === 'pdf') {
+            handleExportPDF()
+        }
+
+        if (exportType === 'csv') {
+            handleExportCSV()
+        }
+
+        setExportType?.(null)
+
+    }, [exportType, loading])
 
     const loadReport = async () => {
         setLoading(true);
@@ -131,6 +203,49 @@ export default function TeamReport({ users, teams, filterTeam: initialFilterTeam
         }
     };
 
+    const insights = (() => {
+
+        if (!hierarchy.length) return null
+
+        let topUser = hierarchy[0]
+
+        hierarchy.forEach(u => {
+            const current = u.totalSeconds || 0
+            const best = topUser.totalSeconds || 0
+
+            if (current > best) {
+                topUser = u
+            }
+        })
+
+        const clientMap: Record<string, number> = {}
+        const taskMap: Record<string, number> = {}
+
+        hierarchy.forEach(user => {
+            user.clients.forEach((client: any) => {
+
+                clientMap[client.clientName] =
+                    (clientMap[client.clientName] || 0) + client.totalSeconds
+
+                client.tasks.forEach((task: any) => {
+                    taskMap[task.taskTitle] =
+                        (taskMap[task.taskTitle] || 0) + task.totalSeconds
+                })
+
+            })
+        })
+
+        const topClient = Object.entries(clientMap).sort((a,b)=>b[1]-a[1])[0]
+        const topTask = Object.entries(taskMap).sort((a,b)=>b[1]-a[1])[0]
+
+        return {
+            topUser,
+            topClient,
+            topTask
+        }
+
+    })()
+
     // Use totalSeconds if available for precision, fall back to hours * 3600
     const formatHours = (val: number, isSeconds = false) => {
         const totalSeconds = isSeconds ? val : val * 3600;
@@ -143,6 +258,12 @@ export default function TeamReport({ users, teams, filterTeam: initialFilterTeam
 
     // Export Logic
     const handleExportCSV = () => {
+
+        if (loading || !hierarchy.length) {
+            toast.error("Nenhum dado disponível para exportar.");
+            return;
+        }
+
         const rows = [['Colaborador', 'Cliente', 'Tarefa', 'Tempo Total (h)', 'Auditoria (Motivo)', 'Auditoria (Tempo Manual)']];
 
         hierarchy.forEach(user => {
@@ -177,6 +298,16 @@ export default function TeamReport({ users, teams, filterTeam: initialFilterTeam
     };
 
     const handleExportPDF = () => {
+        if (loading) {
+            toast.error("Aguarde o carregamento do relatório.");
+            return;
+        }
+
+        if (!hierarchy.length) {
+            toast.error("Nenhum dado disponível para exportar.");
+            return;
+        }
+
         const doc = new jsPDF();
 
         // Header
@@ -238,83 +369,49 @@ export default function TeamReport({ users, teams, filterTeam: initialFilterTeam
     return (
         <div className="flex flex-col gap-8 animate-fade-in relative min-h-[500px]">
             {/* 1. Top Filter Bar (Aligned) */}
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 bg-surface-dark border border-gray-800 p-4 rounded-xl shadow-lg z-20">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 flex-1 w-full lg:w-auto">
-                    <ModernDropdown
-                        options={teamOptions}
-                        value={selectedTeamId}
-                        onChange={setSelectedTeamId}
-                        placeholder="Equipe"
-                        icon="group"
-                    />
-                    <ModernDropdown
-                        options={clientOptions}
-                        value={selectedClientId}
-                        onChange={setSelectedClientId}
-                        placeholder="Cliente"
-                        icon="domain"
-                    />
-                    <ModernDropdown
-                        options={userOptions}
-                        value={selectedUserId}
-                        onChange={setSelectedUserId}
-                        placeholder="Usuário"
-                        icon="person"
-                    />
-                    <DateRangePicker
-                        startDate={startDate}
-                        endDate={endDate}
-                        onChange={(s, e) => {
-                            setStartDate(s);
-                            setEndDate(e);
-                        }}
-                    />
-                </div>
+            {/* <TimeFilters
+                teams={teams}
 
-                <div className="w-full lg:w-auto flex justify-end gap-2">
-                    <div className="relative">
-                        <button
-                            onClick={() => {
-                                if (!canAdvancedReports) {
-                                    toast.error('Recurso exclusivo PRO: Exportação de Relatórios.');
-                                    return;
-                                }
-                                setShowExportMenu(!showExportMenu);
-                            }}
-                            className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-all text-sm font-medium whitespace-nowrap ${canAdvancedReports ? 'border-gray-700 text-gray-400 hover:text-white hover:border-white/20 hover:bg-white/5' : 'border-gray-800 text-gray-600 cursor-not-allowed'}`}
-                        >
-                            <span className="material-symbols-outlined">{canAdvancedReports ? 'download' : 'lock'}</span>
-                            Exportar
-                        </button>
-                        {showExportMenu && (
-                            <div className="absolute top-full right-0 mt-2 w-48 bg-surface-dark border border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden animate-scale-in flex flex-col">
-                                <button onClick={handleExportPDF} className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 text-left text-sm text-gray-300 hover:text-white transition-colors border-b border-gray-800">
-                                    <span className="material-symbols-outlined text-red-400">picture_as_pdf</span>
-                                    <span>Exportar PDF</span>
-                                </button>
-                                <button onClick={handleExportCSV} className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 text-left text-sm text-gray-300 hover:text-white transition-colors">
-                                    <span className="material-symbols-outlined text-green-400">csv</span>
-                                    <span>Exportar Excel/CSV</span>
-                                </button>
-                            </div>
-                        )}
-                    </div>
+                selectedTeamId={selectedTeamId}
+                selectedClientId={selectedClientId}
+                selectedUserId={selectedUserId}
 
-                    <button
-                        onClick={() => {
-                            if (!canAdvancedReports) {
-                                toast.error('Recurso exclusivo PRO: Insights e Tendências.');
-                                return;
-                            }
-                            setShowInsights(true);
-                        }}
-                        className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-all text-sm font-medium whitespace-nowrap ${canAdvancedReports ? 'border-gray-700 text-gray-400 hover:text-white hover:border-primary/50 hover:bg-white/5' : 'border-gray-800 text-gray-600 cursor-not-allowed'}`}
-                    >
-                        <span className="material-symbols-outlined">{canAdvancedReports ? 'insights' : 'lock'}</span>
-                        Ver Insights
-                    </button>
-                </div>
-            </div>
+                setSelectedTeamId={setSelectedTeamId}
+                setSelectedClientId={setSelectedClientId}
+                setSelectedUserId={setSelectedUserId}
+
+                startDate={startDate}
+                endDate={endDate}
+                setStartDate={setStartDate}
+                setEndDate={setEndDate}
+
+                canAdvancedReports={canAdvancedReports}
+
+                showExportMenu={showExportMenu}
+                setShowExportMenu={setShowExportMenu}
+
+                handleExportPDF={handleExportPDF}
+                handleExportCSV={handleExportCSV}
+
+                onInsightsClick={() => setShowInsights(true)}
+            /> */}
+
+            {/* <div className="flex justify-end gap-2">
+                <button
+                    onClick={handleExportPDF}
+                    className="flex items-center gap-2 px-4 py-2 border border-gray-700 rounded-lg text-sm text-gray-300 hover:text-white"
+                >
+                    Exportar PDF
+                </button>
+
+                <button
+                    onClick={handleExportCSV}
+                    className="flex items-center gap-2 px-4 py-2 border border-gray-700 rounded-lg text-sm text-gray-300 hover:text-white"
+                >
+                    Exportar CSV
+                </button>
+
+            </div> */}
 
             {/* 2. Main List (User -> Client -> Tasks) */}
             {loading ? (
@@ -446,29 +543,204 @@ export default function TeamReport({ users, teams, filterTeam: initialFilterTeam
 
             {/* 3. Insights Modal */}
             {showInsights && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-                    <div className="bg-surface-dark border border-gray-700 w-full max-w-5xl h-[80vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95">
-                        <div className="p-6 border-b border-gray-800 flex justify-between items-center bg-background-dark">
-                            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                                <span className="material-symbols-outlined text-primary">insights</span>
-                                Insights da Equipe
-                            </h2>
-                            <button onClick={() => setShowInsights(false)} className="text-gray-400 hover:text-white transition-colors">
-                                <span className="material-symbols-outlined">close</span>
-                            </button>
-                        </div>
-                        <div className="p-6 overflow-y-auto flex-1 bg-surface-dark grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            <div>
-                                <h3 className="text-white font-bold mb-4">Mapa de Trabalho</h3>
-                                <WorkHeatmap blocks={timeline} />
-                            </div>
-                            <div>
-                                <h3 className="text-white font-bold mb-4">Gargalos por Categoria</h3>
-                                <CategoryBottleneckChart categories={categories} />
-                            </div>
-                        </div>
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-[#05070a]/80 backdrop-blur-2xl animate-in fade-in duration-300">
+
+                <div className="relative w-full max-w-6xl h-[88vh] rounded-3xl overflow-hidden border border-[#1f2937] bg-gradient-to-b from-[#0f172a] via-[#0b1120] to-[#070c18] shadow-[0_40px_120px_rgba(0,0,0,0.9)] animate-in zoom-in-95 duration-300 flex flex-col">
+
+                {/* HEADER */}
+                <div className="flex items-center justify-between px-8 py-6 border-b border-[#1e293b] bg-gradient-to-r from-[#111827] to-[#0b1120]">
+
+                    <div className="flex items-center gap-4">
+
+                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-400 flex items-center justify-center shadow-lg">
+                        <span className="material-symbols-outlined text-white text-[22px]">
+                        insights
+                        </span>
                     </div>
+
+                    <div>
+                        <h2 className="text-white text-lg font-semibold tracking-tight">
+                        Insights de Performance
+                        </h2>
+                        <p className="text-gray-400 text-xs">
+                        Análise estratégica do desempenho da equipe
+                        </p>
+                    </div>
+
+                    </div>
+
+                    <button
+                    onClick={() => setShowInsights(false)}
+                    className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition"
+                    >
+                    <span className="material-symbols-outlined">close</span>
+                    </button>
+
                 </div>
+
+                {/* CONTENT */}
+                <div className="p-8 overflow-y-auto flex-1 space-y-10">
+
+                    {/* ===== CARDS RESUMO ===== */}
+                    {insights && (
+                    <div>
+
+                        <div className="flex items-center gap-2 mb-6">
+                        <span className="material-symbols-outlined text-indigo-400 text-[20px]">
+                            analytics
+                        </span>
+                        <h3 className="text-white font-semibold text-sm tracking-wide">
+                            Destaques do Período
+                        </h3>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+                        {/* COLABORADOR */}
+                        <div className="p-6 rounded-2xl border border-[#1f2937] bg-gradient-to-b from-[#0f172a] to-[#0b1120] hover:border-indigo-500/40 transition-all hover:-translate-y-1">
+
+                            <div className="flex items-center justify-between mb-4">
+
+                            <div className="w-9 h-9 rounded-lg bg-indigo-500/15 flex items-center justify-center">
+                                <span className="material-symbols-outlined text-indigo-400 text-[18px]">
+                                workspace_premium
+                                </span>
+                            </div>
+
+                            <span className="text-xs text-gray-500 uppercase">
+                                Colaborador
+                            </span>
+
+                            </div>
+
+                            <div className="text-white font-semibold text-lg">
+                            {insights.topUser.userName}
+                            </div>
+
+                            <div className="text-cyan-400 text-sm mt-1 font-medium">
+                            {formatHours(insights.topUser.totalSeconds || 0, true)}
+                            </div>
+
+                        </div>
+
+
+                        {/* CLIENTE */}
+                        <div className="p-6 rounded-2xl border border-[#1f2937] bg-gradient-to-b from-[#0f172a] to-[#0b1120] hover:border-cyan-500/40 transition-all hover:-translate-y-1">
+
+                            <div className="flex items-center justify-between mb-4">
+
+                            <div className="w-9 h-9 rounded-lg bg-cyan-500/15 flex items-center justify-center">
+                                <span className="material-symbols-outlined text-cyan-400 text-[18px]">
+                                business_center
+                                </span>
+                            </div>
+
+                            <span className="text-xs text-gray-500 uppercase">
+                                Cliente
+                            </span>
+
+                            </div>
+
+                            <div className="text-white font-semibold text-lg">
+                            {insights.topClient?.[0]}
+                            </div>
+
+                            <div className="text-cyan-400 text-sm mt-1 font-medium">
+                            {formatHours(insights.topClient?.[1] || 0, true)}
+                            </div>
+
+                        </div>
+
+
+                        {/* TAREFA */}
+                        <div className="p-6 rounded-2xl border border-[#1f2937] bg-gradient-to-b from-[#0f172a] to-[#0b1120] hover:border-indigo-500/40 transition-all hover:-translate-y-1">
+
+                            <div className="flex items-center justify-between mb-4">
+
+                            <div className="w-9 h-9 rounded-lg bg-indigo-500/15 flex items-center justify-center">
+                                <span className="material-symbols-outlined text-indigo-400 text-[18px]">
+                                task_alt
+                                </span>
+                            </div>
+
+                            <span className="text-xs text-gray-500 uppercase">
+                                Tarefa
+                            </span>
+
+                            </div>
+
+                            <div className="text-white font-semibold text-lg">
+                            {insights.topTask?.[0]}
+                            </div>
+
+                            <div className="text-cyan-400 text-sm mt-1 font-medium">
+                            {formatHours(insights.topTask?.[1] || 0, true)}
+                            </div>
+
+                        </div>
+
+                        </div>
+
+                    </div>
+                    )}
+
+
+                    {/* ===== MAPA DE ATIVIDADE (FULL WIDTH) ===== */}
+                    <div className="rounded-2xl border border-[#1f2937] bg-gradient-to-b from-[#0f172a] to-[#0b1120] p-6">
+
+                    <div className="flex items-center justify-between mb-6">
+
+                        <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-indigo-400 text-[20px]">
+                            grid_view
+                        </span>
+
+                        <h3 className="text-white font-semibold text-sm tracking-wide">
+                            Mapa de Atividade
+                        </h3>
+                        </div>
+
+                        <span className="text-xs text-gray-500">
+                        Distribuição de trabalho
+                        </span>
+
+                    </div>
+
+                    <WorkHeatmap blocks={timeline} />
+
+                    </div>
+
+
+                    {/* ===== GARGALOS (FULL WIDTH) ===== */}
+                    <div className="rounded-2xl border border-[#1f2937] bg-gradient-to-b from-[#0f172a] to-[#0b1120] p-6">
+
+                    <div className="flex items-center justify-between mb-6">
+
+                        <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-cyan-400 text-[20px]">
+                            monitoring
+                        </span>
+
+                        <h3 className="text-white font-semibold text-sm tracking-wide">
+                            Gargalos por Categoria
+                        </h3>
+                        </div>
+
+                        <span className="text-xs text-gray-500">
+                        Identificação de atrasos
+                        </span>
+
+                    </div>
+
+                    <CategoryBottleneckChart categories={categories} />
+
+                    </div>
+
+                </div>
+
+                </div>
+
+            </div>
             )}
         </div>
     );

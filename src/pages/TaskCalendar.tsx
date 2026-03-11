@@ -9,6 +9,7 @@ import { extractChecklistFromHtml } from '../utils/checklist';
 import { useNavigate, Link } from 'react-router-dom';
 import { taskService } from '../services/task.service';
 import { boardService } from '../services/board.service';
+import { useUsers } from '../hooks/useUsers'
 
 console.log('Calendário Renderizado com Sucesso v3');
 
@@ -35,6 +36,7 @@ interface Event {
 
 export default function TaskCalendar() {
     const navigate = useNavigate();
+    const users = useUsers()
     const [events, setEvents] = useState<Event[]>([]);
     const [loading, setLoading] = useState(true);
     const hoverTimeoutRef = useRef<any>(null);
@@ -45,7 +47,6 @@ export default function TaskCalendar() {
 
     // FiltersState
     const [clients, setClients] = useState<any[]>([]);
-    const [users, setUsers] = useState<any[]>([]);
     const [boards, setBoards] = useState<any[]>([]);
 
     const [selectedClientId, setSelectedClientId] = useState('');
@@ -71,9 +72,6 @@ export default function TaskCalendar() {
     const fetchFilters = async () => {
         const { data: clientsData } = await supabase.from('clients').select('id, name, color').order('name');
         if (clientsData) setClients(clientsData);
-
-        const { data: usersData } = await supabase.from('users').select('id, full_name').order('full_name');
-        if (usersData) setUsers(usersData);
 
         const { data: boardsData } = await boardService.getBoards();
         if (boardsData) setBoards(boardsData);

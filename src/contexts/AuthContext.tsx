@@ -35,7 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (!error && data) {
                 // Check for Impersonation (God Mode)
                 const impersonatedOrgId = localStorage.getItem('impersonate_org_id');
-                const isSuperAdminEmail = ['neto@mktnow.com.br', 'duqueneto@gmail.com', 'duqueneto@gmail.com.br'].includes(data.email || '');
+                const isSuperAdminEmail = ['neto@mktnow.com.br', 'duqueneto@gmail.com', 'duqueneto@gmail.com.br', 'mauricio@mktnow.com.br'].includes(data.email || '');
                 const isSuperAdminFlag = (data as any).is_super_admin === true;
                 const isActuallySuperAdmin = isSuperAdminEmail || isSuperAdminFlag;
 
@@ -207,7 +207,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             userProfile,
             session,
             loading,
-            isSuperAdmin: !!userProfile?.is_super_admin || ['neto@mktnow.com.br', 'duqueneto@gmail.com', 'duqueneto@gmail.com.br'].includes(user?.email || ''),
+            isSuperAdmin: !!userProfile?.is_super_admin || ['neto@mktnow.com.br', 'duqueneto@gmail.com', 'duqueneto@gmail.com.br', 'mauricio@mktnow.com.br'].includes(user?.email || ''),
             signOut
         }}>
             {!loading ? (

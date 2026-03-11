@@ -95,7 +95,7 @@ export const reportService = {
             let usersQuery = supabase
                 .from('users')
                 .select('id, full_name, avatar_url, weekly_capacity_hours')
-                .eq('status', 'ACTIVE'); // Only active users
+                .eq('status', 'ACTIVE');
 
             if (filters.userId && filters.userId !== 'all') {
                 usersQuery = usersQuery.eq('id', filters.userId);

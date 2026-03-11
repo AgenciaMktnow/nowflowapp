@@ -932,7 +932,10 @@ export default function TaskDetail() {
         if (!task) return;
 
         try {
-            const updates: any = { status: 'DONE' };
+            const updates: any = { 
+                status: 'DONE',
+                completed_at: new Date().toISOString()
+            };
 
             // Find corresponding column for 'DONE'
             const doneColumn = boardColumns.find(c => c.statuses.includes('DONE'));
@@ -1038,7 +1041,16 @@ export default function TaskDetail() {
 
         try {
             const updates: any = { status: newStatus };
+
             if (newColumnId) updates.column_id = newColumnId;
+
+            // salvar completed_at se for DONE
+            if (newStatus === 'DONE') {
+                updates.completed_at = new Date().toISOString();
+            } else {
+                updates.completed_at = null;
+            }
+            
             const { data, error } = await supabase
                 .from('tasks')
                 .update(updates)

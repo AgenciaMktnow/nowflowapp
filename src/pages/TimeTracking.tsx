@@ -5,15 +5,16 @@ import LiveTimerWidget from '../components/time-tracking/LiveTimerWidget';
 import WeeklyTimesheet from '../components/time-tracking/WeeklyTimesheet';
 import DailyTimeline from '../components/time-tracking/DailyTimeline';
 import PerformancePanel from '../components/time-tracking/PerformancePanel';
-import ModernDropdown from '../components/ModernDropdown';
+// import ModernDropdown from '../components/ModernDropdown';
 import TeamReport from '../components/time-tracking/TeamReport';
+import TimeFilters from '../components/TimeFilters';
 
 interface UserOption {
     id: string;
     full_name: string;
     avatar_url?: string;
     email?: string;
-    team_ids?: string[];
+    team_ids: string[];
 }
 
 interface ClientOption {
@@ -28,25 +29,48 @@ interface TeamOption {
 
 export default function TimeTracking() {
     const { user, userProfile } = useAuth();
-    const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-    const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
-    const [selectedClient, setSelectedClient] = useState<string | null>(null);
+    
+    const [selectedTeamId, setSelectedTeamId] = useState<string>('');
+    const [selectedClientId, setSelectedClientId] = useState<string>('');
+    const [selectedUserId, setSelectedUserId] = useState<string>('');
+
     const [teamMembers, setTeamMembers] = useState<UserOption[]>([]);
+
     const [clients, setClients] = useState<ClientOption[]>([]);
     const [teams, setTeams] = useState<TeamOption[]>([]);
     const [viewMode, setViewMode] = useState<'dashboard' | 'report'>('dashboard');
+    const [exportType, setExportType] = useState<'pdf' | 'csv' | null>(null)
+    const [openInsights, setOpenInsights] = useState(false)
+
+    const today = new Date();
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(today.getDate() - 7);
+    const [startDate, setStartDate] = useState<Date>(sevenDaysAgo);
+    const [endDate, setEndDate] = useState<Date>(today);
 
     // Initialize selected user default
     useEffect(() => {
         // If not admin/manager, lock to self
-        if (user && userProfile && userProfile.role !== 'ADMIN' && userProfile.role !== 'MANAGER') {
+        // if (user && userProfile && userProfile.role !== 'ADMIN' && userProfile.role !== 'MANAGER') {
+        if (user) {
             setSelectedUserId(user.id);
         }
     }, [user, userProfile]);
 
-    // Fetch data if Admin/Manager
     useEffect(() => {
-        if (userProfile && (userProfile.role === 'ADMIN' || userProfile.role === 'MANAGER')) {
+        if (selectedTeamId) {
+            setSelectedUserId('');
+        }
+    }, [selectedTeamId]);
+
+    // Fetch data if Admin/Manager
+    // useEffect(() => {
+    //     if (userProfile && (userProfile.role === 'ADMIN' || userProfile.role === 'MANAGER')) {
+    //         fetchData();
+    //     }
+    // }, [userProfile]);
+    useEffect(() => {
+        if (userProfile) {
             fetchData();
         }
     }, [userProfile]);
@@ -64,12 +88,17 @@ export default function TimeTracking() {
             const { data: userTeamsData } = await supabase
                 .from('user_teams')
                 .select('user_id, team_id');
+            
+                console.log("USER_TEAMS:", userTeamsData);
 
             if (!userError && userData) {
                 const mapUsers = userData.map(u => {
                     const teams = userTeamsData
                         ?.filter(ut => ut.user_id === u.id)
                         .map(ut => ut.team_id) || [];
+
+                    console.log("USUÁRIO E EQUIPES:", u.full_name, teams);
+
                     return { ...u, team_ids: teams };
                 });
                 setTeamMembers(mapUsers);
@@ -101,58 +130,65 @@ export default function TimeTracking() {
         }
     };
 
-    const isAdminOrManager = userProfile?.role === 'ADMIN' || userProfile?.role === 'MANAGER';
+    
+
+    // const isAdminOrManager = userProfile?.role === 'ADMIN' || userProfile?.role === 'MANAGER';
+    const isAdminOrManager = true;
 
     // Determine Effective User IDs for Filtering
-    let effectiveUserIds: string[] = [];
-
-    if (selectedUserId && selectedUserId !== 'all') {
-        // Specific user selected
-        effectiveUserIds = [selectedUserId];
-    } else if (selectedUserId === 'all' || !selectedUserId) {
-        if (selectedTeam) {
-            // All users in selected team
-            effectiveUserIds = teamMembers
-                .filter(u => u.team_ids?.includes(selectedTeam))
-                .map(u => u.id);
-        } else if (isAdminOrManager && selectedUserId === 'all') {
-            // Admin selected "All Users" explicitly - Pass empty array to signal "really all" or handle huge list
-            // Strategy: Pass undefined/null to widgets to let them fetch ALL, or pass all IDs.
-            // Given the widgets logic usually expects a list for "IN" query, let's look at the constraints.
-            // For safety and performance, let's limit "All" without team to "All Fetched Users" (which are active users).
-            effectiveUserIds = teamMembers.map(u => u.id);
-        } else {
-            // Default fallback for initial load or non-admin: Just me
-            if (user?.id) effectiveUserIds = [user.id];
-        }
-    }
-
-    // Helper for visual feedback
-    const isFiltered = (val: string | null) => val !== '' && val !== null && val !== 'all';
+    const effectiveUserIds = selectedUserId
+        ? [selectedUserId]
+        : selectedTeamId
+            ? teamMembers
+                .filter(u => (u.team_ids || []).includes(selectedTeamId))
+                .map(u => u.id)
+            : teamMembers.map(u => u.id);
 
     // Prepare Dropdown Options
     const teamOptions = [
-        { id: '', name: 'Todas Equipes' },
-        ...teams.map(t => ({ id: t.id, name: t.name }))
+        { id: '', name: 'Todas as Equipes' },
+        ...teams.map(t => ({
+            id: t.id,
+            name: t.name
+        }))
     ];
 
     const clientOptions = [
-        { id: '', name: 'Todos Clientes' },
-        ...clients.map(c => ({ id: c.id, name: c.name }))
+        { id: '', name: 'Todos os Clientes' },
+        ...clients.map(c => ({
+            id: c.id,
+            name: c.name
+        }))
     ];
+
+    const filteredUsers = selectedTeamId
+        ? teamMembers.filter(u => (u.team_ids || []).includes(selectedTeamId))
+        : teamMembers;
 
     const userOptions = [
-        { id: 'all', name: 'Todos os Usuários' },
-        { id: user?.id || 'me', name: 'Minhas Horas' },
-        ...teamMembers
-            .filter(m => !selectedTeam || m.team_ids?.includes(selectedTeam))
-            .filter(m => m.id !== user?.id)
-            .map(m => ({ id: m.id, name: m.full_name || m.email || 'Usuário Sem Nome' }))
+        { id: '', name: 'Todos os usuários' },
+        ...filteredUsers.map(u => ({
+            id: u.id,
+            name: u.full_name || u.email || 'Usuário'
+        }))
     ];
 
-    // Determine users object for Report props (needs object array)
+    const canAdvancedReports = true;
+    const [showExportMenu, setShowExportMenu] = useState(false);
+
+    // const handleExportPDF = () => {};
+    // const handleExportCSV = () => {};
 
 
+    
+
+    const [showInsights, setShowInsights] = useState(false);
+
+console.log("FILTROS ATUAIS:", {
+    selectedTeamId,
+    selectedUserId,
+    selectedClientId
+});
     return (
         <div className="flex-1 w-full max-w-[1600px] mx-auto p-6 md:p-8 flex flex-col gap-8 animate-fade-in overflow-y-auto h-full">
 
@@ -181,58 +217,60 @@ export default function TimeTracking() {
                             </button>
                         </div>
 
-                        {/* Filters - Only show in Dashboard mode (Report has its own) 
-                            User request: Sync state. So we should probably SHOW these in Report too? 
-                            The Report component has its OWN internal filters. 
-                            If we want true sync, we should pass these props TO Report and remove Report's internal filters.
-                            However, per plan "Fix TeamReport state synchronization", we will keep Report's structure but init it with these values.
-                            Let's keep filters here only for Dashboard for now to avoid double UI headers in Report mode.
-                        */}
-                        {viewMode === 'dashboard' && (
-                            <>
-                                {/* Team Filter */}
-                                <ModernDropdown
-                                    options={teamOptions}
-                                    value={selectedTeam || ''}
-                                    onChange={(val) => setSelectedTeam(val || null)}
-                                    placeholder="Todas Equipes"
-                                    icon="groups"
-                                    className={`min-w-[160px] ${isFiltered(selectedTeam) ? 'border-primary/50 shadow-[0_0_10px_rgba(19,236,91,0.1)]' : ''}`}
-                                />
-
-                                {/* Client Filter */}
-                                <ModernDropdown
-                                    options={clientOptions}
-                                    value={selectedClient || ''}
-                                    onChange={(val) => setSelectedClient(val || null)}
-                                    placeholder="Todos Clientes"
-                                    icon="domain"
-                                    className={`min-w-[160px] ${isFiltered(selectedClient) ? 'border-primary/50 shadow-[0_0_10px_rgba(19,236,91,0.1)]' : ''}`}
-                                />
-
-                                {/* User Selector */}
-                                <ModernDropdown
-                                    options={userOptions}
-                                    value={selectedUserId || 'all'}
-                                    onChange={(val) => setSelectedUserId(val)}
-                                    placeholder="Selecionar Usuário"
-                                    icon="person"
-                                    className={`min-w-[200px] ${selectedUserId && selectedUserId !== 'all' && selectedUserId !== user?.id ? 'border-primary/50 shadow-[0_0_10px_rgba(19,236,91,0.1)]' : ''}`}
-                                />
-                            </>
-                        )}
                     </div>
                 )}
             </div>
+            
+            <TimeFilters
+                teams={teams}
+                clients={clients}
+                users={teamMembers}
+
+                selectedTeamId={selectedTeamId}
+                selectedClientId={selectedClientId}
+                selectedUserId={selectedUserId}
+
+                setSelectedTeamId={setSelectedTeamId}
+                setSelectedClientId={setSelectedClientId}
+                setSelectedUserId={setSelectedUserId}
+
+                startDate={startDate}
+                endDate={endDate}
+                setStartDate={setStartDate}
+                setEndDate={setEndDate}
+
+                canAdvancedReports={canAdvancedReports}
+
+                showExportMenu={showExportMenu}
+                setShowExportMenu={setShowExportMenu}
+
+                handleExportPDF={() => {
+                    setExportType('pdf')
+                    setViewMode('report')
+                }}
+
+                handleExportCSV={() => {
+                    setExportType('csv')
+                    setViewMode('report')
+                }}
+
+                onInsightsClick={() => {
+                    setOpenInsights(true)
+                    setViewMode('report')
+                }}
+            />
 
             {viewMode === 'report' ? (
                 <TeamReport
-                    users={teamMembers} // Pass filtered list to ensure consistency or pass all? TeamReport does its own filtering.
-                    // Better to pass ALL eligible users and let TeamReport filter by its internal state which we sync.
-                    // Actually, if we want sync, we should rely on TeamReport to accept "initialFilter"
+                    users={teamMembers}
                     teams={teams}
-                    filterTeam={selectedTeam || undefined}
-                    filterClient={selectedClient || undefined}
+                    filterTeam={selectedTeamId}
+                    filterClient={selectedClientId}
+                    filterUser={selectedUserId}
+                    exportType={exportType}
+                    setExportType={setExportType}
+                    openInsights={openInsights}
+                    setOpenInsights={setOpenInsights}
                 />
             ) : (
                 /* Dashboard View */
@@ -242,29 +280,30 @@ export default function TimeTracking() {
                         {/* Widgets receiving array of IDs and Client ID */}
                         <LiveTimerWidget
                             userIds={effectiveUserIds}
-                            clientId={selectedClient || undefined}
+                            clientId={selectedClientId || undefined}
                         />
                         <WeeklyTimesheet
                             userIds={effectiveUserIds}
-                            clientId={selectedClient || undefined}
+                            clientId={selectedClientId || undefined}
+                            startDate={startDate}
+                            endDate={endDate}
+                            setStartDate={setStartDate}
+                            setEndDate={setEndDate}
                         />
                         <DailyTimeline
                             userIds={effectiveUserIds}
-                            clientId={selectedClient || undefined}
+                            clientId={selectedClientId || undefined}
                         />
                     </div>
 
                     {/* Right Column (1/3 width) */}
-                    <div className="flex flex-col gap-6">
+                    <div className="flex flex-col gap-6 sticky top-1 h-fit">
                         <PerformancePanel
                             userIds={effectiveUserIds}
-                            clientId={selectedClient || undefined}
+                            clientId={selectedClientId || undefined}
+                            startDate={startDate}
+                            endDate={endDate}
                         />
-                        <div className="bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-white/5 rounded-2xl p-6 text-center">
-                            <span className="material-symbols-outlined text-4xl text-white/20 mb-2">emoji_events</span>
-                            <h3 className="text-white font-bold">Metas Semanais</h3>
-                            <p className="text-xs text-gray-400 mt-1">Em breve você poderá definir metas de horas.</p>
-                        </div>
                     </div>
                 </div>
             )}
