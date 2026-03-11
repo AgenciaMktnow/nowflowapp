@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import ModernDropdown from './ModernDropdown'
 import DateRangePicker from './DateRangePicker'
 import { toast } from 'sonner'
-import { supabase } from '../lib/supabase'
 import { useUsers } from '../hooks/useUsers'
 
 interface Option {
@@ -118,8 +117,8 @@ export default function TimeFilters({
     // ]
 
     const filteredUsers = selectedTeamId
-    ? allUsers.filter(u => u.team_ids?.includes(selectedTeamId))
-    : allUsers
+        ? allUsers.filter(u => u.team_ids?.includes(selectedTeamId))
+        : allUsers
 
     const userOptions = [
         { id: '', name: 'Todos os usuários' },
@@ -216,11 +215,10 @@ export default function TimeFilters({
                                     setShowExportMenu?.(!showExportMenu)
 
                                 }}
-                                className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-all text-sm font-medium whitespace-nowrap ${
-                                    canAdvancedReports
+                                className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-all text-sm font-medium whitespace-nowrap ${canAdvancedReports
                                         ? 'border-gray-700 text-gray-400 hover:text-white hover:border-white/20 hover:bg-white/5'
                                         : 'border-gray-800 text-gray-600 cursor-not-allowed'
-                                }`}
+                                    }`}
                             >
 
                                 <span className="material-symbols-outlined">
@@ -291,11 +289,10 @@ export default function TimeFilters({
                                 onInsightsClick()
 
                             }}
-                            className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-all text-sm font-medium whitespace-nowrap ${
-                                canAdvancedReports
+                            className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-all text-sm font-medium whitespace-nowrap ${canAdvancedReports
                                     ? 'border-gray-700 text-gray-400 hover:text-white hover:border-primary/50 hover:bg-white/5'
                                     : 'border-gray-800 text-gray-600 cursor-not-allowed'
-                            }`}
+                                }`}
                         >
 
                             <span className="material-symbols-outlined">

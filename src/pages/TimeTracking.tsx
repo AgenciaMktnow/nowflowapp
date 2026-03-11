@@ -29,7 +29,7 @@ interface TeamOption {
 
 export default function TimeTracking() {
     const { user, userProfile } = useAuth();
-    
+
     const [selectedTeamId, setSelectedTeamId] = useState<string>('');
     const [selectedClientId, setSelectedClientId] = useState<string>('');
     const [selectedUserId, setSelectedUserId] = useState<string>('');
@@ -88,8 +88,8 @@ export default function TimeTracking() {
             const { data: userTeamsData } = await supabase
                 .from('user_teams')
                 .select('user_id, team_id');
-            
-                console.log("USER_TEAMS:", userTeamsData);
+
+            console.log("USER_TEAMS:", userTeamsData);
 
             if (!userError && userData) {
                 const mapUsers = userData.map(u => {
@@ -130,7 +130,7 @@ export default function TimeTracking() {
         }
     };
 
-    
+
 
     // const isAdminOrManager = userProfile?.role === 'ADMIN' || userProfile?.role === 'MANAGER';
     const isAdminOrManager = true;
@@ -144,35 +144,6 @@ export default function TimeTracking() {
                 .map(u => u.id)
             : teamMembers.map(u => u.id);
 
-    // Prepare Dropdown Options
-    const teamOptions = [
-        { id: '', name: 'Todas as Equipes' },
-        ...teams.map(t => ({
-            id: t.id,
-            name: t.name
-        }))
-    ];
-
-    const clientOptions = [
-        { id: '', name: 'Todos os Clientes' },
-        ...clients.map(c => ({
-            id: c.id,
-            name: c.name
-        }))
-    ];
-
-    const filteredUsers = selectedTeamId
-        ? teamMembers.filter(u => (u.team_ids || []).includes(selectedTeamId))
-        : teamMembers;
-
-    const userOptions = [
-        { id: '', name: 'Todos os usuários' },
-        ...filteredUsers.map(u => ({
-            id: u.id,
-            name: u.full_name || u.email || 'Usuário'
-        }))
-    ];
-
     const canAdvancedReports = true;
     const [showExportMenu, setShowExportMenu] = useState(false);
 
@@ -180,15 +151,15 @@ export default function TimeTracking() {
     // const handleExportCSV = () => {};
 
 
-    
 
-    const [showInsights, setShowInsights] = useState(false);
 
-console.log("FILTROS ATUAIS:", {
-    selectedTeamId,
-    selectedUserId,
-    selectedClientId
-});
+    // const [showInsights, setShowInsights] = useState(false);
+
+    console.log("FILTROS ATUAIS:", {
+        selectedTeamId,
+        selectedUserId,
+        selectedClientId
+    });
     return (
         <div className="flex-1 w-full max-w-[1600px] mx-auto p-6 md:p-8 flex flex-col gap-8 animate-fade-in overflow-y-auto h-full">
 
@@ -220,7 +191,7 @@ console.log("FILTROS ATUAIS:", {
                     </div>
                 )}
             </div>
-            
+
             <TimeFilters
                 teams={teams}
                 clients={clients}

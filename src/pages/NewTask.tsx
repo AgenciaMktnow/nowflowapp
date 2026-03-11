@@ -18,12 +18,6 @@ type SelectOption = {
     default_team_id?: string;
 };
 
-type User = {
-    id: string;
-    full_name: string;
-    avatar_url?: string;
-};
-
 
 
 interface NewTaskProps {
@@ -226,7 +220,7 @@ export default function NewTask({ isDrawer = false, taskNumber: propTaskNumber, 
 
         if (data) setWorkflows(data);
     };
-    
+
 
     const fetchTeamFromClient = async (cliId: string) => {
         const client = clients.find(c => c.id === cliId);
@@ -393,19 +387,11 @@ export default function NewTask({ isDrawer = false, taskNumber: propTaskNumber, 
         }
 
         // 1. Validate Form (Green Asterisks *)
-        const missingMandatory =
-            !title.trim() ||
-            selectedBoardIds.length === 0 ||
-            !clientId ||
-            !projectId ||
-            assigneeIds.length === 0;
 
         // 2. Validate Business Logic (Description/Date are not marked * but logic requires them currently)
         // Due Date is now OPTIONAL.
-        const missingLogic =
-            !description;
 
-            
+
         // if (missingMandatory || missingLogic) {
         //     toast.warning('Por favor, preencha todos os campos obrigatórios (*)');
         //     return;

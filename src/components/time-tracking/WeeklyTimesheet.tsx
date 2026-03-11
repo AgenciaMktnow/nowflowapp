@@ -16,7 +16,7 @@ interface WeeklyTimesheetProps {
 export default function WeeklyTimesheet({ userIds, clientId, startDate, endDate, setStartDate, setEndDate }: WeeklyTimesheetProps) {
     const { user } = useAuth();
     const navigate = useNavigate();
-    const [searchParams, setSearchParams] = useSearchParams();
+    const [, setSearchParams] = useSearchParams();
 
     // Helper: Get Monday of current week
     // const getStartOfWeek = (date: Date) => {

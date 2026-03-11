@@ -30,7 +30,7 @@ interface TeamReportProps {
     setExportType?: (v: 'pdf' | 'csv' | null) => void
 
     openInsights?: boolean
-    setOpenInsights?: (v:boolean)=>void
+    setOpenInsights?: (v: boolean) => void
 }
 
 
@@ -235,8 +235,8 @@ export default function TeamReport({ users, teams, filterTeam: initialFilterTeam
             })
         })
 
-        const topClient = Object.entries(clientMap).sort((a,b)=>b[1]-a[1])[0]
-        const topTask = Object.entries(taskMap).sort((a,b)=>b[1]-a[1])[0]
+        const topClient = Object.entries(clientMap).sort((a, b) => b[1] - a[1])[0]
+        const topTask = Object.entries(taskMap).sort((a, b) => b[1] - a[1])[0]
 
         return {
             topUser,
@@ -543,204 +543,204 @@ export default function TeamReport({ users, teams, filterTeam: initialFilterTeam
 
             {/* 3. Insights Modal */}
             {showInsights && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-[#05070a]/80 backdrop-blur-2xl animate-in fade-in duration-300">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-[#05070a]/80 backdrop-blur-2xl animate-in fade-in duration-300">
 
-                <div className="relative w-full max-w-6xl h-[88vh] rounded-3xl overflow-hidden border border-[#1f2937] bg-gradient-to-b from-[#0f172a] via-[#0b1120] to-[#070c18] shadow-[0_40px_120px_rgba(0,0,0,0.9)] animate-in zoom-in-95 duration-300 flex flex-col">
+                    <div className="relative w-full max-w-6xl h-[88vh] rounded-3xl overflow-hidden border border-[#1f2937] bg-gradient-to-b from-[#0f172a] via-[#0b1120] to-[#070c18] shadow-[0_40px_120px_rgba(0,0,0,0.9)] animate-in zoom-in-95 duration-300 flex flex-col">
 
-                {/* HEADER */}
-                <div className="flex items-center justify-between px-8 py-6 border-b border-[#1e293b] bg-gradient-to-r from-[#111827] to-[#0b1120]">
+                        {/* HEADER */}
+                        <div className="flex items-center justify-between px-8 py-6 border-b border-[#1e293b] bg-gradient-to-r from-[#111827] to-[#0b1120]">
 
-                    <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-4">
 
-                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-400 flex items-center justify-center shadow-lg">
-                        <span className="material-symbols-outlined text-white text-[22px]">
-                        insights
-                        </span>
+                                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-400 flex items-center justify-center shadow-lg">
+                                    <span className="material-symbols-outlined text-white text-[22px]">
+                                        insights
+                                    </span>
+                                </div>
+
+                                <div>
+                                    <h2 className="text-white text-lg font-semibold tracking-tight">
+                                        Insights de Performance
+                                    </h2>
+                                    <p className="text-gray-400 text-xs">
+                                        Análise estratégica do desempenho da equipe
+                                    </p>
+                                </div>
+
+                            </div>
+
+                            <button
+                                onClick={() => setShowInsights(false)}
+                                className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition"
+                            >
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+
+                        </div>
+
+                        {/* CONTENT */}
+                        <div className="p-8 overflow-y-auto flex-1 space-y-10">
+
+                            {/* ===== CARDS RESUMO ===== */}
+                            {insights && (
+                                <div>
+
+                                    <div className="flex items-center gap-2 mb-6">
+                                        <span className="material-symbols-outlined text-indigo-400 text-[20px]">
+                                            analytics
+                                        </span>
+                                        <h3 className="text-white font-semibold text-sm tracking-wide">
+                                            Destaques do Período
+                                        </h3>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+                                        {/* COLABORADOR */}
+                                        <div className="p-6 rounded-2xl border border-[#1f2937] bg-gradient-to-b from-[#0f172a] to-[#0b1120] hover:border-indigo-500/40 transition-all hover:-translate-y-1">
+
+                                            <div className="flex items-center justify-between mb-4">
+
+                                                <div className="w-9 h-9 rounded-lg bg-indigo-500/15 flex items-center justify-center">
+                                                    <span className="material-symbols-outlined text-indigo-400 text-[18px]">
+                                                        workspace_premium
+                                                    </span>
+                                                </div>
+
+                                                <span className="text-xs text-gray-500 uppercase">
+                                                    Colaborador
+                                                </span>
+
+                                            </div>
+
+                                            <div className="text-white font-semibold text-lg">
+                                                {insights.topUser.userName}
+                                            </div>
+
+                                            <div className="text-cyan-400 text-sm mt-1 font-medium">
+                                                {formatHours(insights.topUser.totalSeconds || 0, true)}
+                                            </div>
+
+                                        </div>
+
+
+                                        {/* CLIENTE */}
+                                        <div className="p-6 rounded-2xl border border-[#1f2937] bg-gradient-to-b from-[#0f172a] to-[#0b1120] hover:border-cyan-500/40 transition-all hover:-translate-y-1">
+
+                                            <div className="flex items-center justify-between mb-4">
+
+                                                <div className="w-9 h-9 rounded-lg bg-cyan-500/15 flex items-center justify-center">
+                                                    <span className="material-symbols-outlined text-cyan-400 text-[18px]">
+                                                        business_center
+                                                    </span>
+                                                </div>
+
+                                                <span className="text-xs text-gray-500 uppercase">
+                                                    Cliente
+                                                </span>
+
+                                            </div>
+
+                                            <div className="text-white font-semibold text-lg">
+                                                {insights.topClient?.[0]}
+                                            </div>
+
+                                            <div className="text-cyan-400 text-sm mt-1 font-medium">
+                                                {formatHours(insights.topClient?.[1] || 0, true)}
+                                            </div>
+
+                                        </div>
+
+
+                                        {/* TAREFA */}
+                                        <div className="p-6 rounded-2xl border border-[#1f2937] bg-gradient-to-b from-[#0f172a] to-[#0b1120] hover:border-indigo-500/40 transition-all hover:-translate-y-1">
+
+                                            <div className="flex items-center justify-between mb-4">
+
+                                                <div className="w-9 h-9 rounded-lg bg-indigo-500/15 flex items-center justify-center">
+                                                    <span className="material-symbols-outlined text-indigo-400 text-[18px]">
+                                                        task_alt
+                                                    </span>
+                                                </div>
+
+                                                <span className="text-xs text-gray-500 uppercase">
+                                                    Tarefa
+                                                </span>
+
+                                            </div>
+
+                                            <div className="text-white font-semibold text-lg">
+                                                {insights.topTask?.[0]}
+                                            </div>
+
+                                            <div className="text-cyan-400 text-sm mt-1 font-medium">
+                                                {formatHours(insights.topTask?.[1] || 0, true)}
+                                            </div>
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
+                            )}
+
+
+                            {/* ===== MAPA DE ATIVIDADE (FULL WIDTH) ===== */}
+                            <div className="rounded-2xl border border-[#1f2937] bg-gradient-to-b from-[#0f172a] to-[#0b1120] p-6">
+
+                                <div className="flex items-center justify-between mb-6">
+
+                                    <div className="flex items-center gap-2">
+                                        <span className="material-symbols-outlined text-indigo-400 text-[20px]">
+                                            grid_view
+                                        </span>
+
+                                        <h3 className="text-white font-semibold text-sm tracking-wide">
+                                            Mapa de Atividade
+                                        </h3>
+                                    </div>
+
+                                    <span className="text-xs text-gray-500">
+                                        Distribuição de trabalho
+                                    </span>
+
+                                </div>
+
+                                <WorkHeatmap blocks={timeline} />
+
+                            </div>
+
+
+                            {/* ===== GARGALOS (FULL WIDTH) ===== */}
+                            <div className="rounded-2xl border border-[#1f2937] bg-gradient-to-b from-[#0f172a] to-[#0b1120] p-6">
+
+                                <div className="flex items-center justify-between mb-6">
+
+                                    <div className="flex items-center gap-2">
+                                        <span className="material-symbols-outlined text-cyan-400 text-[20px]">
+                                            monitoring
+                                        </span>
+
+                                        <h3 className="text-white font-semibold text-sm tracking-wide">
+                                            Gargalos por Categoria
+                                        </h3>
+                                    </div>
+
+                                    <span className="text-xs text-gray-500">
+                                        Identificação de atrasos
+                                    </span>
+
+                                </div>
+
+                                <CategoryBottleneckChart categories={categories} />
+
+                            </div>
+
+                        </div>
+
                     </div>
-
-                    <div>
-                        <h2 className="text-white text-lg font-semibold tracking-tight">
-                        Insights de Performance
-                        </h2>
-                        <p className="text-gray-400 text-xs">
-                        Análise estratégica do desempenho da equipe
-                        </p>
-                    </div>
-
-                    </div>
-
-                    <button
-                    onClick={() => setShowInsights(false)}
-                    className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition"
-                    >
-                    <span className="material-symbols-outlined">close</span>
-                    </button>
 
                 </div>
-
-                {/* CONTENT */}
-                <div className="p-8 overflow-y-auto flex-1 space-y-10">
-
-                    {/* ===== CARDS RESUMO ===== */}
-                    {insights && (
-                    <div>
-
-                        <div className="flex items-center gap-2 mb-6">
-                        <span className="material-symbols-outlined text-indigo-400 text-[20px]">
-                            analytics
-                        </span>
-                        <h3 className="text-white font-semibold text-sm tracking-wide">
-                            Destaques do Período
-                        </h3>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-                        {/* COLABORADOR */}
-                        <div className="p-6 rounded-2xl border border-[#1f2937] bg-gradient-to-b from-[#0f172a] to-[#0b1120] hover:border-indigo-500/40 transition-all hover:-translate-y-1">
-
-                            <div className="flex items-center justify-between mb-4">
-
-                            <div className="w-9 h-9 rounded-lg bg-indigo-500/15 flex items-center justify-center">
-                                <span className="material-symbols-outlined text-indigo-400 text-[18px]">
-                                workspace_premium
-                                </span>
-                            </div>
-
-                            <span className="text-xs text-gray-500 uppercase">
-                                Colaborador
-                            </span>
-
-                            </div>
-
-                            <div className="text-white font-semibold text-lg">
-                            {insights.topUser.userName}
-                            </div>
-
-                            <div className="text-cyan-400 text-sm mt-1 font-medium">
-                            {formatHours(insights.topUser.totalSeconds || 0, true)}
-                            </div>
-
-                        </div>
-
-
-                        {/* CLIENTE */}
-                        <div className="p-6 rounded-2xl border border-[#1f2937] bg-gradient-to-b from-[#0f172a] to-[#0b1120] hover:border-cyan-500/40 transition-all hover:-translate-y-1">
-
-                            <div className="flex items-center justify-between mb-4">
-
-                            <div className="w-9 h-9 rounded-lg bg-cyan-500/15 flex items-center justify-center">
-                                <span className="material-symbols-outlined text-cyan-400 text-[18px]">
-                                business_center
-                                </span>
-                            </div>
-
-                            <span className="text-xs text-gray-500 uppercase">
-                                Cliente
-                            </span>
-
-                            </div>
-
-                            <div className="text-white font-semibold text-lg">
-                            {insights.topClient?.[0]}
-                            </div>
-
-                            <div className="text-cyan-400 text-sm mt-1 font-medium">
-                            {formatHours(insights.topClient?.[1] || 0, true)}
-                            </div>
-
-                        </div>
-
-
-                        {/* TAREFA */}
-                        <div className="p-6 rounded-2xl border border-[#1f2937] bg-gradient-to-b from-[#0f172a] to-[#0b1120] hover:border-indigo-500/40 transition-all hover:-translate-y-1">
-
-                            <div className="flex items-center justify-between mb-4">
-
-                            <div className="w-9 h-9 rounded-lg bg-indigo-500/15 flex items-center justify-center">
-                                <span className="material-symbols-outlined text-indigo-400 text-[18px]">
-                                task_alt
-                                </span>
-                            </div>
-
-                            <span className="text-xs text-gray-500 uppercase">
-                                Tarefa
-                            </span>
-
-                            </div>
-
-                            <div className="text-white font-semibold text-lg">
-                            {insights.topTask?.[0]}
-                            </div>
-
-                            <div className="text-cyan-400 text-sm mt-1 font-medium">
-                            {formatHours(insights.topTask?.[1] || 0, true)}
-                            </div>
-
-                        </div>
-
-                        </div>
-
-                    </div>
-                    )}
-
-
-                    {/* ===== MAPA DE ATIVIDADE (FULL WIDTH) ===== */}
-                    <div className="rounded-2xl border border-[#1f2937] bg-gradient-to-b from-[#0f172a] to-[#0b1120] p-6">
-
-                    <div className="flex items-center justify-between mb-6">
-
-                        <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-indigo-400 text-[20px]">
-                            grid_view
-                        </span>
-
-                        <h3 className="text-white font-semibold text-sm tracking-wide">
-                            Mapa de Atividade
-                        </h3>
-                        </div>
-
-                        <span className="text-xs text-gray-500">
-                        Distribuição de trabalho
-                        </span>
-
-                    </div>
-
-                    <WorkHeatmap blocks={timeline} />
-
-                    </div>
-
-
-                    {/* ===== GARGALOS (FULL WIDTH) ===== */}
-                    <div className="rounded-2xl border border-[#1f2937] bg-gradient-to-b from-[#0f172a] to-[#0b1120] p-6">
-
-                    <div className="flex items-center justify-between mb-6">
-
-                        <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-cyan-400 text-[20px]">
-                            monitoring
-                        </span>
-
-                        <h3 className="text-white font-semibold text-sm tracking-wide">
-                            Gargalos por Categoria
-                        </h3>
-                        </div>
-
-                        <span className="text-xs text-gray-500">
-                        Identificação de atrasos
-                        </span>
-
-                    </div>
-
-                    <CategoryBottleneckChart categories={categories} />
-
-                    </div>
-
-                </div>
-
-                </div>
-
-            </div>
             )}
         </div>
     );

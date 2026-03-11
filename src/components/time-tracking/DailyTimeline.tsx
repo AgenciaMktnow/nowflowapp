@@ -171,7 +171,7 @@ export default function DailyTimeline({ userIds, clientId }: DailyTimelineProps)
                     className="relative flex-1 overflow-x-auto overflow-y-auto px-6 py-6 custom-scrollbar bg-background-dark/40 flex"
                 >
                     {/* Usuário Columns */}
-                    {logsByUser.map((col, idx) => (
+                    {logsByUser.map((col) => (
                         <div key={col.user.id} className="flex-1 min-w-[200px] relative border-l border-gray-700/20 last:border-r">
                             <div className="flex items-center gap-2 mb-2 sticky top-0 bg-background-dark z-10 px-1 py-1 border-b border-gray-800">
                                 {col.user.avatar_url ? (

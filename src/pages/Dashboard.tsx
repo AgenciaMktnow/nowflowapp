@@ -164,14 +164,14 @@ export default function Dashboard() {
     // Separate Effect for Timer Interval
     useEffect(() => {
         let interval: any;
-            if (activeTimerTask) {
-                interval = setInterval(() => {
-                    setTimerElapsedTime(prev => prev + 1);
-                }, 1000);
-            }
-            return () => {
-                if (interval) clearInterval(interval);
-            };
+        if (activeTimerTask) {
+            interval = setInterval(() => {
+                setTimerElapsedTime(prev => prev + 1);
+            }, 1000);
+        }
+        return () => {
+            if (interval) clearInterval(interval);
+        };
     }, [activeTimerTask]);
 
 
@@ -231,21 +231,21 @@ export default function Dashboard() {
 
     useEffect(() => {
 
-        if(!activeTimerTask) return;
+        if (!activeTimerTask) return;
 
         const interval = setInterval(async () => {
 
             const todayStart = new Date();
-            todayStart.setHours(0,0,0,0);
+            todayStart.setHours(0, 0, 0, 0);
 
-            const { data } = await supabase
+            await supabase
                 .from('time_logs')
                 .select('duration_seconds')
                 .eq('user_id', user?.id)
-                .not('end_time','is',null)
+                .not('end_time', 'is', null)
                 .gte('start_time', todayStart.toISOString());
 
-console.log("daily_journey_hours:", settings?.daily_journey_hours);
+            console.log("daily_journey_hours:", settings?.daily_journey_hours);
 
             // const limitSeconds = (settings?.daily_journey_hours || 8) * 3600;
 
@@ -265,7 +265,7 @@ console.log("daily_journey_hours:", settings?.daily_journey_hours);
                 ? Math.floor((Date.now() - activeStartTime) / 1000)
                 : 0;
 
-            if(realElapsed >= limitSeconds && activeTimeLogId){
+            if (realElapsed >= limitSeconds && activeTimeLogId) {
 
                 toast.warning("Limite diário atingido. Timer pausado automaticamente.");
 
@@ -273,12 +273,12 @@ console.log("daily_journey_hours:", settings?.daily_journey_hours);
 
             }
 
-        },1000);
+        }, 1000);
 
         return () => clearInterval(interval);
 
-    // },[activeTimerTask,timerElapsedTime,settings]);
-    },[activeTimerTask,activeStartTime,settings]);
+        // },[activeTimerTask,timerElapsedTime,settings]);
+    }, [activeTimerTask, activeStartTime, settings]);
 
     const checkActiveTeamLogs = async () => {
         try {
@@ -476,7 +476,7 @@ console.log("daily_journey_hours:", settings?.daily_journey_hours);
             })
 
             setTasks(formattedTasks)
-            
+
         } catch (error) {
             console.error('Error fetching tasks:', error);
         }
@@ -556,65 +556,65 @@ console.log("daily_journey_hours:", settings?.daily_journey_hours);
     // DASHBOARD METRICS (OTIMIZADO)
     // ==============================
 
-const metrics = useMemo(() => {
-    const today = new Date();
-    today.setHours(0,0,0,0);
+    const metrics = useMemo(() => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
-    const startOfWeek = getStartOfWeek(today, { weekStartsOn: 1 });
-    startOfWeek.setHours(0,0,0,0);
+        const startOfWeek = getStartOfWeek(today, { weekStartsOn: 1 });
+        startOfWeek.setHours(0, 0, 0, 0);
 
-    let dueToday = 0;
-    let overdue = 0;
-    let waitingReview = 0;
-    let doneThisWeek = 0;
+        let dueToday = 0;
+        let overdue = 0;
+        let waitingReview = 0;
+        let doneThisWeek = 0;
 
-    // =====================
-    // CONTADORES BASEADOS EM FILTRO
-    // =====================
-    tasks.forEach(task => {
-        if(task.status === 'REVIEW'){
-            waitingReview++
-        }
-
-        if(task.due_date){
-            const dueDate = task.due_date.split('T')[0];
-            const todayDate = today.toISOString().split('T')[0];
-
-            if(dueDate === todayDate){
-                dueToday++
+        // =====================
+        // CONTADORES BASEADOS EM FILTRO
+        // =====================
+        tasks.forEach(task => {
+            if (task.status === 'REVIEW') {
+                waitingReview++
             }
 
-            const due = new Date(task.due_date);
-            due.setHours(0,0,0,0);
+            if (task.due_date) {
+                const dueDate = task.due_date.split('T')[0];
+                const todayDate = today.toISOString().split('T')[0];
 
-            if(due < today && task.status !== 'DONE'){
-                overdue++
+                if (dueDate === todayDate) {
+                    dueToday++
+                }
+
+                const due = new Date(task.due_date);
+                due.setHours(0, 0, 0, 0);
+
+                if (due < today && task.status !== 'DONE') {
+                    overdue++
+                }
             }
-        }
-    })
+        })
 
-    // =====================
-    // CONTADOR DE TAREFAS CONCLUÍDAS (SEM FILTRO)
-    // =====================
-    tasks.forEach(task => {
-        if(task.status === 'DONE' && task.completed_at){
-            const completed = new Date(task.completed_at);
-            completed.setHours(0,0,0,0);
+        // =====================
+        // CONTADOR DE TAREFAS CONCLUÍDAS (SEM FILTRO)
+        // =====================
+        tasks.forEach(task => {
+            if (task.status === 'DONE' && task.completed_at) {
+                const completed = new Date(task.completed_at);
+                completed.setHours(0, 0, 0, 0);
 
-            if(completed >= startOfWeek){
-                doneThisWeek++
+                if (completed >= startOfWeek) {
+                    doneThisWeek++
+                }
             }
+        })
+
+        return {
+            dueToday,
+            overdue,
+            waitingReview,
+            doneThisWeek
         }
-    })
 
-    return {
-        dueToday,
-        overdue,
-        waitingReview,
-        doneThisWeek
-    }
-
-}, [tasks, filteredTasks])
+    }, [tasks, filteredTasks])
 
     // Normaliza hoje para evitar bug de timezone
     const today = new Date();
@@ -670,7 +670,7 @@ const metrics = useMemo(() => {
 
             const { error } = await taskService.startTimer(task.id, user.id);
 
-            if(error){
+            if (error) {
                 toast.error(error.message);
                 return;
             }
@@ -739,31 +739,31 @@ const metrics = useMemo(() => {
     const currentTimerDisplay = activeTimerTask ? formatTimer(timerHistoricTime + timerElapsedTime) : { h: '00', m: '00', s: '00' };
 
     function useCountUp(value: number, duration = 600) {
-    const [display, setDisplay] = useState(0);
+        const [display, setDisplay] = useState(0);
 
-    useEffect(() => {
-        let start = 0;
-        const step = Math.ceil(value / (duration / 16));
+        useEffect(() => {
+            let start = 0;
+            const step = Math.ceil(value / (duration / 16));
 
-        const interval = setInterval(() => {
-            start += step;
-            if (start >= value) {
-                start = value;
-                clearInterval(interval);
-            }
-            setDisplay(start);
-        }, 16);
+            const interval = setInterval(() => {
+                start += step;
+                if (start >= value) {
+                    start = value;
+                    clearInterval(interval);
+                }
+                setDisplay(start);
+            }, 16);
 
-        return () => clearInterval(interval);
-    }, [value]);
+            return () => clearInterval(interval);
+        }, [value]);
 
-    return display;
-}
+        return display;
+    }
 
     // const overdueCount = useCountUp(metrics.overdue);
-const dueTodayCount = useCountUp(metrics.dueToday);
-const reviewCount = useCountUp(metrics.waitingReview);
-const doneWeekCount = useCountUp(metrics.doneThisWeek);
+    const dueTodayCount = useCountUp(metrics.dueToday);
+    const reviewCount = useCountUp(metrics.waitingReview);
+    const doneWeekCount = useCountUp(metrics.doneThisWeek);
 
     return (
         <div className="flex-1 flex flex-col h-full overflow-hidden relative bg-background-dark">
@@ -886,8 +886,8 @@ const doneWeekCount = useCountUp(metrics.doneThisWeek);
 
                                     <div className="mt-3 h-1 w-full bg-white/5 rounded-full overflow-hidden">
                                         <div
-                                        className="h-full bg-red-500 transition-all"
-                                        style={{ width: `${Math.min(metrics.overdue * 10, 100)}%` }}
+                                            className="h-full bg-red-500 transition-all"
+                                            style={{ width: `${Math.min(metrics.overdue * 10, 100)}%` }}
                                         ></div>
                                     </div>
 
@@ -906,8 +906,8 @@ const doneWeekCount = useCountUp(metrics.doneThisWeek);
 
                                     <div className="mt-3 h-1 w-full bg-white/5 rounded-full overflow-hidden">
                                         <div
-                                        className="h-full bg-orange-400 transition-all"
-                                        style={{ width: `${Math.min(metrics.dueToday * 10, 100)}%` }}
+                                            className="h-full bg-orange-400 transition-all"
+                                            style={{ width: `${Math.min(metrics.dueToday * 10, 100)}%` }}
                                         ></div>
                                     </div>
 
@@ -926,8 +926,8 @@ const doneWeekCount = useCountUp(metrics.doneThisWeek);
 
                                     <div className="mt-3 h-1 w-full bg-white/5 rounded-full overflow-hidden">
                                         <div
-                                        className="h-full bg-purple-400 transition-all"
-                                        style={{ width: `${Math.min(metrics.waitingReview * 10, 100)}%` }}
+                                            className="h-full bg-purple-400 transition-all"
+                                            style={{ width: `${Math.min(metrics.waitingReview * 10, 100)}%` }}
                                         ></div>
                                     </div>
 
@@ -946,8 +946,8 @@ const doneWeekCount = useCountUp(metrics.doneThisWeek);
 
                                     <div className="mt-3 h-1 w-full bg-white/5 rounded-full overflow-hidden">
                                         <div
-                                        className="h-full bg-green-400 transition-all"
-                                        style={{ width: `${Math.min(metrics.doneThisWeek * 10, 100)}%` }}
+                                            className="h-full bg-green-400 transition-all"
+                                            style={{ width: `${Math.min(metrics.doneThisWeek * 10, 100)}%` }}
                                         ></div>
                                     </div>
 
