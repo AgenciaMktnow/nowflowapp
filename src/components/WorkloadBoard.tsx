@@ -10,6 +10,12 @@ interface WorkloadBoardProps {
     onTaskClick: (task: any) => void;
 }
 
+const compareTaskPosition = (a: any, b: any) => {
+    const positionA = a.position ?? Number.MAX_SAFE_INTEGER;
+    const positionB = b.position ?? Number.MAX_SAFE_INTEGER;
+    return positionA - positionB || a.task_number - b.task_number;
+};
+
 export default function WorkloadBoard({ users, teamId, onTaskClick }: WorkloadBoardProps) {
     const [allTasks, setAllTasks] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -100,16 +106,7 @@ export default function WorkloadBoard({ users, teamId, onTaskClick }: WorkloadBo
             const uniqueTasks = Array.from(new Map(rawTasks.map(item => [item.id, item])).values());
 
             // Sort by position (with fallback to priority if position is null)
-            uniqueTasks.sort((a, b) => {
-                const posA = a.position ?? 999999;
-                const posB = b.position ?? 999999;
-
-                if (posA !== posB) return posA - posB;
-
-                // Fallback: sort by priority if positions are equal
-                const priorityMap: Record<string, number> = { 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1 };
-                return (priorityMap[b.priority] || 0) - (priorityMap[a.priority] || 0);
-            });
+            uniqueTasks.sort(compareTaskPosition);
 
             console.log('🔍 WorkloadBoard: Tasks loaded:', {
                 totalTasks: uniqueTasks.length,
@@ -185,79 +182,39 @@ export default function WorkloadBoard({ users, teamId, onTaskClick }: WorkloadBo
         if (!destination) return;
         if (destination.droppableId === source.droppableId && destination.index === source.index) return;
 
-        const destUserId = destination.droppableId;
+        const destinationUserId = destination.droppableId === 'unassigned' ? null : destination.droppableId;
+        const sourceTasks = [...(groupedTasks[source.droppableId] || [])];
+        const [movedTask] = sourceTasks.splice(source.index, 1);
+        if (!movedTask || movedTask.id !== draggableId) return;
 
-        // 1. Find the task being moved
-        const taskIndex = allTasks.findIndex(t => t.id === draggableId);
-        if (taskIndex === -1) return;
+        const destinationTasks = source.droppableId === destination.droppableId
+            ? sourceTasks
+            : [...(groupedTasks[destination.droppableId] || [])];
 
-        const movedTask = { ...allTasks[taskIndex] };
+        const updatedMovedTask = { ...movedTask, assignee_id: destinationUserId };
+        destinationTasks.splice(destination.index, 0, updatedMovedTask);
 
-        // 2. Update assignee locally
-        movedTask.assignee_id = destUserId === 'unassigned' ? null : destUserId;
+        const destinationUpdates = new Map(destinationTasks.map((task, index) => [
+            task.id,
+            { ...task, assignee_id: destinationUserId, position: (index + 1) * 1000 }
+        ]));
 
-        // 3. Calculate new position (Fractional Indexing - Same logic as Kanban)
-        const destColumnTasks = allTasks
-            .filter(t => {
-                // Exclude the task being moved
-                if (t.id === draggableId) return false;
+        setAllTasks(currentTasks => currentTasks
+            .map(task => destinationUpdates.get(task.id) || task)
+            .sort(compareTaskPosition));
 
-                // Match tasks in the destination column
-                const taskUserId = t.assignee_id || 'unassigned';
-                return taskUserId === destUserId;
-            })
-            .sort((a, b) => (a.position || 0) - (b.position || 0));
-
-        let newPosition = 0;
-
-        if (destColumnTasks.length === 0) {
-            // Empty column
-            newPosition = 1000;
-        } else if (destination.index === 0) {
-            // Top of column
-            newPosition = (destColumnTasks[0].position || 0) / 2;
-            if (newPosition < 1) newPosition = 1;
-        } else if (destination.index >= destColumnTasks.length) {
-            // Bottom of column
-            const last = destColumnTasks[destColumnTasks.length - 1];
-            newPosition = (last.position || 0) + 1000;
-        } else {
-            // Middle of column
-            const prev = destColumnTasks[destination.index - 1];
-            const next = destColumnTasks[destination.index];
-            newPosition = ((prev.position || 0) + (next.position || 0)) / 2;
-        }
-
-        movedTask.position = newPosition;
-
-        console.log('📊 Position Calculation:', {
-            destIndex: destination.index,
-            destColumnTasksCount: destColumnTasks.length,
-            newPosition,
-            neighbors: destColumnTasks.map(t => ({ id: t.id, position: t.position }))
-        });
-
-        // 4. Optimistic Update
-        const updatedTasks = [...allTasks];
-        updatedTasks[taskIndex] = movedTask;
-        setAllTasks(updatedTasks.sort((a, b) => (a.position || 0) - (b.position || 0)));
-
-        // 5. Persist to Backend
         try {
-            const { error } = await supabase
-                .from('tasks')
-                .update({
-                    assignee_id: movedTask.assignee_id,
-                    position: newPosition
-                })
-                .eq('id', draggableId);
+            const { error } = await supabase.rpc('reorder_workload_queue', {
+                p_assignee_id: destinationUserId,
+                p_task_ids: destinationTasks.map(task => task.id),
+                p_moved_task_id: draggableId
+            });
 
             if (error) throw error;
-
-            console.log('✅ Task updated successfully:', { taskId: draggableId, assignee_id: movedTask.assignee_id, position: newPosition });
+            await loadTasks();
         } catch (error) {
             console.error('❌ Error reassigning task:', error);
-            toast.error('Erro ao reatribuir tarefa');
+            toast.error('Erro ao reordenar tarefa');
             loadTasks(); // Revert on error
         }
     };

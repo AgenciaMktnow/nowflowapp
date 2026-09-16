@@ -113,8 +113,14 @@ const CustomSelect = ({
 };
 
 
-export default function ClientManagement() {
+type ClientManagementProps = {
+    initialClientId?: string | null;
+    onExit?: () => void;
+};
+
+export default function ClientManagement({ initialClientId, onExit }: ClientManagementProps) {
     const { userProfile } = useAuth();
+    const openedClientIdRef = useRef<string | null>(null);
     // --- STATE ---
     const [viewMode, setViewMode] = useState<'LIST' | 'DETAIL'>('LIST');
 
@@ -233,6 +239,20 @@ export default function ClientManagement() {
         setViewMode('DETAIL');
     };
 
+    useEffect(() => {
+        if (!initialClientId || openedClientIdRef.current === initialClientId || clients.length === 0) return;
+
+        openedClientIdRef.current = initialClientId;
+        const requestedClient = clients.find(client => client.id === initialClientId);
+        if (requestedClient) {
+            openClient(requestedClient);
+            return;
+        }
+
+        toast.error('Cliente não encontrado.');
+        onExit?.();
+    }, [clients, initialClientId, onExit]);
+
     // --- EFFECT: Fetch Projects for ALL Relevant Boards ---
     useEffect(() => {
         const loadAllProjects = async () => {
@@ -273,6 +293,10 @@ export default function ClientManagement() {
     };
 
     const handleBack = () => {
+        if (onExit) {
+            onExit();
+            return;
+        }
         setViewMode('LIST');
         setSelectedClient(null);
     };
@@ -382,6 +406,30 @@ export default function ClientManagement() {
             // 2. Service Catalog Synchronization (Global Projects + Links)
             const allSelectedBoards = Array.from(selectedContextBoardIds);
             const allServiceNames = Array.from(clientProjectMap.keys());
+
+            // Remove every service link from contexts that were unchecked.
+            const { data: existingBoardLinks, error: boardLinksError } = await supabase
+                .from('client_projects')
+                .select('board_id')
+                .eq('client_id', clientId);
+
+            if (boardLinksError) throw boardLinksError;
+
+            const removedBoardIds = Array.from(new Set(
+                (existingBoardLinks || [])
+                    .map(link => link.board_id)
+                    .filter(boardId => boardId && !selectedContextBoardIds.has(boardId))
+            ));
+
+            if (removedBoardIds.length > 0) {
+                const { error: removeBoardLinksError } = await supabase
+                    .from('client_projects')
+                    .delete()
+                    .eq('client_id', clientId)
+                    .in('board_id', removedBoardIds);
+
+                if (removeBoardLinksError) throw removeBoardLinksError;
+            }
 
             // A. Resolve Global Project IDs (Get or Create)
             const nameToIdMap = new Map<string, string>();

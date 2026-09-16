@@ -1,7 +1,7 @@
 -- Migration to fix and expand RLS policies for the public-assets storage bucket
 
--- Enable RLS on storage.objects (good practice to ensure, though usually enabled)
-ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+-- Supabase owns storage.objects and already enables RLS on it. Project migrations
+-- must only manage policies, otherwise a fresh local instance fails on ownership.
 
 -- Drop existing policies to ensure a clean slate and avoid conflicts
 -- We use a DO block to handle potential "policy does not exist" errors gracefully if needed, 

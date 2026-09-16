@@ -29,6 +29,7 @@ import NotFound from './pages/NotFound';
 
 import MyQueue from './pages/MyQueue';
 import TaskCalendar from './pages/TaskCalendar';
+import ClientPortfolios from './pages/ClientPortfolios';
 import { ToastProvider } from './components/ui/ToastProvider';
 import { SettingsProvider } from './contexts/SettingsContext';
 
@@ -112,6 +113,7 @@ function App() {
                 <Route path="queue" element={<MyQueue />} /> {/* Corrected Component Name */}
                 <Route path="kanban" element={<Projects />} />
                 <Route path="calendar" element={<TaskCalendar />} />
+                <Route path="clients" element={<ClientPortfolios />} />
                 <Route path="projects/new" element={<CreateProject />} />
                 <Route path="tasks/new" element={<NewTask />} />
                 <Route path="tasks/:id" element={<TaskDetail />} />

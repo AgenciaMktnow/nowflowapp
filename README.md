@@ -1,5 +1,36 @@
 # NowFlow App
 
+## Desenvolvimento local
+
+Requisitos: Node.js 22, npm e um runtime Docker ativo. Nesta maquina, o runtime
+usado e o Colima.
+
+```bash
+nvm use
+npm install
+colima start
+npm run dev:local
+```
+
+Servicos locais:
+
+- Aplicacao: http://localhost:5173
+- Supabase Studio: http://127.0.0.1:54323
+- Caixa de e-mail local: http://127.0.0.1:54324
+- PostgreSQL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+Comandos uteis:
+
+```bash
+npm run db:status
+npm run db:reset
+npm run db:stop
+```
+
+O frontend usa `.env.local`, que nao deve ser versionado. Copie a estrutura de
+`.env.example` e obtenha a chave publica atual com `npm run db:status` se o
+ambiente local for recriado.
+
 **Project Location:** `/Users/NetinhoDuque/Sistemas/NowFlow/nowflow-app`
 
 # React + TypeScript + Vite

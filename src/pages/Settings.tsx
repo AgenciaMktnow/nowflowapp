@@ -17,6 +17,12 @@ export default function Settings() {
     const navigate = useNavigate();
     const location = useLocation();
     const [activeTab, setActiveTab] = useState<Tab>('general');
+    const query = new URLSearchParams(location.search);
+    const requestedClientId = query.get('clientId');
+    const requestedReturnTo = query.get('returnTo');
+    const clientReturnTo = requestedReturnTo?.startsWith('/clients')
+        ? requestedReturnTo
+        : '/settings/clients';
 
 
     useEffect(() => {
@@ -124,7 +130,12 @@ export default function Settings() {
                 {/* Content Area */}
                 <div className="max-w-[1400px] mx-auto min-h-[500px]">
                     {activeTab === 'general' && <GeneralSettings />}
-                    {activeTab === 'clients' && <ClientManagement />}
+                    {activeTab === 'clients' && (
+                        <ClientManagement
+                            initialClientId={requestedClientId}
+                            onExit={requestedClientId ? () => navigate(clientReturnTo) : undefined}
+                        />
+                    )}
                     {activeTab === 'projects' && <ProjectSettings />}
                     {activeTab === 'boards' && <BoardsSettings />}
                     {activeTab === 'workflows' && <WorkflowsSettings />}

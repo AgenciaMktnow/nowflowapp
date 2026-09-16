@@ -25,6 +25,7 @@ type Task = {
     assignee_id?: string;
     project_id?: string;
     queue_position?: number;
+    position?: number | null;
     project?: {
         name: string;
         client_id?: string;
@@ -45,6 +46,7 @@ type Task = {
     // Board logic
     board_id?: string; // Resolved effective board ID
     task_boards?: { board_id: string }[];
+    task_assignees?: { user_id: string; queue_position?: number | null; completed_at?: string | null }[];
     column_id?: string;
     is_continuous?: boolean;
 };
@@ -137,6 +139,19 @@ export default function MyQueue() {
     const [statusFilter, setStatusFilter] = useState<'OPEN' | 'OPEN_MY_PART_DONE' | 'DELIVERED'>('OPEN');
     const [sortOrder, setSortOrder] = useState<'PRIORITY' | 'TITLE' | 'CREATED_AT' | 'URGENCY' | 'MANUAL'>('PRIORITY');
 
+    const isAssignedToCurrentUser = (task: Task) => Boolean(
+        user?.id && (
+            task.assignee_id === user.id ||
+            task.task_assignees?.some(assignment => assignment.user_id === user.id)
+        )
+    );
+
+    const compareStablePosition = (a: Task, b: Task) => {
+        const aPosition = a.position ?? Number.MAX_SAFE_INTEGER;
+        const bPosition = b.position ?? Number.MAX_SAFE_INTEGER;
+        return aPosition - bPosition || a.task_number - b.task_number;
+    };
+
     useEffect(() => {
         if (user) {
             fetchTasks(); checkActiveTimer();
@@ -170,12 +185,12 @@ export default function MyQueue() {
 
         // TAB FILTER
         filtered = filtered.filter(task => {
-            if (activeTab === 'MINE') return task.assignee_id === user?.id;
+            if (activeTab === 'MINE') return isAssignedToCurrentUser(task);
             if (activeTab === 'CREATED') return task.created_by === user?.id;
             if (activeTab === 'REVIEW') {
                 return (
                     (task.status === 'REVIEW' || task.status === 'WAITING_CLIENT') &&
-                    (task.assignee_id === user?.id || task.created_by === user?.id)
+                    (isAssignedToCurrentUser(task) || task.created_by === user?.id)
                 );
             }
             return true;
@@ -204,22 +219,23 @@ export default function MyQueue() {
 
                 case 'PRIORITY': {
                     const priorityRank = { HIGH: 1, MEDIUM: 2, LOW: 3 };
-                    return priorityRank[a.priority] - priorityRank[b.priority];
+                    return priorityRank[a.priority] - priorityRank[b.priority] || compareStablePosition(a, b);
                 }
 
                 case 'TITLE':
-                    return a.title.localeCompare(b.title);
+                    return a.title.localeCompare(b.title) || a.task_number - b.task_number;
 
                 case 'CREATED_AT':
-                    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime() || a.task_number - b.task_number;
 
                 case 'URGENCY':
+                    if (!a.due_date && !b.due_date) return compareStablePosition(a, b);
                     if (!a.due_date) return 1;
                     if (!b.due_date) return -1;
-                    return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+                    return new Date(a.due_date).getTime() - new Date(b.due_date).getTime() || compareStablePosition(a, b);
 
                 case 'MANUAL':
-                    return (a.queue_position ?? 9999) - (b.queue_position ?? 9999);
+                    return (a.queue_position ?? Number.MAX_SAFE_INTEGER) - (b.queue_position ?? Number.MAX_SAFE_INTEGER) || compareStablePosition(a, b);
 
                 default:
                     return 0;
@@ -246,7 +262,18 @@ export default function MyQueue() {
     const fetchTasks = async () => {
         if (!user) return;
         try {
-            const { data } = await supabase
+            const { data: assignmentRows, error: assignmentError } = await supabase
+                .from('task_assignees')
+                .select('task_id')
+                .eq('user_id', user.id);
+
+            if (assignmentError) throw assignmentError;
+
+            const assignedTaskIds = assignmentRows?.map(row => row.task_id) || [];
+            const ownershipFilters = [`assignee_id.eq.${user.id}`, `created_by.eq.${user.id}`];
+            if (assignedTaskIds.length > 0) ownershipFilters.push(`id.in.(${assignedTaskIds.join(',')})`);
+
+            const { data, error } = await supabase
                 .from('tasks')
                 .select(`
                     *,
@@ -255,11 +282,15 @@ export default function MyQueue() {
                     assignee:users!tasks_assignee_id_fkey(full_name, avatar_url),
                     creator:users!tasks_created_by_fkey(id, full_name),
                     time_logs(duration_seconds),
-                    task_boards(board_id)
+                    task_boards(board_id),
+                    task_assignees(user_id, queue_position, completed_at)
                 `)
-                .or(`assignee_id.eq.${user.id},created_by.eq.${user.id}`)
+                .or(ownershipFilters.join(','))
                 // .neq('status', 'DONE')
-                .order('position', { ascending: true });
+                .order('position', { ascending: true })
+                .order('task_number', { ascending: true });
+
+            if (error) throw error;
 
             if (data) {
                 // 1. Resolve Effective Board ID for each task
@@ -268,7 +299,8 @@ export default function MyQueue() {
                     const projectBoardId = t.project?.board_id;
                     return {
                         ...t,
-                        board_id: explicitBoardId || projectBoardId
+                        board_id: explicitBoardId || projectBoardId,
+                        queue_position: t.task_assignees?.find((assignment: any) => assignment.user_id === user.id)?.queue_position ?? t.queue_position
                     };
                 });
 
@@ -299,18 +331,33 @@ export default function MyQueue() {
 
                 // Fallback: Sort tasks with null position to the end
                 const sortedTasks = (processedTasks || []).sort((a: any, b: any) => {
-                    if (a.position === null && b.position === null) return 0;
+                    if (a.position === null && b.position === null) return a.task_number - b.task_number;
                     if (a.position === null) return 1;
                     if (b.position === null) return -1;
-                    return a.position - b.position;
+                    return a.position - b.position || a.task_number - b.task_number;
                 });
                 setTasks(sortedTasks);
             }
         } catch (error) { console.error('Error fetching queue:', error); }
     };
 
+    useEffect(() => {
+        if (!user?.id) return;
+
+        const channel = supabase
+            .channel(`my-queue:${user.id}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, fetchTasks)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'task_assignees' }, fetchTasks)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'task_boards' }, fetchTasks)
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [user?.id]);
+
     const handleDragEnd = async (result: DropResult) => {
-        if (!result.destination) return;
+        if (!result.destination || !user) return;
 
         // Auto-switch to MANUAL sort when user drags
         setSortOrder('MANUAL');
@@ -320,13 +367,22 @@ export default function MyQueue() {
         items.splice(result.destination.index, 0, reorderedItem);
 
         setDisplayTasks(items);
+        const queuePositions = new Map(items.map((task, index) => [task.id, index]));
+        setTasks(currentTasks => currentTasks.map(task => (
+            queuePositions.has(task.id)
+                ? { ...task, queue_position: queuePositions.get(task.id) }
+                : task
+        )));
 
         try {
-            const updates = items.map((task, index) => ({ id: task.id, queue_position: index }));
-            for (const u of updates) {
-                await supabase.from('tasks').update({ queue_position: u.queue_position }).eq('id', u.id);
-            }
-        } catch (e) { console.error("Could not persist order:", e); }
+            const { error } = await supabase.rpc('reorder_my_queue', {
+                p_task_ids: items.map(task => task.id)
+            });
+            if (error) throw error;
+        } catch (e) {
+            console.error('Could not persist order:', e);
+            fetchTasks();
+        }
     };
 
     const checkActiveTimer = async () => {

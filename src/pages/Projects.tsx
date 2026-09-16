@@ -337,6 +337,9 @@ export default function Projects() {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'task_boards' }, () => {
                 fetchTasks();
             })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'task_assignees' }, () => {
+                fetchTasks();
+            })
             .subscribe();
 
         return () => {
@@ -366,7 +369,7 @@ export default function Projects() {
 
 
         // 3. Quick Filters
-        if (filterMine && user && task.assignee_id !== user.id) return false;
+        if (filterMine && user && task.assignee_id !== user.id && !task.task_assignees?.some(assignment => assignment.user_id === user.id)) return false;
         if (filterUrgent && task.priority !== 'HIGH') return false;
         if (filterOverdue && task.due_date && new Date(task.due_date) < new Date() && task.status !== 'DONE') return false;
 

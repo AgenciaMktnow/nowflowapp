@@ -29,6 +29,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 2. Main Metrics RPC
 -- Returns table of all organizations with usage data
+DROP FUNCTION IF EXISTS public.get_saas_metrics();
+
 CREATE OR REPLACE FUNCTION public.get_saas_metrics()
 RETURNS TABLE (
     org_id UUID,

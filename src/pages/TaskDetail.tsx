@@ -219,6 +219,26 @@ export default function TaskDetail() {
         }
     }, [task]);
 
+    useEffect(() => {
+        if (!task?.id) return;
+
+        const refreshTask = () => fetchTask();
+        const refreshComments = () => fetchComments();
+        const refreshAttachments = () => fetchAttachments(task.id);
+        const channel = supabase
+            .channel(`task-detail:${task.id}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `id=eq.${task.id}` }, refreshTask)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'task_assignees', filter: `task_id=eq.${task.id}` }, refreshTask)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'task_boards', filter: `task_id=eq.${task.id}` }, refreshTask)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'task_comments', filter: `task_id=eq.${task.id}` }, refreshComments)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'task_attachments', filter: `task_id=eq.${task.id}` }, refreshAttachments)
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [task?.id]);
+
     // Handle Deep Link Scrolling
     useEffect(() => {
         if (task && searchParams.get('tab') === 'comments') {

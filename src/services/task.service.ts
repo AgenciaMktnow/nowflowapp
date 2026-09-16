@@ -26,7 +26,7 @@ export interface Task {
     project?: { name: string; client_id?: string; board_id?: string; team_id?: string; client?: { name: string } };
     client?: { name: string };
     assignee?: { full_name: string; email: string; avatar_url?: string };
-    task_assignees?: { user_id: string; completed_at?: string }[];
+    task_assignees?: { user_id: string; completed_at?: string; queue_position?: number | null }[];
     comments_count?: number; // Virtual field often joined
     attachments?: any[];
     is_continuous?: boolean;
@@ -68,6 +68,7 @@ function mapTaskError(error: Error | null): Error | null {
 export const taskService = {
     async getTasks(filters?: { assigneeId?: string; projectId?: string; teamId?: string; boardId?: string; clientId?: string }): Promise<{ data: Task[] | null; error: Error | null }> {
         let clientProjectIds: string[] | null = null;
+        let assigneeTaskIds: string[] = [];
 
         // 1. Resolve Client Context (Many-to-Many via client_projects)
         // This overrides Member Context as per user request (Super Filter)
@@ -79,6 +80,16 @@ export const taskService = {
                 .eq('client_id', filters.clientId);
 
             clientProjectIds = data?.map(d => d.project_id) || [];
+        }
+
+        if (filters?.assigneeId) {
+            const { data, error } = await supabase
+                .from('task_assignees')
+                .select('task_id')
+                .eq('user_id', filters.assigneeId);
+
+            if (error) return { data: [], error: mapTaskError(error) };
+            assigneeTaskIds = data?.map(row => row.task_id) || [];
         }
 
         // 2. Resolve Scope (Board or Team) to Users
@@ -94,10 +105,11 @@ export const taskService = {
                 client_id,
                 project:projects(name, team_id),
                 assignee:users!tasks_assignee_id_fkey(full_name, email, avatar_url),
-                task_assignees(user_id, completed_at),
+                task_assignees(user_id, completed_at, queue_position),
                 task_boards(board_id)
             `)
-            .order('position', { ascending: true });
+            .order('position', { ascending: true })
+            .order('task_number', { ascending: true });
 
         // 4. Apply Filters
 
@@ -110,11 +122,12 @@ export const taskService = {
                     client_id,
                     project:projects(name, team_id),
                     assignee:users!tasks_assignee_id_fkey(full_name, email, avatar_url),
-                    task_assignees(user_id, completed_at),
+                    task_assignees(user_id, completed_at, queue_position),
                     task_boards!inner(board_id) 
                 `)
                 .eq('task_boards.board_id', filters.boardId)
-                .order('position', { ascending: true });
+                .order('position', { ascending: true })
+                .order('task_number', { ascending: true });
         }
 
         // STRICT TEAM FILTER
@@ -144,7 +157,11 @@ export const taskService = {
         if (filters?.projectId) query = query.eq('project_id', filters.projectId);
 
         // Assignee Filter
-        if (filters?.assigneeId) query = query.eq('assignee_id', filters.assigneeId);
+        if (filters?.assigneeId) {
+            const assigneeFilters = [`assignee_id.eq.${filters.assigneeId}`];
+            if (assigneeTaskIds.length > 0) assigneeFilters.push(`id.in.(${assigneeTaskIds.join(',')})`);
+            query = query.or(assigneeFilters.join(','));
+        }
 
         const { data, error } = await query;
         if (error) return { data: [], error: mapTaskError(error) };

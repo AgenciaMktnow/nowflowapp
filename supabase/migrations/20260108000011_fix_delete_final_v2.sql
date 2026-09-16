@@ -35,8 +35,19 @@ BEGIN
 END $$;
 
 
--- 3. COMPATIBILITY: Force 'activity_type' nullable again (just to be absolutely sure)
-ALTER TABLE public.task_activities ALTER COLUMN activity_type DROP NOT NULL;
+-- 3. COMPATIBILITY: Legacy databases may still have activity_type.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'task_activities'
+          AND column_name = 'activity_type'
+    ) THEN
+        ALTER TABLE public.task_activities ALTER COLUMN activity_type DROP NOT NULL;
+    END IF;
+END $$;
 
 
 -- 4. NEW DELETE TRIGGER (Optional: If we want to keep a ghost log or just let Cascade handle it)
@@ -47,4 +58,3 @@ ALTER TABLE public.task_activities ALTER COLUMN activity_type DROP NOT NULL;
 -- SO: The best fix is the CASCADE + Removing the bad trigger. 
 -- We will NOT add a new delete trigger that writes to task_activities, because it will be deleted anyway.
 -- This effectively "Corrija a função" by removing the broken logic.
-
