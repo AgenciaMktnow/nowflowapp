@@ -66,21 +66,8 @@ function mapTaskError(error: Error | null): Error | null {
 }
 
 export const taskService = {
-    async getTasks(filters?: { assigneeId?: string; projectId?: string; teamId?: string; boardId?: string; clientId?: string }): Promise<{ data: Task[] | null; error: Error | null }> {
-        let clientProjectIds: string[] | null = null;
+    async getTasks(filters?: { assigneeId?: string; projectId?: string; teamId?: string; boardId?: string; clientId?: string }, summaryOnly = false): Promise<{ data: Task[] | null; error: Error | null }> {
         let assigneeTaskIds: string[] = [];
-
-        // 1. Resolve Client Context (Many-to-Many via client_projects)
-        // This overrides Member Context as per user request (Super Filter)
-        if (filters?.clientId) {
-
-            const { data } = await supabase
-                .from('client_projects')
-                .select('project_id')
-                .eq('client_id', filters.clientId);
-
-            clientProjectIds = data?.map(d => d.project_id) || [];
-        }
 
         if (filters?.assigneeId) {
             const { data, error } = await supabase
@@ -98,16 +85,20 @@ export const taskService = {
 
         // 3. Build Query - FIXED
         // Used 'project:projects(name, team_id)' instead of !inner to avoid excluding tasks without projects if getting all
+        const taskColumns = summaryOnly
+            ? 'id, task_number, title, status, priority, due_date, project_id, client_id, created_by, assignee_id, column_id, estimated_time, position, created_at, attachments, is_continuous'
+            : '*, client_id';
+        const taskSelect = (boardFiltered: boolean): string => `
+            ${taskColumns},
+            project:projects(name, team_id),
+            assignee:users!tasks_assignee_id_fkey(full_name, email, avatar_url),
+            task_assignees(user_id, completed_at, queue_position),
+            task_boards${boardFiltered ? '!inner' : ''}(board_id)
+        `;
+
         let query = supabase
             .from('tasks')
-            .select(`
-                *,
-                client_id,
-                project:projects(name, team_id),
-                assignee:users!tasks_assignee_id_fkey(full_name, email, avatar_url),
-                task_assignees(user_id, completed_at, queue_position),
-                task_boards(board_id)
-            `)
+            .select(taskSelect(false))
             .order('position', { ascending: true })
             .order('task_number', { ascending: true });
 
@@ -117,14 +108,7 @@ export const taskService = {
         if (filters?.boardId) {
             query = supabase
                 .from('tasks')
-                .select(`
-                    *,
-                    client_id,
-                    project:projects(name, team_id),
-                    assignee:users!tasks_assignee_id_fkey(full_name, email, avatar_url),
-                    task_assignees(user_id, completed_at, queue_position),
-                    task_boards!inner(board_id) 
-                `)
+                .select(taskSelect(true))
                 .eq('task_boards.board_id', filters.boardId)
                 .order('position', { ascending: true })
                 .order('task_number', { ascending: true });
@@ -142,15 +126,7 @@ export const taskService = {
         }
 
         if (filters?.clientId) {
-            if (clientProjectIds && clientProjectIds.length > 0) {
-                // If specific project not selected, show all tasks from client's projects
-                if (!filters.projectId) {
-                    query = query.in('project_id', clientProjectIds);
-                }
-            } else {
-                // Client has no projects linked -> Show no tasks
-                if (!filters.projectId) return { data: [], error: null };
-            }
+            query = query.eq('client_id', filters.clientId);
         }
 
         // Project Drill-down

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { toast } from 'sonner';
@@ -16,12 +16,17 @@ import { projectService, type Project } from '../services/project.service';
 import { taskService, type Task } from '../services/task.service';
 import { boardService, type Board, type Column } from '../services/board.service';
 import { teamService, type Team } from '../services/team.service';
+import { planKanbanMove, sortTasksByPosition } from '../utils/kanbanOrder';
 
 export default function Projects() {
     const navigate = useNavigate();
     const { user } = useAuth();
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loadingTasks, setLoadingTasks] = useState(true);
+    const [visibleCompletedCount, setVisibleCompletedCount] = useState(50);
+    const taskRequestId = useRef(0);
+    const descriptionCache = useRef(new Map<string, string>());
+    const [descriptionFetchVersion, setDescriptionFetchVersion] = useState(0);
 
     // Filters
     const [selectedBoard, setSelectedBoard] = useState<string>('');
@@ -221,15 +226,45 @@ export default function Projects() {
         }
     }, [selectedBoard, selectedTeam, selectedClient, projects, clients, teams, allUsers, selectedProject, tasks]); // Added 'tasks' dependency
 
+    const fetchTasks = useCallback(async (showLoading = false) => {
+        const requestId = ++taskRequestId.current;
+        if (showLoading) setLoadingTasks(true);
+
+        const filters: any = {};
+        if (selectedProject) filters.projectId = selectedProject;
+        if (selectedBoard) filters.boardId = selectedBoard;
+        if (selectedClient) filters.clientId = selectedClient;
+        if (selectedTeam) filters.teamId = selectedTeam;
+        if (selectedUser) filters.assigneeId = selectedUser;
+
+        try {
+            const { data, error } = await taskService.getTasks(filters, true);
+            if (requestId !== taskRequestId.current) return;
+
+            if (error) {
+                console.error('Error fetching tasks:', error);
+                toast.error(`Erro ao carregar tarefas: ${error.message || (error as any).details || (error as any).hint || 'Erro desconhecido'}`);
+            } else if (data) {
+                setTasks(data.map(task => ({
+                    ...task,
+                    description: descriptionCache.current.get(task.id)
+                })));
+                setDescriptionFetchVersion(version => version + 1);
+            }
+        } finally {
+            if (requestId === taskRequestId.current) setLoadingTasks(false);
+        }
+    }, [selectedProject, selectedBoard, selectedClient, selectedTeam, selectedUser]);
+
     // Trigger Fetch on Filter Change
     useEffect(() => {
-        // Debounce could be added here if needed, but for now direct call
-        fetchTasks();
+        void fetchTasks(true);
 
         // Listen for task updates from TaskDetail page
         const handleTaskUpdate = () => {
             console.log('📡 Task update event received, refreshing Kanban...');
-            fetchTasks();
+            descriptionCache.current.clear();
+            void fetchTasks();
         };
 
         window.addEventListener('taskUpdated', handleTaskUpdate);
@@ -237,7 +272,7 @@ export default function Projects() {
         return () => {
             window.removeEventListener('taskUpdated', handleTaskUpdate);
         };
-    }, [selectedBoard, selectedClient, selectedTeam, selectedProject, filterMine, filterUrgent, filterOverdue]);
+    }, [fetchTasks]);
 
     // Helper Functions
     // Helper functions moved to TaskCard
@@ -279,10 +314,6 @@ export default function Projects() {
         }
     };
 
-    useEffect(() => {
-        fetchTasks();
-    }, [user, selectedProject, selectedBoard, selectedClient, selectedTeam, selectedUser]); // Re-fetch on any filter change
-
     // --- QUICK ACTIONS HANDLERS ---
     const handleEdit = (task: any) => {
         setEditTaskNumber(String(task.task_number));
@@ -303,49 +334,37 @@ export default function Projects() {
     };
     // ------------------------------
 
-    const fetchTasks = async () => {
-        setLoadingTasks(true);
-        const filters: any = {};
-
-        if (selectedProject) filters.projectId = selectedProject;
-        if (selectedBoard) filters.boardId = selectedBoard; // Now supported by service
-        if (selectedClient) filters.clientId = selectedClient; // Now supported by service
-        if (selectedTeam) filters.teamId = selectedTeam; // Now supported by service
-        if (selectedUser) filters.assigneeId = selectedUser;
-
-        const { data, error } = await taskService.getTasks(filters);
-
-        if (error) {
-            console.error('Error fetching tasks:', error);
-            toast.error(`Erro ao carregar tarefas: ${error.message || (error as any).details || (error as any).hint || 'Erro desconhecido'}`);
-        } else if (data) {
-            setTasks(data);
-        }
-        setLoadingTasks(false);
-    };
-
     // Real-time Sync
     useEffect(() => {
+        let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+        const scheduleRefresh = () => {
+            if (refreshTimer) return;
+            refreshTimer = setTimeout(() => {
+                refreshTimer = undefined;
+                void fetchTasks();
+            }, 250);
+        };
         const channel = supabase
             .channel('public:tasks')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
-                // Simple re-fetch strategy for now to ensure consistency
-                // Advanced: Optimistic updates based on payload
                 console.log('Real-time update:', payload);
-                fetchTasks();
+                const changedId = (payload.new as { id?: string })?.id || (payload.old as { id?: string })?.id;
+                if (changedId) descriptionCache.current.delete(changedId);
+                scheduleRefresh();
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'task_boards' }, () => {
-                fetchTasks();
+                scheduleRefresh();
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'task_assignees' }, () => {
-                fetchTasks();
+                scheduleRefresh();
             })
             .subscribe();
 
         return () => {
+            if (refreshTimer) clearTimeout(refreshTimer);
             supabase.removeChannel(channel);
         };
-    }, [selectedProject, selectedBoard, selectedClient, selectedTeam, selectedUser]);
+    }, [fetchTasks]);
 
     // Filter Tasks (Client Side - Double Check / Search / Quick Filters)
     const filteredTasks = tasks.filter(task => {
@@ -365,6 +384,7 @@ export default function Projects() {
         // Note: Backend handles Board/Team member logic (User-Centric) AND Client Many-to-Many logic.
         // We trust the backend for Client/Board/Team filtering. Only Project ID drills down strictly on task.
         if (selectedProject && task.project_id !== selectedProject) return false;
+        if (selectedClient && task.client_id !== selectedClient) return false;
 
 
 
@@ -375,6 +395,61 @@ export default function Projects() {
 
         return true;
     });
+
+    const taskBelongsToColumn = (task: Task, column: Column) => {
+        if (column.id.startsWith('def-')) return column.statuses.includes(task.status);
+        if (task.column_id === column.id) return true;
+        if (!task.column_id && column.statuses.includes(task.status)) {
+            return columns.find(candidate => candidate.statuses.includes(task.status))?.id === column.id;
+        }
+        return false;
+    };
+    const getColumnTasks = (column: Column) => filteredTasks.filter(task => taskBelongsToColumn(task, column));
+
+    const visibleDescriptionIds = columns.flatMap(column => {
+        const columnTasks = getColumnTasks(column);
+        const visibleTasks = column.variant === 'done'
+            ? columnTasks.slice(0, visibleCompletedCount)
+            : columnTasks;
+        return visibleTasks.map(task => task.id);
+    });
+    const visibleDescriptionKey = visibleDescriptionIds.join(',');
+
+    useEffect(() => {
+        const missingIds = visibleDescriptionIds.filter(id => !descriptionCache.current.has(id));
+        if (missingIds.length === 0) return;
+
+        const requestId = taskRequestId.current;
+        const loadDescriptions = async () => {
+            const batches = [];
+            for (let index = 0; index < missingIds.length; index += 50) {
+                batches.push(missingIds.slice(index, index + 50));
+            }
+
+            const results = await Promise.all(batches.map(ids =>
+                supabase.from('tasks').select('id, description').in('id', ids)
+            ));
+            if (requestId !== taskRequestId.current) return;
+
+            const error = results.find(result => result.error)?.error;
+            if (error) {
+                console.error('Error fetching Kanban checklists:', error);
+                return;
+            }
+
+            results.forEach(result => result.data?.forEach(row => {
+                descriptionCache.current.set(row.id, row.description || '');
+            }));
+            setTasks(current => current.map(task => {
+                const description = descriptionCache.current.get(task.id);
+                return description !== undefined && description !== task.description
+                    ? { ...task, description }
+                    : task;
+            }));
+        };
+
+        void loadDescriptions();
+    }, [visibleDescriptionKey, descriptionFetchVersion]);
 
     const checkActiveTeamLogs = async () => {
         try {
@@ -454,7 +529,6 @@ export default function Projects() {
     };
 
     const onDragEnd = async (result: DropResult) => {
-        console.log('onDragEnd Triggered:', result);
         const { destination, source, type, draggableId } = result;
         if (!destination) return;
         if (destination.droppableId === source.droppableId && destination.index === source.index) return;
@@ -473,57 +547,14 @@ export default function Projects() {
         if (type === 'TASK') {
             const sourceColumnId = source.droppableId;
             const destColumnId = destination.droppableId;
-            const destIndex = destination.index;
-
-            // 1. Find the tasks in the destination column purely for calculation
-            // CRITICAL: We must use the EXACT same filtering logic as the render method to ensure 'destIndex' matches the filtered array.
-
             const destColumn = columns.find(c => c.id === destColumnId);
-
-            const destColumnTasks = tasks
-                .filter(t => {
-                    // Exclude self from the "existing neighbors" list
-                    if (t.id === draggableId) return false;
-
-                    // Logic matching the Render Method:
-                    if (destColumnId.startsWith('def-')) {
-                        // Default columns: match by status
-                        return destColumn?.statuses?.includes(t.status);
-                    }
-
-                    // Custom columns
-                    if (t.column_id === destColumnId) return true;
-
-                    // Fallback for tasks without column_id matching status (if applicable)
-                    if (!t.column_id && destColumn?.statuses?.includes(t.status)) {
-                        const primaryColumn = columns.find(c => c.statuses.includes(t.status));
-                        return primaryColumn?.id === destColumnId;
-                    }
-                    return false;
-                })
-                .sort((a, b) => (a.position || 0) - (b.position || 0)); // Ensure sorted by position
-
-            // 2. Calculate New Position (Standard Fractional Indexing)
-            let newPosition = 0;
-
-            if (destColumnTasks.length === 0) {
-                newPosition = 1000;
-            } else if (destIndex === 0) {
-                // Top
-                newPosition = (destColumnTasks[0].position || 0) / 2;
-                if (newPosition < 1) newPosition = 1;
-            } else if (destIndex >= destColumnTasks.length) {
-                // Bottom
-                const last = destColumnTasks[destColumnTasks.length - 1];
-                newPosition = (last.position || 0) + 1000;
-            } else {
-                // Middle
-                const prev = destColumnTasks[destIndex - 1];
-                const next = destColumnTasks[destIndex];
-                newPosition = ((prev.position || 0) + (next.position || 0)) / 2;
-            }
-
-            // 3. Determine New Status (Visual Only for now, backend triggers/logic might override status but position is key)
+            if (!destColumn) return;
+            const columnTasks = tasks.filter(task => taskBelongsToColumn(task, destColumn));
+            const renderedTasks = getColumnTasks(destColumn);
+            const visibleTasks = destColumn.variant === 'done'
+                ? renderedTasks.slice(0, visibleCompletedCount)
+                : renderedTasks;
+            const move = planKanbanMove(columnTasks, visibleTasks, draggableId, destination.index);
 
             let newStatus = tasks.find(t => t.id === draggableId)?.status || 'TODO';
 
@@ -535,38 +566,40 @@ export default function Projects() {
                 }
             }
 
-            // 4. Update State Optimistically
-            // Use map to return new array, ensuring sorting holds visually? 
-            // Actually, DND library handles the visual 'gap'. We just need to update the data so next render puts it there.
-            // But since our Sort is by 'position', updating the position is crucial for the list to remain stable after re-render / fetch.
+            const nextColumnId = destColumn.id.startsWith('def-') ? null : destColumnId;
+            const positions = move.position === null
+                ? new Map(move.orderedIds.map((id, index) => [id, (index + 1) * 1000]))
+                : new Map([[draggableId, move.position]]);
+
             setTasks(prevTasks => {
                 const updated = prevTasks.map(t =>
-                    t.id === draggableId
-                        ? { ...t, status: newStatus as any, column_id: destColumnId, position: newPosition }
-                        : t
+                    t.id === draggableId ? {
+                        ...t, status: newStatus as Task['status'],
+                        column_id: nextColumnId ?? undefined,
+                        position: positions.get(t.id) ?? t.position,
+                    } : positions.has(t.id) ? { ...t, position: positions.get(t.id) } : t
                 );
-                // We must re-sort the state immediately to match the new positions, 
-                // otherwise the UI might jump if the DND library relinquishes control and React renders unsorted data.
-                return updated.sort((a, b) => (a.position || 0) - (b.position || 0));
+                return sortTasksByPosition(updated);
             });
 
-            // 5. Persist to Backend
-            const updates: any = { status: newStatus as any, position: newPosition };
-            if (destColumn && !destColumn.id.startsWith('def-')) {
-                updates.column_id = destColumnId;
-            }
-
-            console.log('Moving Task:', { draggableId, newPosition, newStatus, destIndex, neighbors: destColumnTasks.map(t => t.position) });
-
             try {
-                // Use taskService for batch or direct update? 
-                // Direct Supabase call is fine here as per existing pattern
-                const { error } = await supabase.from('tasks').update(updates).eq('id', draggableId);
+                const { error } = move.position === null
+                    ? await supabase.rpc('reorder_kanban_tasks', {
+                        p_task_ids: move.orderedIds,
+                        p_moved_task_id: draggableId,
+                        p_status: newStatus,
+                        p_column_id: nextColumnId,
+                    })
+                    : await supabase.from('tasks').update({
+                        status: newStatus,
+                        position: move.position,
+                        column_id: nextColumnId,
+                    }).eq('id', draggableId);
                 if (error) throw error;
             } catch (error) {
                 console.error('Error moving task:', error);
                 toast.error('Erro ao mover tarefa');
-                fetchTasks(); // Revert on error
+                void fetchTasks();
             }
         }
     };
@@ -770,26 +803,12 @@ export default function Projects() {
                                     {...provided.droppableProps}
                                 >
                                     {columns.map((column, index) => {
-                                        const columnTasks = filteredTasks.filter(t => {
-                                            // If the column is a default (virtual) column, use status matching.
-                                            // Virtual columns are unique by status, so duplication isn't an issue.
-                                            if (column.id.startsWith('def-')) {
-                                                return column.statuses.includes(t.status);
-                                            }
-
-                                            // Otherwise, if we are in a specific project with custom columns, match by column_id
-                                            if (t.column_id === column.id) return true;
-
-                                            // Fallback for tasks without column_id (legacy or status-based)
-                                            // CRITICAL: prevents duplication by only showing in the FIRST matching column 
-                                            if (!t.column_id && column.statuses.includes(t.status)) {
-                                                const primaryColumn = columns.find(c => c.statuses.includes(t.status));
-                                                return primaryColumn?.id === column.id;
-                                            }
-                                            return false;
-                                        });
+                                        const columnTasks = getColumnTasks(column);
 
                                         const totalTime = calculateColumnTotalTime(columnTasks);
+                                        const visibleColumnTasks = column.variant === 'done'
+                                            ? columnTasks.slice(0, visibleCompletedCount)
+                                            : columnTasks;
 
                                         return (
                                             <Draggable key={column.id} draggableId={column.id} index={index}>
@@ -842,7 +861,7 @@ export default function Projects() {
                                                                     {...provided.droppableProps}
                                                                     className={`flex-1 overflow-y-auto p-2 custom-scrollbar transition-colors duration-200 ${snapshot.isDraggingOver ? 'bg-white/5' : ''}`}
                                                                 >
-                                                                    {columnTasks.map((task, index) => {
+                                                                    {visibleColumnTasks.map((task, index) => {
                                                                         const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== 'DONE';
 
                                                                         return (
@@ -861,6 +880,16 @@ export default function Projects() {
                                                                         );
                                                                     })}
                                                                     {provided.placeholder}
+
+                                                                    {visibleColumnTasks.length < columnTasks.length && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setVisibleCompletedCount(count => count + 50)}
+                                                                            className="w-full py-3 text-xs font-semibold text-primary hover:text-white border border-primary/20 hover:border-primary/50 rounded-lg"
+                                                                        >
+                                                                            Mostrar mais ({columnTasks.length - visibleColumnTasks.length})
+                                                                        </button>
+                                                                    )}
 
                                                                     {columnTasks.length === 0 && (
                                                                         <div className="h-20 flex items-center justify-center text-text-muted/20 border-2 border-dashed border-white/5 rounded-lg text-xs">

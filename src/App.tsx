@@ -1,37 +1,36 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import LandingPage from './pages/LandingPage';
 import Layout from './components/Layout';
-import Login from './pages/Login';
-import Signup from './pages/SignUp';
-import ResetPassword from './pages/ResetPassword';
-import SetupPassword from './pages/SetupPassword';
-import AuthCallback from './pages/AuthCallback';
-import Dashboard from './pages/Dashboard';
-import Projects from './pages/Projects';
-import CreateProject from './pages/CreateProject';
-import SaasDashboard from './pages/admin/SaasDashboard';
-import TimeTracking from './pages/TimeTracking';
-import Roadmap from './pages/Roadmap';
-import Contact from './pages/Contact';
-import Legal from './pages/Legal';
-import About from './pages/About';
-import Security from './pages/Security';
-import Help from './pages/Help';
-
-import NewTask from './pages/NewTask';
-import TaskDetail from './pages/TaskDetail';
-import Settings from './pages/Settings';
-import Profile from './pages/Profile';
-import NotFound from './pages/NotFound';
-
-import MyQueue from './pages/MyQueue';
-import TaskCalendar from './pages/TaskCalendar';
-import ClientPortfolios from './pages/ClientPortfolios';
 import { ToastProvider } from './components/ui/ToastProvider';
 import { SettingsProvider } from './contexts/SettingsContext';
+
+const LandingPage = lazy(() => import('./pages/LandingPage'));
+const Login = lazy(() => import('./pages/Login'));
+const Signup = lazy(() => import('./pages/SignUp'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const SetupPassword = lazy(() => import('./pages/SetupPassword'));
+const AuthCallback = lazy(() => import('./pages/AuthCallback'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Projects = lazy(() => import('./pages/Projects'));
+const CreateProject = lazy(() => import('./pages/CreateProject'));
+const SaasDashboard = lazy(() => import('./pages/admin/SaasDashboard'));
+const TimeTracking = lazy(() => import('./pages/TimeTracking'));
+const Roadmap = lazy(() => import('./pages/Roadmap'));
+const Contact = lazy(() => import('./pages/Contact'));
+const Legal = lazy(() => import('./pages/Legal'));
+const About = lazy(() => import('./pages/About'));
+const Security = lazy(() => import('./pages/Security'));
+const Help = lazy(() => import('./pages/Help'));
+const NewTask = lazy(() => import('./pages/NewTask'));
+const TaskDetail = lazy(() => import('./pages/TaskDetail'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Profile = lazy(() => import('./pages/Profile'));
+const NotFound = lazy(() => import('./pages/NotFound'));
+const MyQueue = lazy(() => import('./pages/MyQueue'));
+const TaskCalendar = lazy(() => import('./pages/TaskCalendar'));
+const ClientPortfolios = lazy(() => import('./pages/ClientPortfolios'));
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
@@ -85,7 +84,8 @@ function App() {
       <AuthProvider>
         <SettingsProvider>
           <ErrorBoundary>
-            <Routes>
+            <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-background-dark text-white">Carregando...</div>}>
+              <Routes>
               <Route path="/" element={<RootHandler />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
@@ -125,7 +125,8 @@ function App() {
                 <Route path="help" element={<Help />} />
               </Route>
               <Route path="*" element={<NotFound />} />
-            </Routes>
+              </Routes>
+            </Suspense>
           </ErrorBoundary>
           <ToastProvider />
         </SettingsProvider>

@@ -37,29 +37,31 @@ export const useTaskActions = () => {
         setLoading(true);
 
         try {
-            // 1a. Fetch relations explicitly to ensure we have them (ListViews might not fetch deep relations)
-            const { data: originalRelations } = await supabase
+            // List views may omit large fields, so clone from the current database row.
+            const { data: originalTask, error: originalError } = await supabase
                 .from('tasks')
                 .select(`
-                    id,
+                    *,
                     task_boards(board_id),
                     task_assignees(user_id)
                 `)
                 .eq('id', task.id)
                 .single();
+            if (originalError) throw originalError;
+            if (!originalTask) throw new Error('Tarefa original não encontrada.');
 
             // 1. Prepare Base Data
             const cloneData: any = {
-                title: `${task.title} (Cópia)`,
-                priority: task.priority,
+                title: `${originalTask.title} (Cópia)`,
+                priority: originalTask.priority,
                 created_by: user.id,
-                description: task.description,
-                client_id: task.client?.id || task.client_id,
-                project_id: task.project?.id || task.project_id,
-                workflow_id: task.workflow?.id || task.workflow_id,
+                description: originalTask.description,
+                client_id: originalTask.client_id,
+                project_id: originalTask.project_id,
+                workflow_id: originalTask.workflow_id,
                 status: 'BACKLOG',
-                due_date: task.due_date,
-                tags: task.tags
+                due_date: originalTask.due_date,
+                tags: originalTask.tags
             };
 
             // 2. Insert New Task
@@ -76,7 +78,7 @@ export const useTaskActions = () => {
 
             // 3a. Boards
             // Combine DB results with task props as fallback
-            const dbBoardIds = originalRelations?.task_boards?.map((tb: any) => tb.board_id) || [];
+            const dbBoardIds = originalTask.task_boards?.map((tb: any) => tb.board_id) || [];
             const propBoardIds = task.board_ids || (task.project?.board_id ? [task.project.board_id] : []) || [];
 
             // Deduplicate
@@ -92,7 +94,7 @@ export const useTaskActions = () => {
             }
 
             // 3b. Assignees
-            const dbAssigneeIds = originalRelations?.task_assignees?.map((ta: any) => ta.user_id) || [];
+            const dbAssigneeIds = originalTask.task_assignees?.map((ta: any) => ta.user_id) || [];
             const propAssigneeIds = task.task_assignees?.map((ta: any) => ta.user_id || ta.user?.id)
                 || task.assignees?.map((a: any) => a.id)
                 || (task.assignee_id ? [task.assignee_id] : [])

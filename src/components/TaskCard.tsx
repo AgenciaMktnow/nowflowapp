@@ -1,5 +1,5 @@
 import { Draggable } from '@hello-pangea/dnd';
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import TaskActionMenu from './TaskActionMenu';
 import { extractChecklistFromHtml } from '../utils/checklist';
 import { useNavigate } from 'react-router-dom';
@@ -58,7 +58,7 @@ const TaskCard = ({ task, index, columnVariant, isOverdue, clientsList, activeTe
 
     const attachmentCount = task.attachments?.length || 0;
     const hasChecklist = task.description?.includes('ul data-type="taskList"');
-    const checklistStats = extractChecklistFromHtml(task.description || '');
+    const checklistStats = useMemo(() => extractChecklistFromHtml(task.description || ''), [task.description]);
     const checklistProgress = checklistStats.total > 0 ? Math.round((checklistStats.completed / checklistStats.total) * 100) : 0;
 
     return (

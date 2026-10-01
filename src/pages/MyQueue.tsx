@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -19,7 +19,6 @@ type Task = {
     status: 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'WAITING_CLIENT' | 'REVIEW' | 'DONE';
     priority: 'LOW' | 'MEDIUM' | 'HIGH';
     due_date: string;
-    updated_at: string;
     created_at: string;
     created_by?: string;
     assignee_id?: string;
@@ -51,10 +50,40 @@ type Task = {
     is_continuous?: boolean;
 };
 
+const QueueLoadingSkeleton = () => (
+    <div className="flex flex-col gap-4" role="status" aria-label="Carregando tarefas">
+        {[0, 1, 2].map(index => (
+            <div
+                key={index}
+                className="flex min-h-[156px] items-center gap-5 rounded-xl border border-white/5 bg-surface-highlight p-6 animate-pulse"
+            >
+                <div className="h-8 w-8 shrink-0 rounded-lg bg-white/5" />
+                <div className="flex min-w-0 flex-1 flex-col gap-3">
+                    <div className="flex gap-2">
+                        <div className="h-6 w-28 rounded bg-white/10" />
+                        <div className="h-6 w-16 rounded bg-white/5" />
+                    </div>
+                    <div className="h-6 w-full max-w-xl rounded bg-white/10" />
+                    <div className="h-4 w-44 rounded bg-white/5" />
+                </div>
+                <div className="hidden h-10 w-72 rounded-xl bg-white/5 lg:block" />
+                <div className="flex shrink-0 gap-3">
+                    <div className="size-14 rounded-full bg-white/10" />
+                    <div className="size-14 rounded-full bg-white/10" />
+                </div>
+            </div>
+        ))}
+        <span className="sr-only">Carregando tarefas da sua fila...</span>
+    </div>
+);
+
 export default function MyQueue() {
     const { user, userProfile } = useAuth();
     const navigate = useNavigate();
     const [tasks, setTasks] = useState<Task[]>([]);
+    const taskRequestId = useRef(0);
+    const [isLoadingTasks, setIsLoadingTasks] = useState(true);
+    const [showLoadingSkeleton, setShowLoadingSkeleton] = useState(false);
     const [displayTasks, setDisplayTasks] = useState<Task[]>([]);
     const [activeTab, setActiveTab] = useState<'MINE' | 'CREATED' | 'REVIEW'>('MINE');
     const [viewMode, setViewMode] = useState<'PERSONAL' | 'WORKLOAD'>('PERSONAL');
@@ -69,6 +98,16 @@ export default function MyQueue() {
     const [timerElapsedTime, setTimerElapsedTime] = useState(0);
     const [historicTime, setHistoricTime] = useState(0); // Add state for historic time
     const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!isLoadingTasks || tasks.length > 0) {
+            setShowLoadingSkeleton(false);
+            return;
+        }
+
+        const timer = window.setTimeout(() => setShowLoadingSkeleton(true), 150);
+        return () => window.clearTimeout(timer);
+    }, [isLoadingTasks, tasks.length]);
 
     // Initial Fetch for Workload
     useEffect(() => {
@@ -261,6 +300,8 @@ export default function MyQueue() {
 
     const fetchTasks = async () => {
         if (!user) return;
+        const requestId = ++taskRequestId.current;
+        setIsLoadingTasks(true);
         try {
             const { data: assignmentRows, error: assignmentError } = await supabase
                 .from('task_assignees')
@@ -276,7 +317,9 @@ export default function MyQueue() {
             const { data, error } = await supabase
                 .from('tasks')
                 .select(`
-                    *,
+                    id, task_number, title, status, priority, due_date,
+                    created_at, created_by, assignee_id, project_id,
+                    position, queue_position, column_id, is_continuous,
                     client:client_id(name),
                     project:projects(name, client_id, board_id, client:client_id(name)),
                     assignee:users!tasks_assignee_id_fkey(full_name, avatar_url),
@@ -291,6 +334,7 @@ export default function MyQueue() {
                 .order('task_number', { ascending: true });
 
             if (error) throw error;
+            if (requestId !== taskRequestId.current) return;
 
             if (data) {
                 // 1. Resolve Effective Board ID for each task
@@ -313,6 +357,8 @@ export default function MyQueue() {
                         .select('*')
                         .in('board_id', uniqueBoardIds)
                         .order('position', { ascending: true });
+
+                    if (requestId !== taskRequestId.current) return;
 
                     if (colsData) {
                         const colsMap: Record<string, any[]> = {};
@@ -338,20 +384,33 @@ export default function MyQueue() {
                 });
                 setTasks(sortedTasks);
             }
-        } catch (error) { console.error('Error fetching queue:', error); }
+        } catch (error) {
+            console.error('Error fetching queue:', error);
+        } finally {
+            if (requestId === taskRequestId.current) setIsLoadingTasks(false);
+        }
     };
 
     useEffect(() => {
         if (!user?.id) return;
 
+        let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+        const scheduleRefresh = () => {
+            if (refreshTimer) return;
+            refreshTimer = setTimeout(() => {
+                refreshTimer = undefined;
+                void fetchTasks();
+            }, 250);
+        };
         const channel = supabase
             .channel(`my-queue:${user.id}`)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, fetchTasks)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'task_assignees' }, fetchTasks)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'task_boards' }, fetchTasks)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, scheduleRefresh)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'task_assignees' }, scheduleRefresh)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'task_boards' }, scheduleRefresh)
             .subscribe();
 
         return () => {
+            if (refreshTimer) clearTimeout(refreshTimer);
             supabase.removeChannel(channel);
         };
     }, [user?.id]);
@@ -626,7 +685,9 @@ export default function MyQueue() {
 
                             {/* Task Counter */}
                             <div className="flex items-center gap-2 text-text-secondary">
-                                <span className="material-symbols-outlined text-lg">task_alt</span>
+                                <span className={`material-symbols-outlined text-lg ${isLoadingTasks && tasks.length > 0 ? 'animate-spin text-primary' : ''}`}>
+                                    {isLoadingTasks && tasks.length > 0 ? 'progress_activity' : 'task_alt'}
+                                </span>
                                 <span className="text-sm font-medium">{displayTasks.length} {displayTasks.length === 1 ? 'tarefa' : 'tarefas'}</span>
                             </div>
 
@@ -659,8 +720,11 @@ export default function MyQueue() {
                                         className="flex flex-col gap-4"
                                         {...provided.droppableProps}
                                         ref={provided.innerRef}
+                                        aria-busy={isLoadingTasks}
                                     >
-                                        {displayTasks.map((task, index) => {
+                                        {showLoadingSkeleton && tasks.length === 0 ? (
+                                            <QueueLoadingSkeleton />
+                                        ) : displayTasks.map((task, index) => {
                                             const isTimerActive = activeTimerTask?.id === task.id;
                                             return (
                                                 <Draggable key={task.id} draggableId={task.id} index={index}>
@@ -892,7 +956,7 @@ export default function MyQueue() {
                                             );
                                         })}
                                         {provided.placeholder}
-                                        {displayTasks.length === 0 && (
+                                        {!isLoadingTasks && displayTasks.length === 0 && (
                                             <div className="text-center py-32 text-text-secondary">
                                                 <span className="material-symbols-outlined text-6xl mb-4 opacity-30">inbox</span>
                                                 <p className="text-lg font-medium">Sua fila está vazia.</p>
