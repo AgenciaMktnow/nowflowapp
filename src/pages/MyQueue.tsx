@@ -12,6 +12,7 @@ import MultiSelectDropdown from '../components/MultiSelectDropdown';
 import WorkloadBoard from '../components/WorkloadBoard';
 import { taskService } from '../services/task.service';
 import UserAvatar from '../components/common/UserAvatar';
+import { isTaskAssignedToUser, matchesQueueStatus } from '../utils/myQueue';
 
 type Task = {
     id: string;
@@ -45,7 +46,16 @@ type Task = {
     // Board logic
     board_id?: string; // Resolved effective board ID
     task_boards?: { board_id: string }[];
-    task_assignees?: { user_id: string; queue_position?: number | null; completed_at?: string | null }[];
+    task_assignees?: {
+        user_id: string;
+        queue_position?: number | null;
+        completed_at?: string | null;
+        user?: {
+            id: string;
+            full_name: string;
+            avatar_url?: string | null;
+        };
+    }[];
     column_id?: string;
     is_continuous?: boolean;
 };
@@ -176,14 +186,9 @@ export default function MyQueue() {
 
     // Toolbar controls
     const [statusFilter, setStatusFilter] = useState<'OPEN' | 'OPEN_MY_PART_DONE' | 'DELIVERED'>('OPEN');
-    const [sortOrder, setSortOrder] = useState<'PRIORITY' | 'TITLE' | 'CREATED_AT' | 'URGENCY' | 'MANUAL'>('PRIORITY');
+    const [sortOrder, setSortOrder] = useState<'PRIORITY' | 'TITLE' | 'CREATED_AT' | 'URGENCY' | 'MANUAL'>('MANUAL');
 
-    const isAssignedToCurrentUser = (task: Task) => Boolean(
-        user?.id && (
-            task.assignee_id === user.id ||
-            task.task_assignees?.some(assignment => assignment.user_id === user.id)
-        )
-    );
+    const isAssignedToCurrentUser = (task: Task) => isTaskAssignedToUser(task, user?.id);
 
     const compareStablePosition = (a: Task, b: Task) => {
         const aPosition = a.position ?? Number.MAX_SAFE_INTEGER;
@@ -236,21 +241,7 @@ export default function MyQueue() {
         });
 
         // STATUS FILTER
-        filtered = filtered.filter(task => {
-            if (statusFilter === 'OPEN') {
-                return task.status !== 'DONE';
-            }
-
-            if (statusFilter === 'OPEN_MY_PART_DONE') {
-                return task.status === 'REVIEW' || task.status === 'WAITING_CLIENT';
-            }
-
-            if (statusFilter === 'DELIVERED') {
-                return task.status === 'DONE';
-            }
-
-            return true;
-        });
+        filtered = filtered.filter(task => matchesQueueStatus(task, user?.id, activeTab, statusFilter));
 
         // SORTING
         filtered.sort((a, b) => {
@@ -326,7 +317,12 @@ export default function MyQueue() {
                     creator:users!tasks_created_by_fkey(id, full_name),
                     time_logs(duration_seconds),
                     task_boards(board_id),
-                    task_assignees(user_id, queue_position, completed_at)
+                    task_assignees(
+                        user_id,
+                        queue_position,
+                        completed_at,
+                        user:users(id, full_name, avatar_url)
+                    )
                 `)
                 .or(ownershipFilters.join(','))
                 // .neq('status', 'DONE')
@@ -792,12 +788,48 @@ export default function MyQueue() {
                                                                             <span>{new Date(task.due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' })}</span>
                                                                         </div>
                                                                     )}
-                                                                    {task.assignee && (
-                                                                        <div className="flex items-center gap-1.5">
-                                                                            <UserAvatar user={task.assignee} size="xs" />
-                                                                            <span className="text-xs">{task.assignee.full_name || 'Desconhecido'}</span>
-                                                                        </div>
-                                                                    )}
+                                                                    {(() => {
+                                                                        const relatedAssignees = (task.task_assignees || [])
+                                                                            .filter(assignment => assignment.user)
+                                                                            .map(assignment => ({
+                                                                                ...assignment.user!,
+                                                                                completed_at: assignment.completed_at,
+                                                                            }));
+                                                                        const assignees = relatedAssignees.length > 0
+                                                                            ? relatedAssignees
+                                                                            : task.assignee
+                                                                                ? [{ ...task.assignee, id: task.assignee_id || 'legacy', completed_at: null }]
+                                                                                : [];
+
+                                                                        if (assignees.length === 0) return null;
+
+                                                                        return (
+                                                                            <div
+                                                                                className="flex min-w-0 items-center gap-1.5"
+                                                                                title={assignees.map(assignee => assignee.full_name).join(', ')}
+                                                                            >
+                                                                                <div className="flex shrink-0 -space-x-1.5">
+                                                                                    {assignees.slice(0, 3).map(assignee => (
+                                                                                        <div key={assignee.id} className="relative">
+                                                                                            <UserAvatar
+                                                                                                user={assignee}
+                                                                                                size="xs"
+                                                                                                className="ring-2 ring-surface-highlight"
+                                                                                            />
+                                                                                            {assignee.completed_at && (
+                                                                                                <span className="absolute -bottom-0.5 -right-0.5 flex size-2.5 items-center justify-center rounded-full bg-green-500 text-[7px] font-bold text-black ring-1 ring-surface-highlight">
+                                                                                                    &#10003;
+                                                                                                </span>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                                <span className="max-w-[220px] truncate text-xs">
+                                                                                    {assignees.map(assignee => assignee.full_name || 'Desconhecido').join(', ')}
+                                                                                </span>
+                                                                            </div>
+                                                                        );
+                                                                    })()}
                                                                 </div>
                                                             </div>
 
