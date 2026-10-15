@@ -72,7 +72,7 @@ const WorkloadColumn = ({ userId, user, tasks, onTaskClick }: WorkloadColumnProp
                     >
                         {tasks.map((task, index) => (
                             <WorkloadTaskCard
-                                key={task.id}
+                                key={task.draggable_id || task.id}
                                 task={task}
                                 index={index}
                                 onClick={onTaskClick}

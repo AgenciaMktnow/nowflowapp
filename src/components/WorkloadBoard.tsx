@@ -1,259 +1,192 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DragDropContext, type DropResult } from '@hello-pangea/dnd';
 import { supabase } from '../lib/supabase';
 import WorkloadColumn from './WorkloadColumn';
 import { toast } from 'sonner';
+import {
+    applyWorkloadMove,
+    groupWorkloadTasks,
+    type WorkloadAssignment,
+    type WorkloadTaskBase,
+} from '../utils/workloadQueue';
 
 interface WorkloadBoardProps {
     users: { id: string; full_name: string; avatar_url?: string }[];
     teamId?: string;
-    onTaskClick: (task: any) => void;
+    onTaskClick: (task: WorkloadTask) => void;
 }
 
-const compareTaskPosition = (a: any, b: any) => {
-    const positionA = a.position ?? Number.MAX_SAFE_INTEGER;
-    const positionB = b.position ?? Number.MAX_SAFE_INTEGER;
-    return positionA - positionB || a.task_number - b.task_number;
+type WorkloadTask = WorkloadTaskBase & {
+    title: string;
+    status: string;
+    priority: string;
+    due_date?: string | null;
+    estimated_time?: number | null;
+    is_continuous?: boolean;
+    project?: { name: string; client?: { name: string } | null } | null;
+    client?: { name: string } | null;
+    task_assignees?: WorkloadAssignment[];
 };
 
+const activeStatuses = ['BACKLOG', 'TODO', 'IN_PROGRESS', 'WAITING_CLIENT', 'REVIEW'];
+const taskSelect = `
+    id, task_number, title, status, priority, due_date, estimated_time,
+    is_continuous, assignee_id, position, queue_position,
+    project:projects(name, client:clients(name)),
+    task_assignees(user_id, queue_position, completed_at)
+`;
+
 export default function WorkloadBoard({ users, teamId, onTaskClick }: WorkloadBoardProps) {
-    const [allTasks, setAllTasks] = useState<any[]>([]);
+    const [allTasks, setAllTasks] = useState<WorkloadTask[]>([]);
     const [loading, setLoading] = useState(true);
+    const userIdsKey = users.map(user => user.id).sort().join(',');
 
-    // Initial Load & Reload on Team or Users Change
-    useEffect(() => {
-        loadTasks();
-    }, [teamId, users.length]); // Reload if team changes or user count changes (significant filter change)
-    // Note: We avoid reloading on every user selection if we want to be purely client side, 
-    // but to fetch "User Specific Tasks" that might not be in the Team Project, we need to fetch when users change.
-    // However, if we fetch "Selected Users" tasks, we need to re-fetch when the list of selected users grows. 
-    // If it shrinks, we could filter locally, but re-fetching is safer for consistency.
-
-    const loadTasks = async () => {
-        console.log('🚀 WorkloadBoard: loadTasks called with:', { teamId, usersCount: users.length });
-
+    const loadTasks = useCallback(async () => {
+        const userIds = userIdsKey ? userIdsKey.split(',') : [];
         setLoading(true);
+
         try {
-            const activeStatuses = ['TODO', 'IN_PROGRESS', 'WAITING_CLIENT', 'REVIEW'];
-            const promises = [];
-
-            // 1. Fetch Tasks for the selected Team's Projects (Base Workload)
-            if (teamId) {
-                console.log('📋 WorkloadBoard: Fetching team tasks for teamId:', teamId);
-                const teamQuery = supabase
-                    .from('tasks')
-                    .select(`
-                        id, task_number, title, status, priority, due_date, estimated_time, assignee_id, position,
-                        project:projects!inner(name, client:clients(name), team_id)
-                    `)
-                    .in('status', activeStatuses)
-                    .eq('project.team_id', teamId)
-                    .order('position', { ascending: true });
-
-                promises.push(teamQuery);
-            } else {
-                console.log('⚠️ WorkloadBoard: No team selected');
-                if (users.length === 0) {
-                    console.log('⚠️ WorkloadBoard: No users selected either, returning empty');
-                    setAllTasks([]);
-                    setLoading(false);
-                    return;
-                }
-            }
-
-            // 2. Fetch Tasks for the Selected Users (Cross-project Workload)
-            if (users.length > 0) {
-                const userIds = users.map(u => u.id);
-                console.log('👥 WorkloadBoard: Fetching user tasks for userIds:', userIds);
-                const userQuery = supabase
-                    .from('tasks')
-                    .select(`
-                        id, task_number, title, status, priority, due_date, estimated_time, assignee_id, position,
-                        project:projects(name, client:clients(name))
-                    `)
-                    .in('status', activeStatuses)
-                    .in('assignee_id', userIds)
-                    .order('position', { ascending: true });
-
-                promises.push(userQuery);
-            }
-
-            if (promises.length === 0) {
-                console.log('⚠️ WorkloadBoard: No queries to execute');
+            if (!teamId && userIds.length === 0) {
                 setAllTasks([]);
-                setLoading(false);
                 return;
             }
 
-            console.log(`🔄 WorkloadBoard: Executing ${promises.length} queries...`);
-            const results = await Promise.all(promises);
+            const rawTasks: WorkloadTask[] = [];
 
-            console.log('📊 WorkloadBoard: Query results:', results.map((r, i) => ({
-                queryIndex: i,
-                success: !r.error,
-                count: r.data?.length || 0,
-                error: r.error?.message
-            })));
+            if (teamId) {
+                const { data, error } = await supabase
+                    .from('tasks')
+                    .select(`${taskSelect}, project_filter:projects!inner(team_id)`)
+                    .in('status', activeStatuses)
+                    .eq('project_filter.team_id', teamId);
 
-            // Merge and Deduplicate
-            const rawTasks: any[] = [];
-            results.forEach(res => {
-                if (res.data) rawTasks.push(...res.data);
-                if (res.error) console.error('❌ Query error:', res.error);
-            });
+                if (error) throw error;
+                rawTasks.push(...((data || []) as unknown as WorkloadTask[]));
+            }
 
-            // Remove duplicates by ID
-            const uniqueTasks = Array.from(new Map(rawTasks.map(item => [item.id, item])).values());
+            if (userIds.length > 0) {
+                const { data: assignmentRows, error: assignmentError } = await supabase
+                    .from('task_assignees')
+                    .select('task_id')
+                    .in('user_id', userIds)
+                    .is('completed_at', null);
 
-            // Sort by position (with fallback to priority if position is null)
-            uniqueTasks.sort(compareTaskPosition);
+                if (assignmentError) throw assignmentError;
 
-            console.log('🔍 WorkloadBoard: Tasks loaded:', {
-                totalTasks: uniqueTasks.length,
-                tasks: uniqueTasks.map(t => ({ id: t.id, title: t.title, assignee_id: t.assignee_id, position: t.position }))
-            });
+                const assignedTaskIds = [...new Set((assignmentRows || []).map(row => row.task_id))];
+                const filters = [`assignee_id.in.(${userIds.join(',')})`];
+                if (assignedTaskIds.length > 0) filters.push(`id.in.(${assignedTaskIds.join(',')})`);
 
-            setAllTasks(uniqueTasks);
+                const { data, error } = await supabase
+                    .from('tasks')
+                    .select(taskSelect)
+                    .in('status', activeStatuses)
+                    .or(filters.join(','));
 
+                if (error) throw error;
+                rawTasks.push(...((data || []) as unknown as WorkloadTask[]));
+            }
+
+            setAllTasks(Array.from(new Map(rawTasks.map(task => [task.id, task])).values()));
         } catch (error) {
             console.error('Error loading workload tasks:', error);
             toast.error('Erro ao carregar tarefas');
         } finally {
             setLoading(false);
         }
-    };
+    }, [teamId, userIdsKey]);
 
-    // Grouping Logic (Memoized)
-    const groupedTasks = useMemo(() => {
-        const groups: Record<string, any[]> = { unassigned: [] };
+    useEffect(() => {
+        void loadTasks();
+    }, [loadTasks]);
 
-        // Initialize groups for SELECTED users only
-        users.forEach(u => groups[u.id] = []);
+    const groupedTasks = useMemo(
+        () => groupWorkloadTasks(allTasks, users.map(user => user.id)),
+        [allTasks, users],
+    );
 
-        console.log('🔍 WorkloadBoard: Grouping tasks:', {
-            totalTasks: allTasks.length,
-            selectedUsers: users.map(u => ({ id: u.id, name: u.full_name }))
-        });
-
-        const discardedTasks: any[] = [];
-
-        // Distribute tasks
-        allTasks.forEach(task => {
-            const assignee = task.assignee_id;
-
-            if (!assignee) {
-                // Unassigned tasks go to "Sem Responsável" column
-                groups['unassigned'].push(task);
-            } else if (groups[assignee]) {
-                // Task belongs to one of the selected users
-                groups[assignee].push(task);
-            } else {
-                // Task is assigned to someone NOT in the selected users list
-                // CHANGED: Instead of hiding, put in unassigned for visibility
-                // This allows managers to see ALL team tasks and reassign them
-                groups['unassigned'].push(task);
-                discardedTasks.push({ id: task.id, title: task.title, assignee_id: assignee });
-            }
-        });
-
-        console.log('🔍 WorkloadBoard: Grouped tasks:', {
-            unassigned: groups['unassigned'].length,
-            byUser: Object.keys(groups).filter(k => k !== 'unassigned').map(userId => ({
-                userId,
-                count: groups[userId].length
-            })),
-            discarded: discardedTasks.length,
-            discardedDetails: discardedTasks
-        });
-
-        return groups;
-    }, [users, allTasks]);
-
-    // Drag & Drop Handler
-    const onDragEnd = async (result: DropResult) => {
-        const { destination, source, draggableId } = result;
-
-        console.log('🎯 Drag End:', {
-            source: result.source,
-            destination: result.destination,
-            draggableId: result.draggableId
-        });
-
+    const onDragEnd = async ({ destination, source, draggableId }: DropResult) => {
         if (!destination) return;
         if (destination.droppableId === source.droppableId && destination.index === source.index) return;
 
+        const sourceUserId = source.droppableId === 'unassigned' ? null : source.droppableId;
         const destinationUserId = destination.droppableId === 'unassigned' ? null : destination.droppableId;
         const sourceTasks = [...(groupedTasks[source.droppableId] || [])];
         const [movedTask] = sourceTasks.splice(source.index, 1);
-        if (!movedTask || movedTask.id !== draggableId) return;
+
+        if (!movedTask || movedTask.draggable_id !== draggableId) return;
 
         const destinationTasks = source.droppableId === destination.droppableId
             ? sourceTasks
             : [...(groupedTasks[destination.droppableId] || [])];
 
-        const updatedMovedTask = { ...movedTask, assignee_id: destinationUserId };
-        destinationTasks.splice(destination.index, 0, updatedMovedTask);
+        if (destinationTasks.some(task => task.id === movedTask.id)) {
+            toast.error('Esta tarefa já está atribuída a esse responsável');
+            return;
+        }
 
-        const destinationUpdates = new Map(destinationTasks.map((task, index) => [
-            task.id,
-            { ...task, assignee_id: destinationUserId, position: (index + 1) * 1000 }
-        ]));
+        destinationTasks.splice(destination.index, 0, {
+            ...movedTask,
+            queue_user_id: destinationUserId,
+            draggable_id: `${destinationUserId || 'unassigned'}:${movedTask.id}`,
+        });
 
-        setAllTasks(currentTasks => currentTasks
-            .map(task => destinationUpdates.get(task.id) || task)
-            .sort(compareTaskPosition));
+        const destinationTaskIds = destinationTasks.map(task => task.id);
+        setAllTasks(currentTasks => applyWorkloadMove(
+            currentTasks,
+            movedTask.id,
+            sourceUserId,
+            destinationUserId,
+            destinationTaskIds,
+        ));
 
         try {
-            const { error } = await supabase.rpc('reorder_workload_queue', {
+            const { error } = await supabase.rpc('reorder_workload_queue_v2', {
                 p_assignee_id: destinationUserId,
-                p_task_ids: destinationTasks.map(task => task.id),
-                p_moved_task_id: draggableId
+                p_source_assignee_id: sourceUserId,
+                p_task_ids: destinationTaskIds,
+                p_moved_task_id: movedTask.id,
             });
 
             if (error) throw error;
             await loadTasks();
         } catch (error) {
-            console.error('❌ Error reassigning task:', error);
+            console.error('Error reordering workload queue:', error);
             toast.error('Erro ao reordenar tarefa');
-            loadTasks(); // Revert on error
+            await loadTasks();
         }
     };
 
     if (loading && allTasks.length === 0) {
         return (
-            <div className="flex items-center justify-center h-full text-text-muted">
+            <div className="flex h-full items-center justify-center text-text-muted">
                 <span className="animate-pulse">Carregando Tarefas...</span>
             </div>
         );
     }
 
     return (
-        <div className="flex flex-col h-full w-full bg-background">
-            {/* Empty State Hint (Only if no users selected AND no tasks found) */}
+        <div className="flex h-full w-full flex-col bg-background">
             {users.length === 0 && (
-                <div className="flex-1 flex flex-col items-center justify-center text-text-muted opacity-50 border-2 border-dashed border-white/5 rounded-xl m-6">
-                    <span className="material-symbols-outlined text-4xl mb-2">group_add</span>
+                <div className="m-6 flex flex-1 flex-col items-center justify-center rounded-xl border-2 border-dashed border-white/5 text-text-muted opacity-50">
+                    <span className="material-symbols-outlined mb-2 text-4xl">group_add</span>
                     <p>Selecione membros da equipe para visualizar a carga de trabalho.</p>
                 </div>
             )}
 
-            {/* Board Area */}
             {users.length > 0 && (
-                <div className="flex-1 overflow-x-auto overflow-y-hidden custom-scrollbar">
+                <div className="custom-scrollbar flex-1 overflow-x-auto overflow-y-hidden">
                     <DragDropContext onDragEnd={onDragEnd}>
-                        <div className="flex h-full px-4 pt-2 gap-4 items-start justify-start select-none pb-6 min-w-min">
-
-                            {/* Unassigned Column - Only show if has tasks */}
-                            {groupedTasks['unassigned']?.length > 0 && (
+                        <div className="flex h-full min-w-min select-none items-start justify-start gap-4 px-4 pt-2 pb-6">
+                            {groupedTasks.unassigned?.length > 0 && (
                                 <WorkloadColumn
                                     key="unassigned"
                                     userId="unassigned"
-                                    tasks={groupedTasks['unassigned'] || []}
+                                    tasks={groupedTasks.unassigned}
                                     onTaskClick={onTaskClick}
                                 />
                             )}
 
-                            {/* Selected User Columns */}
                             {users.map(user => (
                                 <WorkloadColumn
                                     key={user.id}

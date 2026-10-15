@@ -27,7 +27,7 @@ const WorkloadTaskCard = ({ task, index, onClick }: WorkloadTaskCardProps) => {
     const isDone = task.status === 'DONE';
 
     return (
-        <Draggable draggableId={task.id} index={index}>
+        <Draggable draggableId={task.draggable_id || task.id} index={index}>
             {(provided, snapshot) => (
                 <div
                     ref={provided.innerRef}
