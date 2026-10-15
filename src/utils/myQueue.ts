@@ -4,6 +4,7 @@ export type QueueStatusFilter = 'OPEN' | 'OPEN_MY_PART_DONE' | 'DELIVERED';
 
 type QueueAssignment = {
     user_id: string;
+    queue_position?: number | null;
     completed_at?: string | null;
 };
 
@@ -16,6 +17,22 @@ type QueueTask = {
 export const getUserAssignment = (task: QueueTask, userId?: string) => (
     userId ? task.task_assignees?.find(assignment => assignment.user_id === userId) : undefined
 );
+
+export const mergeUserAssignment = <T extends QueueAssignment>(
+    assignments: T[] | undefined,
+    assignment: T | undefined,
+) => {
+    if (!assignment) return assignments || [];
+
+    const existingAssignment = (assignments || []).find(
+        item => item.user_id === assignment.user_id,
+    );
+    const remainingAssignments = (assignments || []).filter(
+        item => item.user_id !== assignment.user_id,
+    );
+
+    return [...remainingAssignments, { ...existingAssignment, ...assignment } as T];
+};
 
 export const isTaskAssignedToUser = (task: QueueTask, userId?: string) => Boolean(
     userId && (

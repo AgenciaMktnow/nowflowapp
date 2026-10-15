@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isTaskAssignedToUser, matchesQueueStatus } from './myQueue';
+import { isTaskAssignedToUser, matchesQueueStatus, mergeUserAssignment } from './myQueue';
 
 const userId = 'mauricio';
 
@@ -44,5 +44,18 @@ describe('My Queue filters', () => {
         const task = { status: 'REVIEW' as const, assignee_id: userId };
 
         expect(matchesQueueStatus(task, userId, 'CREATED', 'OPEN_MY_PART_DONE')).toBe(true);
+    });
+
+    it('uses the directly loaded assignment as the source of the personal queue position', () => {
+        const assignments = [
+            { user_id: userId, queue_position: 7, completed_at: null, user: { full_name: 'Maurício' } },
+            { user_id: 'kelly', queue_position: 2, completed_at: null },
+        ];
+        const directAssignment = { user_id: userId, queue_position: 1, completed_at: null };
+
+        expect(mergeUserAssignment(assignments, directAssignment)).toEqual([
+            { user_id: 'kelly', queue_position: 2, completed_at: null },
+            { ...directAssignment, user: { full_name: 'Maurício' } },
+        ]);
     });
 });

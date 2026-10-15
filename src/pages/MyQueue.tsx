@@ -12,7 +12,7 @@ import MultiSelectDropdown from '../components/MultiSelectDropdown';
 import WorkloadBoard from '../components/WorkloadBoard';
 import { taskService } from '../services/task.service';
 import UserAvatar from '../components/common/UserAvatar';
-import { isTaskAssignedToUser, matchesQueueStatus } from '../utils/myQueue';
+import { isTaskAssignedToUser, matchesQueueStatus, mergeUserAssignment } from '../utils/myQueue';
 
 type Task = {
     id: string;
@@ -296,7 +296,7 @@ export default function MyQueue() {
         try {
             const { data: assignmentRows, error: assignmentError } = await supabase
                 .from('task_assignees')
-                .select('task_id')
+                .select('task_id, user_id, queue_position, completed_at')
                 .eq('user_id', user.id);
 
             if (assignmentError) throw assignmentError;
@@ -333,14 +333,23 @@ export default function MyQueue() {
             if (requestId !== taskRequestId.current) return;
 
             if (data) {
+                const assignmentByTaskId = new Map(
+                    (assignmentRows || []).map(assignment => [assignment.task_id, assignment]),
+                );
+
                 // 1. Resolve Effective Board ID for each task
                 const processedTasks = data.map((t: any) => {
                     const explicitBoardId = t.task_boards?.[0]?.board_id;
                     const projectBoardId = t.project?.board_id;
+                    const directAssignment = assignmentByTaskId.get(t.id);
+                    const taskAssignees = mergeUserAssignment(t.task_assignees, directAssignment);
                     return {
                         ...t,
                         board_id: explicitBoardId || projectBoardId,
-                        queue_position: t.task_assignees?.find((assignment: any) => assignment.user_id === user.id)?.queue_position ?? t.queue_position
+                        task_assignees: taskAssignees,
+                        queue_position: directAssignment?.queue_position
+                            ?? taskAssignees.find((assignment: any) => assignment.user_id === user.id)?.queue_position
+                            ?? t.queue_position,
                     };
                 });
 
@@ -401,7 +410,12 @@ export default function MyQueue() {
         const channel = supabase
             .channel(`my-queue:${user.id}`)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, scheduleRefresh)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'task_assignees' }, scheduleRefresh)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'task_assignees',
+                filter: `user_id=eq.${user.id}`,
+            }, scheduleRefresh)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'task_boards' }, scheduleRefresh)
             .subscribe();
 

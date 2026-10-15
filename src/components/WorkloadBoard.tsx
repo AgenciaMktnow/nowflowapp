@@ -100,6 +100,24 @@ export default function WorkloadBoard({ users, teamId, onTaskClick }: WorkloadBo
         void loadTasks();
     }, [loadTasks]);
 
+    useEffect(() => {
+        let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+        const scheduleRefresh = () => {
+            if (refreshTimer) clearTimeout(refreshTimer);
+            refreshTimer = setTimeout(() => void loadTasks(), 150);
+        };
+        const channel = supabase
+            .channel(`workload-queue:${teamId || 'users'}:${userIdsKey || 'none'}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, scheduleRefresh)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'task_assignees' }, scheduleRefresh)
+            .subscribe();
+
+        return () => {
+            if (refreshTimer) clearTimeout(refreshTimer);
+            void supabase.removeChannel(channel);
+        };
+    }, [loadTasks, teamId, userIdsKey]);
+
     const groupedTasks = useMemo(
         () => groupWorkloadTasks(allTasks, users.map(user => user.id)),
         [allTasks, users],
